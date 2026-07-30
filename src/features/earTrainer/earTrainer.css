@@ -1,0 +1,347 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+.ear-page {
+  --ear-bg: #12141c;
+  --ear-bg-panel: #191c27;
+  --ear-text: #f1ecdf;
+  --ear-text-dim: #9aa0b4;
+  --ear-gold: #c9a227;
+  --ear-gold-soft: #e6c65c;
+  --ear-red: #c1543f;
+
+  background: var(--ear-bg);
+  color: var(--ear-text);
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 32px 16px 48px;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.ear-shell {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ear-title {
+  padding-top: 8px;
+  text-align: center;
+}
+
+.ear-title-main {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-size: clamp(1.9rem, 5vw, 2.5rem);
+}
+
+.ear-title-sub {
+  color: var(--ear-text-dim);
+  font-size: 0.95rem;
+  margin-top: 6px;
+}
+
+.ear-panel,
+.ear-session-panel {
+  background: var(--ear-bg-panel);
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+}
+
+.ear-panel {
+  position: relative;
+  padding: 18px;
+}
+
+.ear-session-panel {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ear-meta,
+.ear-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ear-meta {
+  align-items: baseline;
+}
+
+.ear-stats {
+  align-items: center;
+  color: var(--ear-text-dim);
+  font-size: 0.82rem;
+}
+
+.ear-meta-primary {
+  color: var(--ear-gold-soft);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.ear-meta-secondary,
+.ear-copy,
+.ear-streak-label {
+  color: var(--ear-text-dim);
+}
+
+.ear-meta-secondary,
+.ear-streak-label {
+  font-size: 0.8rem;
+}
+
+.ear-copy {
+  font-size: 0.82rem;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.ear-streak-wrap {
+  margin-top: 14px;
+}
+
+.ear-streak-label {
+  margin-bottom: 6px;
+}
+
+.ear-streak-bar {
+  background: #262a38;
+  border-radius: 999px;
+  height: 6px;
+}
+
+.ear-streak-fill {
+  background: var(--ear-gold);
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.ear-retry,
+.ear-feedback,
+.ear-session-copy {
+  text-align: center;
+}
+
+.ear-retry {
+  color: var(--ear-red);
+  font-size: 0.82rem;
+}
+
+.ear-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.ear-ring-wrap {
+  width: 96px;
+  height: 96px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ear-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid var(--ear-gold);
+  animation: pulseRing 1s ease-out;
+}
+
+.ear-dot {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 2px solid var(--ear-gold);
+  background: var(--ear-bg-panel);
+  transition: background 0.15s ease;
+}
+
+.ear-dot.is-playing {
+  background: var(--ear-gold);
+}
+
+.ear-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.ear-button {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-height: 46px;
+}
+
+.ear-button:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.ear-button-primary {
+  background: var(--ear-gold);
+  color: #1c1a10;
+}
+
+.ear-button-secondary {
+  background: transparent;
+  color: var(--ear-text-dim);
+  border: 1px solid var(--ear-text-dim);
+}
+
+.ear-note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: 10px;
+}
+
+.ear-note-button {
+  min-height: 52px;
+  min-width: 0;
+  border-radius: 10px;
+  padding: 14px 0;
+  font-weight: 600;
+  font-size: 1rem;
+  border: 1px solid transparent;
+  color: var(--ear-text);
+  background: var(--ear-bg-panel);
+}
+
+.ear-note-button:disabled {
+  color: #5a5f70;
+}
+
+.ear-note-button.is-correct {
+  background: #2d4a3a;
+  border-color: #4caf7d;
+}
+
+.ear-note-button.is-wrong {
+  background: #4a2d2d;
+  border-color: var(--ear-red);
+}
+
+.toast {
+  animation: fadeSlide 0.25s ease-out;
+}
+
+.ear-toast-levelup {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  background: var(--ear-gold);
+  color: #1c1a10;
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+}
+
+.ear-feedback {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.ear-feedback.is-correct {
+  color: #7fd9a8;
+}
+
+.ear-feedback.is-wrong {
+  color: var(--ear-red);
+}
+
+.ear-session-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+.ear-session-copy {
+  color: var(--ear-text-dim);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.ear-loading {
+  color: var(--ear-text-dim);
+  margin-top: 96px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .ear-page {
+    padding: 20px 12px 32px;
+  }
+
+  .ear-shell {
+    gap: 18px;
+  }
+
+  .ear-panel,
+  .ear-session-panel {
+    padding: 16px;
+  }
+
+  .ear-actions {
+    flex-direction: column;
+  }
+
+  .ear-button {
+    width: 100%;
+  }
+
+  .ear-note-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
