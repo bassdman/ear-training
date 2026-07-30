@@ -5,19 +5,31 @@ import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import type { NoteName } from '../features/earTrainer/config'
 import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
 import { useTonePlayer } from '../features/earTrainer/hooks/useTonePlayer'
-import { useTrainerProgress } from '../features/earTrainer/hooks/useTrainerProgress'
 import '../features/earTrainer/earTrainer.css'
 
-export default function EarTrainer() {
-  const {
-    loaded,
-    levelIdx,
-    sectionIdx,
-    bestStreak,
-    setLevelIdx,
-    setSectionIdx,
-    setBestStreak,
-  } = useTrainerProgress()
+type EarTrainerProps = {
+  loaded: boolean
+  levelIdx: number
+  sectionIdx: number
+  bestStreak: number
+  setLevelIdx: React.Dispatch<React.SetStateAction<number>>
+  setSectionIdx: React.Dispatch<React.SetStateAction<number>>
+  setBestStreak: React.Dispatch<React.SetStateAction<number>>
+  setUnlockedLevelIdx: React.Dispatch<React.SetStateAction<number>>
+  onBackToCourse: () => void
+}
+
+export default function EarTrainer({
+  loaded,
+  levelIdx,
+  sectionIdx,
+  bestStreak,
+  setLevelIdx,
+  setSectionIdx,
+  setBestStreak,
+  setUnlockedLevelIdx,
+  onBackToCourse,
+}: EarTrainerProps) {
 
   const {
     toneSet,
@@ -44,6 +56,7 @@ export default function EarTrainer() {
       setLevelIdx,
       setSectionIdx,
       setBestStreak,
+      setUnlockedLevelIdx,
     },
   })
 
@@ -69,6 +82,10 @@ export default function EarTrainer() {
         <div className="ear-loading">Lade Fortschritt ...</div>
       ) : (
         <div className="ear-shell">
+          <button className="ear-back-button" onClick={onBackToCourse}>
+            Zur Kursseite
+          </button>
+
           <TrainerHeader />
 
           <ProgressPanel

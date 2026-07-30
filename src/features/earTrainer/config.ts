@@ -74,6 +74,7 @@ export type ProgressState = {
   levelIdx?: number
   sectionIdx?: number
   bestStreak?: number
+  unlockedLevelIdx?: number
 }
 
 export const PROGRESS_STORAGE_KEY = 'earTrainer-progress-v2'

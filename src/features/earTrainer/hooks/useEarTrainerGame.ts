@@ -17,6 +17,7 @@ type ProgressSetters = {
   setLevelIdx: Dispatch<SetStateAction<number>>
   setSectionIdx: Dispatch<SetStateAction<number>>
   setBestStreak: Dispatch<SetStateAction<number>>
+  setUnlockedLevelIdx: Dispatch<SetStateAction<number>>
 }
 
 type UseEarTrainerGameOptions = {
@@ -108,6 +109,7 @@ export function useEarTrainerGame({
           newLevel = levelIdx + 1
           newSection = 0
           progressSetters.setLevelIdx(newLevel)
+          progressSetters.setUnlockedLevelIdx((prev) => Math.max(prev, newLevel))
           progressSetters.setSectionIdx(0)
           setLeveledUpToast(
             `Übung ${newLevel + 1}/${LEVEL_COUNT} freigeschaltet`,

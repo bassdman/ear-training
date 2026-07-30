@@ -8,6 +8,7 @@ export function useTrainerProgress() {
   const [levelIdx, setLevelIdx] = useState(0)
   const [sectionIdx, setSectionIdx] = useState(0)
   const [bestStreak, setBestStreak] = useState(0)
+  const [unlockedLevelIdx, setUnlockedLevelIdx] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -18,6 +19,11 @@ export function useTrainerProgress() {
           if (typeof data.levelIdx === 'number') setLevelIdx(data.levelIdx)
           if (typeof data.sectionIdx === 'number') setSectionIdx(data.sectionIdx)
           if (typeof data.bestStreak === 'number') setBestStreak(data.bestStreak)
+          if (typeof data.unlockedLevelIdx === 'number') {
+            setUnlockedLevelIdx(data.unlockedLevelIdx)
+          } else if (typeof data.levelIdx === 'number') {
+            setUnlockedLevelIdx(data.levelIdx)
+          }
         }
       } catch {
         // noch kein gespeicherter Fortschritt
@@ -30,25 +36,36 @@ export function useTrainerProgress() {
     try {
       await writeProgress(
         PROGRESS_STORAGE_KEY,
-        JSON.stringify({ levelIdx: lvl, sectionIdx: sec, bestStreak: best }),
+        JSON.stringify({
+          levelIdx: lvl,
+          sectionIdx: sec,
+          bestStreak: best,
+          unlockedLevelIdx,
+        }),
       )
     } catch (error) {
       console.error('Speichern fehlgeschlagen', error)
     }
-  }, [])
+  }, [unlockedLevelIdx])
+
+  useEffect(() => {
+    setUnlockedLevelIdx((prev) => Math.max(prev, levelIdx))
+  }, [levelIdx])
 
   useEffect(() => {
     if (!loaded) return
     void saveProgress(levelIdx, sectionIdx, bestStreak)
-  }, [bestStreak, levelIdx, loaded, saveProgress, sectionIdx])
+  }, [bestStreak, levelIdx, loaded, saveProgress, sectionIdx, unlockedLevelIdx])
 
   return {
     loaded,
     levelIdx,
     sectionIdx,
     bestStreak,
+    unlockedLevelIdx,
     setLevelIdx,
     setSectionIdx,
     setBestStreak,
+    setUnlockedLevelIdx,
   }
 }
