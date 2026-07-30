@@ -24,6 +24,7 @@ type UseEarTrainerGameOptions = {
   sectionIdx: number
   bestStreak: number
   progressSetters: ProgressSetters
+  frequencyMultipliers: number[]
 }
 
 export function useEarTrainerGame({
@@ -31,10 +32,10 @@ export function useEarTrainerGame({
   sectionIdx,
   bestStreak,
   progressSetters,
+  frequencyMultipliers,
 }: UseEarTrainerGameOptions) {
   const [sectionProgress, setSectionProgress] = useState(0)
-  const [currentNote, setCurrentNote] = useState<NoteName | null>(null)
-  const [currentToneStyle, setCurrentToneStyle] = useState<ToneStyleId | null>(null)
+  const [currentTrial, setCurrentTrial] = useState<Trial | null>(null)
   const [forcedTrial, setForcedTrial] = useState<Trial | null>(null)
   const [awaitingGuess, setAwaitingGuess] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -60,30 +61,34 @@ export function useEarTrainerGame({
   const levelProgress = Math.min(LEVEL_PROGRESS_TOTAL, sectionStart + sectionProgress)
 
   const startTrial = () => {
-    const note =
-      forcedTrial?.note ?? toneSet[Math.floor(Math.random() * toneSet.length)]
-    const toneStyle =
-      forcedTrial?.toneStyle ??
-      unlockedToneStyles[Math.floor(Math.random() * unlockedToneStyles.length)]
+    const nextTrial =
+      forcedTrial ??
+      ({
+        note: toneSet[Math.floor(Math.random() * toneSet.length)] as NoteName,
+        toneStyle:
+          unlockedToneStyles[
+            Math.floor(Math.random() * unlockedToneStyles.length)
+          ] as ToneStyleId,
+        frequencyMultiplier:
+          frequencyMultipliers[Math.floor(Math.random() * frequencyMultipliers.length)] ?? 1,
+      } as Trial)
 
-    setCurrentNote(note)
-    setCurrentToneStyle(toneStyle)
+    setCurrentTrial(nextTrial)
     setFeedback(null)
     setAwaitingGuess(true)
 
-    return { note, toneStyle } as Trial
+    return nextTrial
   }
 
   const getCurrentTrial = () => {
-    if (!currentNote || !currentToneStyle) return null
-    return { note: currentNote, toneStyle: currentToneStyle } as Trial
+    return currentTrial
   }
 
   const handleGuess = (guessedNote: NoteName) => {
-    if (!awaitingGuess || !currentNote || !currentToneStyle) return
+    if (!awaitingGuess || !currentTrial) return
     setAwaitingGuess(false)
 
-    const isCorrect = guessedNote === currentNote
+    const isCorrect = guessedNote === currentTrial.note
     const newGuesses = sessionGuesses + 1
     const newCorrect = sessionCorrect + (isCorrect ? 1 : 0)
     setSessionGuesses(newGuesses)
@@ -91,12 +96,12 @@ export function useEarTrainerGame({
     setFeedback({
       correct: isCorrect,
       guessed: guessedNote,
-      actual: currentNote,
-      toneStyle: currentToneStyle,
+      actual: currentTrial.note,
+      toneStyle: currentTrial.toneStyle,
     })
 
     if (!isCorrect) {
-      setForcedTrial({ note: currentNote, toneStyle: currentToneStyle })
+      setForcedTrial(currentTrial)
       setSectionProgress(0)
     } else {
       setForcedTrial(null)

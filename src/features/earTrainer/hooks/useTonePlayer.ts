@@ -16,7 +16,11 @@ export function useTonePlayer() {
     }
   }, [])
 
-  const playTone = async (note: NoteName, toneStyle: ToneStyleId) => {
+  const playTone = async (
+    note: NoteName,
+    toneStyle: ToneStyleId,
+    frequencyMultiplier = 1,
+  ) => {
     if (!audioContextRef.current) {
       audioContextRef.current = new window.AudioContext()
     }
@@ -34,7 +38,7 @@ export function useTonePlayer() {
     const stopAt = sustainUntil + style.envelope.release
 
     oscillator.type = style.oscillatorType
-    oscillator.frequency.setValueAtTime(NOTE_FREQS[note], now)
+    oscillator.frequency.setValueAtTime(NOTE_FREQS[note] * frequencyMultiplier, now)
     gainNode.gain.setValueAtTime(0.0001, now)
     gainNode.gain.linearRampToValueAtTime(0.9, now + style.envelope.attack)
     gainNode.gain.exponentialRampToValueAtTime(

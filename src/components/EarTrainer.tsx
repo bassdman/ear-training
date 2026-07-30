@@ -15,6 +15,9 @@ type EarTrainerProps = {
   setSectionIdx: React.Dispatch<React.SetStateAction<number>>
   setBestStreak: React.Dispatch<React.SetStateAction<number>>
   setUnlockedLevelIdx: React.Dispatch<React.SetStateAction<number>>
+  rangeLabel: string
+  rangeSubtitle: string
+  rangeFrequencyMultipliers: number[]
   onBackToCourse: () => void
 }
 
@@ -27,6 +30,9 @@ export default function EarTrainer({
   setSectionIdx,
   setBestStreak,
   setUnlockedLevelIdx,
+  rangeLabel,
+  rangeSubtitle,
+  rangeFrequencyMultipliers,
   onBackToCourse,
 }: EarTrainerProps) {
 
@@ -53,6 +59,7 @@ export default function EarTrainer({
       setBestStreak,
       setUnlockedLevelIdx,
     },
+    frequencyMultipliers: rangeFrequencyMultipliers,
   })
 
   const { isPlaying, playTone } = useTonePlayer()
@@ -60,13 +67,13 @@ export default function EarTrainer({
   const startAndPlayTrial = async () => {
     const trial = startTrial()
     if (!trial) return
-    await playTone(trial.note, trial.toneStyle)
+    await playTone(trial.note, trial.toneStyle, trial.frequencyMultiplier)
   }
 
   const replayTone = async () => {
     const trial = getCurrentTrial()
     if (!trial) return
-    await playTone(trial.note, trial.toneStyle)
+    await playTone(trial.note, trial.toneStyle, trial.frequencyMultiplier)
   }
 
   const currentTrial = getCurrentTrial()
@@ -81,7 +88,7 @@ export default function EarTrainer({
             Zur Kursseite
           </button>
 
-          <TrainerHeader />
+          <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
 
           <ProgressPanel
             levelIdx={levelIdx}

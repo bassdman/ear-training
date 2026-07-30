@@ -61,6 +61,7 @@ export const TONE_STYLE_IDS = Object.keys(TONE_STYLES) as ToneStyleId[]
 export type Trial = {
   note: NoteName
   toneStyle: ToneStyleId
+  frequencyMultiplier: number
 }
 
 export type Feedback = {
@@ -70,7 +71,85 @@ export type Feedback = {
   toneStyle: ToneStyleId
 }
 
+export type TrainingCategory = {
+  id: string
+  label: string
+  subtitle: string
+  frequencyMultipliers: number[]
+}
+
+export const TRAINING_CATEGORIES: TrainingCategory[] = [
+  {
+    id: 'male-low',
+    label: 'Sehr tiefe Männerlage',
+    subtitle: 'C2 bis H2',
+    frequencyMultipliers: [0.25],
+  },
+  {
+    id: 'low',
+    label: 'Tiefe Lage',
+    subtitle: 'C3 bis H3',
+    frequencyMultipliers: [0.5],
+  },
+  {
+    id: 'mid',
+    label: 'Mittlere Lage',
+    subtitle: 'C4 bis H4',
+    frequencyMultipliers: [1],
+  },
+  {
+    id: 'high',
+    label: 'Hohe Lage',
+    subtitle: 'C5 bis H5',
+    frequencyMultipliers: [2],
+  },
+  {
+    id: 'range-2-3',
+    label: 'Lagen 2,3',
+    subtitle: 'C2 bis H3',
+    frequencyMultipliers: [0.25, 0.5],
+  },
+  {
+    id: 'range-3-4',
+    label: 'Lagen 3,4',
+    subtitle: 'C3 bis H4',
+    frequencyMultipliers: [0.5, 1],
+  },
+  {
+    id: 'range-4-5',
+    label: 'Lagen 4,5',
+    subtitle: 'C4 bis H5',
+    frequencyMultipliers: [1, 2],
+  },
+  {
+    id: 'range-2-3-4',
+    label: 'Lagen 2,3,4',
+    subtitle: 'C2 bis H4',
+    frequencyMultipliers: [0.25, 0.5, 1],
+  },
+  {
+    id: 'range-3-4-5',
+    label: 'Lagen 3,4,5',
+    subtitle: 'C3 bis H5',
+    frequencyMultipliers: [0.5, 1, 2],
+  },
+  {
+    id: 'range-2-3-4-5',
+    label: 'Lagen 2,3,4,5',
+    subtitle: 'C2 bis H5',
+    frequencyMultipliers: [0.25, 0.5, 1, 2],
+  },
+]
+
+export type CategoryProgressState = {
+  levelIdx: number
+  sectionIdx: number
+  unlockedLevelIdx: number
+}
+
 export type ProgressState = {
+  activeCategoryIdx?: number
+  categoryProgress?: CategoryProgressState[]
   levelIdx?: number
   sectionIdx?: number
   bestStreak?: number
