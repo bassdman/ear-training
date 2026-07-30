@@ -4,7 +4,6 @@ import {
   EXERCISES,
   LEVEL_COUNT,
   SECTION_COUNT,
-  SESSION_MAX_GUESSES,
   STREAK_TARGET,
   TONE_STYLE_IDS,
   type Feedback,
@@ -42,7 +41,6 @@ export function useEarTrainerGame({
   const [leveledUpToast, setLeveledUpToast] = useState<string | null>(null)
   const [sessionGuesses, setSessionGuesses] = useState(0)
   const [sessionCorrect, setSessionCorrect] = useState(0)
-  const [sessionEnded, setSessionEnded] = useState(false)
 
   const toneSet = EXERCISES[levelIdx]
   const unlockedToneStyles = useMemo(
@@ -51,8 +49,6 @@ export function useEarTrainerGame({
   )
 
   const startTrial = () => {
-    if (sessionEnded) return null
-
     const note =
       forcedTrial?.note ?? toneSet[Math.floor(Math.random() * toneSet.length)]
     const toneStyle =
@@ -130,20 +126,6 @@ export function useEarTrainerGame({
       }
     }
 
-    if (newGuesses >= SESSION_MAX_GUESSES) {
-      setTimeout(() => setSessionEnded(true), 900)
-    }
-  }
-
-  const newSession = () => {
-    setSessionGuesses(0)
-    setSessionCorrect(0)
-    setSessionEnded(false)
-    setFeedback(null)
-    setAwaitingGuess(false)
-    setCurrentNote(null)
-    setCurrentToneStyle(null)
-    setForcedTrial(null)
   }
 
   const accuracy =
@@ -162,12 +144,9 @@ export function useEarTrainerGame({
     feedback,
     leveledUpToast,
     sessionGuesses,
-    sessionCorrect,
-    sessionEnded,
     accuracy,
     startTrial,
     getCurrentTrial,
     handleGuess,
-    newSession,
   }
 }

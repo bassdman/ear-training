@@ -1,13 +1,6 @@
-import {
-  SESSION_MAX_GUESSES,
-  TONE_STYLES,
-  type Feedback,
-  type NoteName,
-  type ToneStyleId,
-} from '../config'
+import { TONE_STYLES, type Feedback, type NoteName, type ToneStyleId } from '../config'
 
 type ActiveSessionProps = {
-  sessionGuesses: number
   accuracy: number | null
   forcedTrial: { note: NoteName; toneStyle: ToneStyleId } | null
   isPlaying: boolean
@@ -21,7 +14,6 @@ type ActiveSessionProps = {
 }
 
 export function ActiveSession({
-  sessionGuesses,
   accuracy,
   forcedTrial,
   isPlaying,
@@ -36,10 +28,7 @@ export function ActiveSession({
   return (
     <>
       <div className="ear-stats">
-        <span>
-          {sessionGuesses} / {SESSION_MAX_GUESSES} Versuche
-        </span>
-        {accuracy !== null && <span>{accuracy}% Treffer</span>}
+        {accuracy !== null && <span>Trefferquote: {accuracy}%</span>}
       </div>
 
       {forcedTrial && (

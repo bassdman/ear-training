@@ -80,4 +80,3 @@ export type ProgressState = {
 export const PROGRESS_STORAGE_KEY = 'earTrainer-progress-v2'
 export const SECTION_COUNT = 4
 export const STREAK_TARGET = 5
-export const SESSION_MAX_GUESSES = 100

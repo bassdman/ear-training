@@ -11,11 +11,8 @@ function App() {
   const progress = useTrainerProgress()
 
   const openLevel = (selectedLevelIdx: number) => {
-    const shouldResetSection = selectedLevelIdx !== progress.levelIdx
     progress.setLevelIdx(selectedLevelIdx)
-    if (shouldResetSection) {
-      progress.setSectionIdx(0)
-    }
+    progress.setSectionIdx(0)
     setPage('trainer')
   }
 

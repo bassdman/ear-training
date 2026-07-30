@@ -1,6 +1,5 @@
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
 import { ProgressPanel } from '../features/earTrainer/components/ProgressPanel'
-import { SessionSummary } from '../features/earTrainer/components/SessionSummary'
 import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import type { NoteName } from '../features/earTrainer/config'
 import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
@@ -40,14 +39,10 @@ export default function EarTrainer({
     awaitingGuess,
     feedback,
     leveledUpToast,
-    sessionGuesses,
-    sessionCorrect,
-    sessionEnded,
     accuracy,
     startTrial,
     getCurrentTrial,
     handleGuess,
-    newSession,
   } = useEarTrainerGame({
     levelIdx,
     sectionIdx,
@@ -98,35 +93,22 @@ export default function EarTrainer({
             leveledUpToast={leveledUpToast}
           />
 
-          {!sessionEnded ? (
-            <ActiveSession
-              sessionGuesses={sessionGuesses}
-              accuracy={accuracy}
-              forcedTrial={forcedTrial}
-              isPlaying={isPlaying}
-              awaitingGuess={awaitingGuess}
-              hasCurrentTrial={Boolean(currentTrial)}
-              feedback={feedback}
-              toneSet={toneSet as readonly NoteName[]}
-              onStartTrial={() => {
-                void startAndPlayTrial()
-              }}
-              onReplay={() => {
-                void replayTone()
-              }}
-              onGuess={handleGuess}
-            />
-          ) : (
-            <SessionSummary
-              sessionCorrect={sessionCorrect}
-              sessionGuesses={sessionGuesses}
-              accuracy={accuracy}
-              levelIdx={levelIdx}
-              sectionIdx={sectionIdx}
-              bestStreak={bestStreak}
-              onNewSession={newSession}
-            />
-          )}
+          <ActiveSession
+            accuracy={accuracy}
+            forcedTrial={forcedTrial}
+            isPlaying={isPlaying}
+            awaitingGuess={awaitingGuess}
+            hasCurrentTrial={Boolean(currentTrial)}
+            feedback={feedback}
+            toneSet={toneSet as readonly NoteName[]}
+            onStartTrial={() => {
+              void startAndPlayTrial()
+            }}
+            onReplay={() => {
+              void replayTone()
+            }}
+            onGuess={handleGuess}
+          />
         </div>
       )}
     </div>
