@@ -64,10 +64,21 @@ export type Trial = {
   frequencyMultiplier: number
 }
 
+export type GuessOption = {
+  id: string
+  note: NoteName
+  frequencyMultiplier: number
+  label: string
+}
+
 export type Feedback = {
   correct: boolean
   guessed: NoteName
   actual: NoteName
+  guessedFrequencyMultiplier: number
+  actualFrequencyMultiplier: number
+  guessedLabel: string
+  actualLabel: string
   toneStyle: ToneStyleId
 }
 
@@ -160,3 +171,11 @@ export const PROGRESS_STORAGE_KEY = 'earTrainer-progress-v2'
 export const SECTION_COUNT = 4
 export const SECTION_STEPS = [5, 5, 5, 10] as const
 export const LEVEL_PROGRESS_TOTAL = SECTION_STEPS.reduce((sum, steps) => sum + steps, 0)
+
+export function getOctaveFromMultiplier(frequencyMultiplier: number) {
+  return 4 + Math.round(Math.log2(frequencyMultiplier))
+}
+
+export function formatPitchLabel(note: NoteName, frequencyMultiplier: number) {
+  return `${note.toLowerCase()}${getOctaveFromMultiplier(frequencyMultiplier)}`
+}

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 
 import {
   EXERCISES,
+  formatPitchLabel,
+  type GuessOption,
   LEVEL_PROGRESS_TOTAL,
   LEVEL_COUNT,
   SECTION_STEPS,
@@ -44,6 +46,24 @@ export function useEarTrainerGame({
   const [sessionCorrect, setSessionCorrect] = useState(0)
 
   const toneSet = EXERCISES[levelIdx]
+  const activeMultipliers = useMemo(
+    () => [...new Set(frequencyMultipliers)].sort((a, b) => a - b),
+    [frequencyMultipliers],
+  )
+
+  const guessOptions = useMemo(
+    () =>
+      toneSet.flatMap((note) =>
+        activeMultipliers.map((frequencyMultiplier) => ({
+          id: `${note}|${frequencyMultiplier}`,
+          note,
+          frequencyMultiplier,
+          label: formatPitchLabel(note as NoteName, frequencyMultiplier),
+        })),
+      ) as GuessOption[],
+    [activeMultipliers, toneSet],
+  )
+
   const unlockedToneStyles = useMemo(
     () => TONE_STYLE_IDS.slice(0, sectionIdx + 1),
     [sectionIdx],
@@ -70,7 +90,7 @@ export function useEarTrainerGame({
             Math.floor(Math.random() * unlockedToneStyles.length)
           ] as ToneStyleId,
         frequencyMultiplier:
-          frequencyMultipliers[Math.floor(Math.random() * frequencyMultipliers.length)] ?? 1,
+          activeMultipliers[Math.floor(Math.random() * activeMultipliers.length)] ?? 1,
       } as Trial)
 
     setCurrentTrial(nextTrial)
@@ -84,19 +104,30 @@ export function useEarTrainerGame({
     return currentTrial
   }
 
-  const handleGuess = (guessedNote: NoteName) => {
+  const handleGuess = (guessOptionId: string) => {
     if (!awaitingGuess || !currentTrial) return
+    const guessedOption = guessOptions.find((option) => option.id === guessOptionId)
+    if (!guessedOption) return
     setAwaitingGuess(false)
 
-    const isCorrect = guessedNote === currentTrial.note
+    const isCorrect =
+      guessedOption.note === currentTrial.note &&
+      guessedOption.frequencyMultiplier === currentTrial.frequencyMultiplier
     const newGuesses = sessionGuesses + 1
     const newCorrect = sessionCorrect + (isCorrect ? 1 : 0)
     setSessionGuesses(newGuesses)
     setSessionCorrect(newCorrect)
     setFeedback({
       correct: isCorrect,
-      guessed: guessedNote,
+      guessed: guessedOption.note,
       actual: currentTrial.note,
+      guessedFrequencyMultiplier: guessedOption.frequencyMultiplier,
+      actualFrequencyMultiplier: currentTrial.frequencyMultiplier,
+      guessedLabel: guessedOption.label,
+      actualLabel: formatPitchLabel(
+        currentTrial.note,
+        currentTrial.frequencyMultiplier,
+      ),
       toneStyle: currentTrial.toneStyle,
     })
 
@@ -150,6 +181,7 @@ export function useEarTrainerGame({
 
   return {
     toneSet,
+    guessOptions,
     unlockedToneStyles,
     levelProgress,
     levelProgressTotal: LEVEL_PROGRESS_TOTAL,

@@ -1,16 +1,26 @@
-import { TONE_STYLES, type Feedback, type NoteName, type ToneStyleId } from '../config'
+import {
+  TONE_STYLES,
+  type Feedback,
+  type GuessOption,
+  type NoteName,
+  type ToneStyleId,
+} from '../config'
 
 type ActiveSessionProps = {
   accuracy: number | null
-  forcedTrial: { note: NoteName; toneStyle: ToneStyleId } | null
+  forcedTrial: {
+    note: NoteName
+    toneStyle: ToneStyleId
+    frequencyMultiplier: number
+  } | null
   isPlaying: boolean
   awaitingGuess: boolean
   hasCurrentTrial: boolean
   feedback: Feedback | null
-  toneSet: readonly NoteName[]
+  guessOptions: GuessOption[]
   onStartTrial: () => void
   onReplay: () => void
-  onGuess: (note: NoteName) => void
+  onGuess: (guessOptionId: string) => void
 }
 
 export function ActiveSession({
@@ -20,7 +30,7 @@ export function ActiveSession({
   awaitingGuess,
   hasCurrentTrial,
   feedback,
-  toneSet,
+  guessOptions,
   onStartTrial,
   onReplay,
   onGuess,
@@ -62,9 +72,14 @@ export function ActiveSession({
       </div>
 
       <div className="ear-note-grid">
-        {toneSet.map((note) => {
-          const isCorrect = feedback?.actual === note
-          const isWrong = feedback?.guessed === note && !feedback.correct
+        {guessOptions.map((option) => {
+          const isCorrect =
+            feedback?.actual === option.note &&
+            feedback?.actualFrequencyMultiplier === option.frequencyMultiplier
+          const isWrong =
+            feedback?.guessed === option.note &&
+            feedback?.guessedFrequencyMultiplier === option.frequencyMultiplier &&
+            !feedback.correct
           const stateClass = isCorrect
             ? 'is-correct'
             : isWrong
@@ -73,12 +88,12 @@ export function ActiveSession({
 
           return (
             <button
-              key={note}
-              onClick={() => onGuess(note)}
+              key={option.id}
+              onClick={() => onGuess(option.id)}
               disabled={!awaitingGuess}
               className={`ear-note-button ${stateClass}`}
             >
-              {note}
+              {option.label}
             </button>
           )
         })}
@@ -87,8 +102,8 @@ export function ActiveSession({
       {feedback && (
         <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
           {feedback.correct
-            ? `Richtig · ${feedback.actual} (${TONE_STYLES[feedback.toneStyle].label})`
-            : `Gehört war ${feedback.actual} (${TONE_STYLES[feedback.toneStyle].label}) · geraten: ${feedback.guessed}`}
+            ? `Richtig · ${feedback.actualLabel} (${TONE_STYLES[feedback.toneStyle].label})`
+            : `Gehört war ${feedback.actualLabel} (${TONE_STYLES[feedback.toneStyle].label}) · geraten: ${feedback.guessedLabel}`}
         </div>
       )}
     </>

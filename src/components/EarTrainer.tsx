@@ -1,7 +1,6 @@
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
 import { ProgressPanel } from '../features/earTrainer/components/ProgressPanel'
 import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
-import type { NoteName } from '../features/earTrainer/config'
 import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
 import { useTonePlayer } from '../features/earTrainer/hooks/useTonePlayer'
 import '../features/earTrainer/earTrainer.css'
@@ -38,6 +37,7 @@ export default function EarTrainer({
 
   const {
     toneSet,
+    guessOptions,
     unlockedToneStyles,
     levelProgress,
     levelProgressTotal,
@@ -107,7 +107,7 @@ export default function EarTrainer({
             awaitingGuess={awaitingGuess}
             hasCurrentTrial={Boolean(currentTrial)}
             feedback={feedback}
-            toneSet={toneSet as readonly NoteName[]}
+            guessOptions={guessOptions}
             onStartTrial={() => {
               void startAndPlayTrial()
             }}
