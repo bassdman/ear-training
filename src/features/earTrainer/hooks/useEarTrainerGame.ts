@@ -1,10 +1,10 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 
 import {
   EXERCISES,
+  LEVEL_PROGRESS_TOTAL,
   LEVEL_COUNT,
-  SECTION_COUNT,
-  STREAK_TARGET,
+  SECTION_STEPS,
   TONE_STYLE_IDS,
   type Feedback,
   type NoteName,
@@ -32,7 +32,7 @@ export function useEarTrainerGame({
   bestStreak,
   progressSetters,
 }: UseEarTrainerGameOptions) {
-  const [streak, setStreak] = useState(0)
+  const [sectionProgress, setSectionProgress] = useState(0)
   const [currentNote, setCurrentNote] = useState<NoteName | null>(null)
   const [currentToneStyle, setCurrentToneStyle] = useState<ToneStyleId | null>(null)
   const [forcedTrial, setForcedTrial] = useState<Trial | null>(null)
@@ -47,6 +47,17 @@ export function useEarTrainerGame({
     () => TONE_STYLE_IDS.slice(0, sectionIdx + 1),
     [sectionIdx],
   )
+
+  useEffect(() => {
+    setSectionProgress(0)
+  }, [levelIdx, sectionIdx])
+
+  const sectionStart = useMemo(
+    () => SECTION_STEPS.slice(0, sectionIdx).reduce((sum, steps) => sum + steps, 0),
+    [sectionIdx],
+  )
+  const sectionTarget = SECTION_STEPS[sectionIdx] ?? SECTION_STEPS[SECTION_STEPS.length - 1]
+  const levelProgress = Math.min(LEVEL_PROGRESS_TOTAL, sectionStart + sectionProgress)
 
   const startTrial = () => {
     const note =
@@ -86,24 +97,23 @@ export function useEarTrainerGame({
 
     if (!isCorrect) {
       setForcedTrial({ note: currentNote, toneStyle: currentToneStyle })
-      setStreak(0)
+      setSectionProgress(0)
     } else {
       setForcedTrial(null)
-      const newStreak = streak + 1
+      const newSectionProgress = sectionProgress + 1
+      const reachedSectionTarget = newSectionProgress >= sectionTarget
 
-      if (newStreak >= STREAK_TARGET) {
-        let newLevel = levelIdx
-        let newSection = sectionIdx
-
-        if (sectionIdx < SECTION_COUNT - 1) {
-          newSection = sectionIdx + 1
+      if (reachedSectionTarget) {
+        if (sectionIdx < SECTION_STEPS.length - 1) {
+          const newSection = sectionIdx + 1
+          setSectionProgress(0)
           progressSetters.setSectionIdx(newSection)
           setLeveledUpToast(
-            `Abschnitt ${newSection + 1}/${SECTION_COUNT} freigeschaltet`,
+            `Abschnitt ${newSection + 1}/${SECTION_STEPS.length} freigeschaltet`,
           )
         } else if (levelIdx < LEVEL_COUNT - 1) {
-          newLevel = levelIdx + 1
-          newSection = 0
+          const newLevel = levelIdx + 1
+          setSectionProgress(0)
           progressSetters.setLevelIdx(newLevel)
           progressSetters.setUnlockedLevelIdx((prev) => Math.max(prev, newLevel))
           progressSetters.setSectionIdx(0)
@@ -111,16 +121,16 @@ export function useEarTrainerGame({
             `Übung ${newLevel + 1}/${LEVEL_COUNT} freigeschaltet`,
           )
         } else {
+          setSectionProgress(sectionTarget)
           setLeveledUpToast('Höchste Übung gehalten')
         }
 
-        setStreak(0)
         setTimeout(() => setLeveledUpToast(null), 2600)
       } else {
-        setStreak(newStreak)
+        setSectionProgress(newSectionProgress)
       }
 
-      const newBest = Math.max(bestStreak, newStreak)
+      const newBest = Math.max(bestStreak, sectionStart + newSectionProgress)
       if (newBest !== bestStreak) {
         progressSetters.setBestStreak(newBest)
       }
@@ -132,13 +142,12 @@ export function useEarTrainerGame({
     sessionGuesses > 0
       ? Math.round((sessionCorrect / sessionGuesses) * 100)
       : null
-  const streakProgress = Math.min(100, (streak / STREAK_TARGET) * 100)
 
   return {
     toneSet,
     unlockedToneStyles,
-    streak,
-    streakProgress,
+    levelProgress,
+    levelProgressTotal: LEVEL_PROGRESS_TOTAL,
     forcedTrial,
     awaitingGuess,
     feedback,

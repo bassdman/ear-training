@@ -79,4 +79,5 @@ export type ProgressState = {
 
 export const PROGRESS_STORAGE_KEY = 'earTrainer-progress-v2'
 export const SECTION_COUNT = 4
-export const STREAK_TARGET = 5
+export const SECTION_STEPS = [5, 5, 5, 10] as const
+export const LEVEL_PROGRESS_TOTAL = SECTION_STEPS.reduce((sum, steps) => sum + steps, 0)

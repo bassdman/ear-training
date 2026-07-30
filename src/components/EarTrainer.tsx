@@ -33,8 +33,8 @@ export default function EarTrainer({
   const {
     toneSet,
     unlockedToneStyles,
-    streak,
-    streakProgress,
+    levelProgress,
+    levelProgressTotal,
     forcedTrial,
     awaitingGuess,
     feedback,
@@ -88,8 +88,8 @@ export default function EarTrainer({
             sectionIdx={sectionIdx}
             toneSet={toneSet}
             unlockedToneStyles={unlockedToneStyles}
-            streak={streak}
-            streakProgress={streakProgress}
+            levelProgress={levelProgress}
+            levelProgressTotal={levelProgressTotal}
             leveledUpToast={leveledUpToast}
           />
 

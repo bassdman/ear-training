@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react'
+
 import {
   LEVEL_COUNT,
   SECTION_COUNT,
-  STREAK_TARGET,
   TONE_STYLES,
   type ToneStyleId,
 } from '../config'
@@ -11,8 +12,8 @@ type ProgressPanelProps = {
   sectionIdx: number
   toneSet: readonly string[]
   unlockedToneStyles: ToneStyleId[]
-  streak: number
-  streakProgress: number
+  levelProgress: number
+  levelProgressTotal: number
   leveledUpToast: string | null
 }
 
@@ -21,10 +22,31 @@ export function ProgressPanel({
   sectionIdx,
   toneSet,
   unlockedToneStyles,
-  streak,
-  streakProgress,
+  levelProgress,
+  levelProgressTotal,
   leveledUpToast,
 }: ProgressPanelProps) {
+  const scaleCells = Array.from({ length: levelProgressTotal }, (_, index) => index)
+  const sectionBreaks = new Set([5, 10, 15])
+  const scaleParts = scaleCells.flatMap((cell) => {
+    const parts: ReactNode[] = []
+
+    if (sectionBreaks.has(cell)) {
+      parts.push(
+        <span key={`break-${cell}`} className="ear-scale-break" aria-hidden="true" />,
+      )
+    }
+
+    parts.push(
+      <span
+        key={`cell-${cell}`}
+        className={`ear-scale-cell ${cell < levelProgress ? 'is-filled' : ''}`}
+      />,
+    )
+
+    return parts
+  })
+
   return (
     <div className="ear-panel">
       {leveledUpToast && <div className="toast ear-toast-levelup">{leveledUpToast}</div>}
@@ -46,10 +68,10 @@ export function ProgressPanel({
 
       <div className="ear-streak-wrap">
         <div className="ear-streak-label">
-          Serie: {streak} / {STREAK_TARGET}
+          Fortschritt: {levelProgress} / {levelProgressTotal}
         </div>
-        <div className="ear-streak-bar">
-          <div className="ear-streak-fill" style={{ width: `${streakProgress}%` }} />
+        <div className="ear-scale" aria-label="Übungsfortschritt">
+          {scaleParts}
         </div>
       </div>
     </div>
