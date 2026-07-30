@@ -1,6 +1,8 @@
 import {
   EXERCISES,
   type CategoryProgressState,
+  type ToneStyleId,
+  type ToneStyleMode,
   type TrainingCategory,
 } from '../earTrainer/config'
 import './coursePage.css'
@@ -8,8 +10,18 @@ import './coursePage.css'
 type CoursePageProps = {
   loaded: boolean
   categories: TrainingCategory[]
+  toneStyles: Record<
+    ToneStyleId,
+    {
+      label: string
+    }
+  >
   activeCategoryIdx: number
   categoryProgress: CategoryProgressState[]
+  toneStyleMode: ToneStyleMode
+  playbackVolume: number
+  onToneStyleModeChange: (value: ToneStyleMode) => void
+  onPlaybackVolumeChange: (value: number) => void
   onOpenLevel: (categoryIdx: number, levelIdx: number) => void
   onContinue: () => void
 }
@@ -17,8 +29,13 @@ type CoursePageProps = {
 export function CoursePage({
   loaded,
   categories,
+  toneStyles,
   activeCategoryIdx,
   categoryProgress,
+  toneStyleMode,
+  playbackVolume,
+  onToneStyleModeChange,
+  onPlaybackVolumeChange,
   onOpenLevel,
   onContinue,
 }: CoursePageProps) {
@@ -49,6 +66,41 @@ export function CoursePage({
                 Jede Lage hat eine eigene Übungsreihe. Du kannst in jeder Kategorie bei
                 Übung 1 anfangen und den Fortschritt getrennt aufbauen.
               </p>
+              <div className="course-audio-settings" aria-label="Audio-Einstellungen">
+                <label className="course-audio-row">
+                  <span>Instrument</span>
+                  <select
+                    value={toneStyleMode}
+                    onChange={(event) =>
+                      onToneStyleModeChange(event.target.value as ToneStyleMode)
+                    }
+                  >
+                    <option value="auto">Auto (gemischt nach Abschnitt)</option>
+                    {(Object.keys(toneStyles) as ToneStyleId[]).map((styleId) => (
+                      <option key={styleId} value={styleId}>
+                        Nur {toneStyles[styleId].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="course-audio-row">
+                  <span>Lautstärke</span>
+                  <div className="course-volume-wrap">
+                    <input
+                      type="range"
+                      min={0}
+                      max={127}
+                      step={1}
+                      value={playbackVolume}
+                      onChange={(event) =>
+                        onPlaybackVolumeChange(Number(event.target.value))
+                      }
+                    />
+                    <strong>{playbackVolume}</strong>
+                  </div>
+                </label>
+              </div>
               <button className="course-continue" onClick={onContinue}>
                 Weiter in {activeCategory.label}: Übung {activeProgress.levelIdx + 1}
               </button>

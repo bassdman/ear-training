@@ -35,28 +35,65 @@ export const LEVEL_COUNT = EXERCISES.length
 export const TONE_STYLES = {
   piano: {
     label: 'Klavier',
+    playbackEngine: 'soundfont' as const,
+    soundfontInstrument: 'acoustic_grand_piano',
     oscillatorType: 'triangle' as OscillatorType,
     envelope: { attack: 0.005, decay: 0.22, sustain: 0.15, release: 1.1 },
   },
   guitar: {
     label: 'Gitarre',
+    playbackEngine: 'soundfont' as const,
+    soundfontInstrument: 'acoustic_guitar_nylon',
     oscillatorType: 'sawtooth' as OscillatorType,
     envelope: { attack: 0.003, decay: 0.18, sustain: 0.04, release: 0.75 },
   },
   flute: {
     label: 'Flöte',
+    playbackEngine: 'soundfont' as const,
+    soundfontInstrument: 'flute',
     oscillatorType: 'sine' as OscillatorType,
     envelope: { attack: 0.06, decay: 0.08, sustain: 0.82, release: 0.5 },
   },
   organ: {
     label: 'Orgel',
+    playbackEngine: 'soundfont' as const,
+    soundfontInstrument: 'church_organ',
     oscillatorType: 'square' as OscillatorType,
     envelope: { attack: 0.01, decay: 0.04, sustain: 0.92, release: 0.65 },
+  },
+  synthWarm: {
+    label: 'Synth Warm',
+    playbackEngine: 'synth' as const,
+    soundfontInstrument: 'acoustic_grand_piano',
+    oscillatorType: 'triangle' as OscillatorType,
+    envelope: { attack: 0.02, decay: 0.18, sustain: 0.62, release: 0.45 },
+  },
+  synthBright: {
+    label: 'Synth Bright',
+    playbackEngine: 'synth' as const,
+    soundfontInstrument: 'acoustic_grand_piano',
+    oscillatorType: 'sawtooth' as OscillatorType,
+    envelope: { attack: 0.003, decay: 0.12, sustain: 0.36, release: 0.28 },
+  },
+  synthSoft: {
+    label: 'Synth Soft',
+    playbackEngine: 'synth' as const,
+    soundfontInstrument: 'acoustic_grand_piano',
+    oscillatorType: 'sine' as OscillatorType,
+    envelope: { attack: 0.05, decay: 0.1, sustain: 0.74, release: 0.5 },
+  },
+  synthPulse: {
+    label: 'Synth Pulse',
+    playbackEngine: 'synth' as const,
+    soundfontInstrument: 'acoustic_grand_piano',
+    oscillatorType: 'square' as OscillatorType,
+    envelope: { attack: 0.004, decay: 0.07, sustain: 0.5, release: 0.22 },
   },
 } as const
 
 export type ToneStyleId = Extract<keyof typeof TONE_STYLES, string>
 export const TONE_STYLE_IDS = Object.keys(TONE_STYLES) as ToneStyleId[]
+export type ToneStyleMode = ToneStyleId | 'auto'
 
 export type Trial = {
   note: NoteName
@@ -165,6 +202,8 @@ export type ProgressState = {
   sectionIdx?: number
   bestStreak?: number
   unlockedLevelIdx?: number
+  toneStyleMode?: ToneStyleMode
+  playbackVolume?: number
 }
 
 export const PROGRESS_STORAGE_KEY = 'earTrainer-progress-v2'

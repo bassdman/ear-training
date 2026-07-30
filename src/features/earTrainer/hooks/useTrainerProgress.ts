@@ -5,6 +5,8 @@ import {
   PROGRESS_STORAGE_KEY,
   SECTION_COUNT,
   TRAINING_CATEGORIES,
+  TONE_STYLE_IDS,
+  type ToneStyleMode,
   type CategoryProgressState,
   type ProgressState,
 } from '../config'
@@ -27,6 +29,8 @@ export function useTrainerProgress() {
     DEFAULT_CATEGORY_PROGRESS,
   )
   const [bestStreak, setBestStreak] = useState(0)
+  const [toneStyleMode, setToneStyleMode] = useState<ToneStyleMode>('auto')
+  const [playbackVolume, setPlaybackVolume] = useState(100)
 
   const safeActiveCategoryIdx = useMemo(
     () => Math.min(Math.max(activeCategoryIdx, 0), TRAINING_CATEGORIES.length - 1),
@@ -159,6 +163,16 @@ export function useTrainerProgress() {
           }
 
           if (typeof data.bestStreak === 'number') setBestStreak(data.bestStreak)
+          if (
+            data.toneStyleMode === 'auto' ||
+            (typeof data.toneStyleMode === 'string' &&
+              TONE_STYLE_IDS.includes(data.toneStyleMode as (typeof TONE_STYLE_IDS)[number]))
+          ) {
+            setToneStyleMode(data.toneStyleMode)
+          }
+          if (typeof data.playbackVolume === 'number') {
+            setPlaybackVolume(Math.min(127, Math.max(0, data.playbackVolume)))
+          }
         }
       } catch {
         // noch kein gespeicherter Fortschritt
@@ -179,17 +193,19 @@ export function useTrainerProgress() {
           sectionIdx: active.sectionIdx,
           bestStreak: best,
           unlockedLevelIdx: active.unlockedLevelIdx,
+          toneStyleMode,
+          playbackVolume,
         }),
       )
     } catch (error) {
       console.error('Speichern fehlgeschlagen', error)
     }
-  }, [categoryProgress, safeActiveCategoryIdx])
+  }, [categoryProgress, playbackVolume, safeActiveCategoryIdx, toneStyleMode])
 
   useEffect(() => {
     if (!loaded) return
     void saveProgress(bestStreak)
-  }, [bestStreak, loaded, saveProgress])
+  }, [bestStreak, loaded, playbackVolume, saveProgress, toneStyleMode])
 
   return {
     loaded,
@@ -199,10 +215,14 @@ export function useTrainerProgress() {
     levelIdx,
     sectionIdx,
     bestStreak,
+    toneStyleMode,
+    playbackVolume,
     unlockedLevelIdx,
     setLevelIdx,
     setSectionIdx,
     setBestStreak,
+    setToneStyleMode,
+    setPlaybackVolume,
     setUnlockedLevelIdx,
     setCategoryLevelIdx,
     setCategorySectionIdx,

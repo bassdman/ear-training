@@ -1,35 +1,73 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Soundfont } from 'smplr'
 
-import { NOTE_FREQS, TONE_STYLES, type NoteName, type ToneStyleId } from '../config'
+import {
+  NOTE_FREQS,
+  TONE_STYLE_IDS,
+  TONE_STYLES,
+  getOctaveFromMultiplier,
+  type NoteName,
+  type ToneStyleId,
+} from '../config'
+
+const NOTE_TO_SMPLR: Record<NoteName, string> = {
+  C: 'C',
+  Cis: 'C#',
+  D: 'D',
+  Dis: 'D#',
+  E: 'E',
+  F: 'F',
+  Fis: 'F#',
+  G: 'G',
+  Gis: 'G#',
+  A: 'A',
+  Ais: 'A#',
+  H: 'B',
+}
+
+function toSmplrNoteName(note: NoteName, frequencyMultiplier: number) {
+  const octave = getOctaveFromMultiplier(frequencyMultiplier)
+  return `${NOTE_TO_SMPLR[note]}${octave}`
+}
+
+type ToneStyleLoadState = {
+  loaded: number
+  total: number
+  ready: boolean
+  failed: boolean
+}
+
+const INITIAL_LOAD_STATE = TONE_STYLE_IDS.reduce((acc, styleId) => {
+  acc[styleId] = { loaded: 0, total: 0, ready: false, failed: false }
+  return acc
+}, {} as Record<ToneStyleId, ToneStyleLoadState>)
 
 export function useTonePlayer() {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isPreloading, setIsPreloading] = useState(false)
+  const [loadStateByStyle, setLoadStateByStyle] =
+    useState<Record<ToneStyleId, ToneStyleLoadState>>(INITIAL_LOAD_STATE)
   const audioContextRef = useRef<AudioContext | null>(null)
   const playbackTimeoutRef = useRef<number | null>(null)
+  const instrumentsRef = useRef<Partial<Record<ToneStyleId, ReturnType<typeof Soundfont>>>>({})
+  const readyPromisesRef = useRef<Partial<Record<ToneStyleId, Promise<void>>>>({})
 
-  useEffect(() => {
-    return () => {
-      if (playbackTimeoutRef.current !== null) {
-        window.clearTimeout(playbackTimeoutRef.current)
-      }
-      void audioContextRef.current?.close()
-    }
+  const cleanupAudioResources = useCallback(() => {
+    readyPromisesRef.current = {}
+    Object.values(instrumentsRef.current).forEach((instrument) => {
+      instrument?.dispose()
+    })
+    void audioContextRef.current?.close()
+    audioContextRef.current = null
+    instrumentsRef.current = {}
   }, [])
 
-  const playTone = async (
+  const fallbackPlayTone = (
+    audioContext: AudioContext,
     note: NoteName,
     toneStyle: ToneStyleId,
-    frequencyMultiplier = 1,
+    frequencyMultiplier: number,
   ) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new window.AudioContext()
-    }
-
-    const audioContext = audioContextRef.current
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume()
-    }
-
     const style = TONE_STYLES[toneStyle]
     const oscillator = audioContext.createOscillator()
     const gainNode = audioContext.createGain()
@@ -50,10 +88,158 @@ export function useTonePlayer() {
 
     oscillator.connect(gainNode)
     gainNode.connect(audioContext.destination)
-
-    setIsPlaying(true)
     oscillator.start(now)
     oscillator.stop(stopAt)
+  }
+
+  const ensureAudioContext = async () => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new window.AudioContext()
+    }
+
+    const audioContext = audioContextRef.current
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume()
+    }
+
+    return audioContext
+  }
+
+  const ensureInstrument = async (audioContext: AudioContext, toneStyle: ToneStyleId) => {
+    if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
+      throw new Error('Synth tone styles do not use soundfont loading.')
+    }
+
+    let instrument = instrumentsRef.current[toneStyle]
+    if (!instrument) {
+      instrument = Soundfont(audioContext, {
+        instrument: TONE_STYLES[toneStyle].soundfontInstrument,
+        volume: 100,
+        velocity: 95,
+        onLoadProgress: ({ loaded, total }) => {
+          setLoadStateByStyle((prev) => ({
+            ...prev,
+            [toneStyle]: {
+              ...prev[toneStyle],
+              loaded,
+              total,
+            },
+          }))
+        },
+      })
+      instrumentsRef.current[toneStyle] = instrument
+    }
+
+    let readyPromise = readyPromisesRef.current[toneStyle]
+    if (!readyPromise) {
+      readyPromise = instrument.ready
+        .then(() => {
+          setLoadStateByStyle((prev) => ({
+            ...prev,
+            [toneStyle]: {
+              ...prev[toneStyle],
+              ready: true,
+              failed: false,
+              loaded: prev[toneStyle].total || prev[toneStyle].loaded,
+            },
+          }))
+        })
+        .catch((error) => {
+          setLoadStateByStyle((prev) => ({
+            ...prev,
+            [toneStyle]: {
+              ...prev[toneStyle],
+              failed: true,
+            },
+          }))
+          throw error
+        })
+
+      readyPromisesRef.current[toneStyle] = readyPromise
+    }
+
+    await readyPromise
+    return instrument
+  }
+
+  const preloadToneStyles = useCallback(async (toneStyles: ToneStyleId[]) => {
+    if (toneStyles.length === 0) return
+
+    setIsPreloading(true)
+
+    try {
+      const audioContext = await ensureAudioContext()
+      const uniqueToneStyles = [...new Set(toneStyles)]
+
+      await Promise.all(
+        uniqueToneStyles.map(async (toneStyle) => {
+          if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
+            setLoadStateByStyle((prev) => ({
+              ...prev,
+              [toneStyle]: {
+                ...prev[toneStyle],
+                loaded: 1,
+                total: 1,
+                ready: true,
+                failed: false,
+              },
+            }))
+            return
+          }
+
+          try {
+            await ensureInstrument(audioContext, toneStyle)
+          } catch {
+            // Fallback handling happens during playback.
+          }
+        }),
+      )
+    } finally {
+      setIsPreloading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (playbackTimeoutRef.current !== null) {
+        window.clearTimeout(playbackTimeoutRef.current)
+      }
+      cleanupAudioResources()
+    }
+  }, [cleanupAudioResources])
+
+  const playTone = async (
+    note: NoteName,
+    toneStyle: ToneStyleId,
+    frequencyMultiplier = 1,
+    playbackVolume = 100,
+  ) => {
+    const audioContext = await ensureAudioContext()
+
+    setIsPlaying(true)
+
+    if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
+      fallbackPlayTone(audioContext, note, toneStyle, frequencyMultiplier)
+
+      if (playbackTimeoutRef.current !== null) {
+        window.clearTimeout(playbackTimeoutRef.current)
+      }
+      playbackTimeoutRef.current = window.setTimeout(() => setIsPlaying(false), 1000)
+      return
+    }
+
+    try {
+      const instrument = await ensureInstrument(audioContext, toneStyle)
+      instrument.output.volume = Math.min(127, Math.max(0, playbackVolume))
+      instrument.start({
+        note: toSmplrNoteName(note, frequencyMultiplier),
+        duration: 0.9,
+        velocity: 95,
+      })
+    } catch (error) {
+      console.warn('smplr playback failed, using oscillator fallback', error)
+      fallbackPlayTone(audioContext, note, toneStyle, frequencyMultiplier)
+    }
 
     if (playbackTimeoutRef.current !== null) {
       window.clearTimeout(playbackTimeoutRef.current)
@@ -61,5 +247,22 @@ export function useTonePlayer() {
     playbackTimeoutRef.current = window.setTimeout(() => setIsPlaying(false), 1000)
   }
 
-  return { isPlaying, playTone }
+  const overallLoad = TONE_STYLE_IDS.reduce(
+    (acc, style) => {
+      const state = loadStateByStyle[style]
+      acc.loaded += state.loaded
+      acc.total += state.total
+      return acc
+    },
+    { loaded: 0, total: 0 },
+  )
+
+  return {
+    isPlaying,
+    isPreloading,
+    loadStateByStyle,
+    overallLoad,
+    playTone,
+    preloadToneStyles,
+  }
 }

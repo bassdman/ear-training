@@ -72,6 +72,54 @@
   padding: 18px;
 }
 
+.ear-audio-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.ear-audio-row {
+  display: grid;
+  gap: 6px;
+}
+
+.ear-audio-row label {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ear-text-dim);
+}
+
+.ear-audio-row select,
+.ear-audio-row input[type='range'] {
+  width: 100%;
+}
+
+.ear-audio-row select {
+  border: 1px solid #3a4054;
+  border-radius: 10px;
+  background: #1b1f2b;
+  color: #ecf0f8;
+  padding: 10px 12px;
+}
+
+.ear-volume-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ear-volume-wrap strong {
+  min-width: 28px;
+  text-align: right;
+  color: var(--ear-gold-soft);
+}
+
+.ear-samples-status {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--ear-text-dim);
+}
+
 .ear-session-panel {
   padding: 24px;
   display: flex;

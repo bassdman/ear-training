@@ -78,6 +78,50 @@
   line-height: 1.55;
 }
 
+.course-audio-settings {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+  max-width: 540px;
+}
+
+.course-audio-row {
+  display: grid;
+  gap: 6px;
+}
+
+.course-audio-row span {
+  font-size: 0.78rem;
+  color: #9da7be;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.course-audio-row select,
+.course-audio-row input[type='range'] {
+  width: 100%;
+}
+
+.course-audio-row select {
+  border: 1px solid #3a4258;
+  border-radius: 10px;
+  background: rgba(20, 25, 37, 0.94);
+  color: #e2e7f2;
+  padding: 10px 12px;
+}
+
+.course-volume-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.course-volume-wrap strong {
+  min-width: 28px;
+  text-align: right;
+  color: #d3b65d;
+}
+
 .course-continue {
   margin-top: 16px;
   border: 0;
