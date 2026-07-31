@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 const { useTrainerProgressMock } = vi.hoisted(() => ({
@@ -39,7 +40,11 @@ describe('App', () => {
       setCategoryUnlockedLevelIdx: vi.fn(),
     })
 
-    render(<App />)
+    render(
+      <MemoryRouter initialEntries={['/course']}>
+        <App />
+      </MemoryRouter>,
+    )
     expect(screen.getByText('Kursübersicht')).toBeInTheDocument()
   })
 })
