@@ -26,7 +26,7 @@ describe('useTrainerProgress', () => {
     await waitFor(() => expect(result.current.loaded).toBe(true))
     expect(result.current.levelIdx).toBe(0)
     expect(result.current.sectionIdx).toBe(0)
-    expect(result.current.toneStyleMode).toBe('auto')
+    expect(result.current.selectedInstrumentId).toBe('piano')
     expect(result.current.playbackVolume).toBe(100)
   })
 
@@ -36,7 +36,7 @@ describe('useTrainerProgress', () => {
         activeCategoryIdx: 0,
         categoryProgress: [{ levelIdx: 2, sectionIdx: 1, unlockedLevelIdx: 2 }],
         bestStreak: 11,
-        toneStyleMode: 'piano',
+        selectedInstrumentId: 'piano',
         playbackVolume: 200,
       }),
     )
@@ -48,7 +48,7 @@ describe('useTrainerProgress', () => {
     expect(result.current.levelIdx).toBe(2)
     expect(result.current.sectionIdx).toBe(1)
     expect(result.current.bestStreak).toBe(11)
-    expect(result.current.toneStyleMode).toBe('piano')
+    expect(result.current.selectedInstrumentId).toBe('piano')
     expect(result.current.playbackVolume).toBe(127)
   })
 
@@ -61,14 +61,14 @@ describe('useTrainerProgress', () => {
 
     act(() => {
       result.current.setBestStreak(5)
-      result.current.setToneStyleMode('flute')
+      result.current.setSelectedInstrumentId('flute')
       result.current.setPlaybackVolume(84)
     })
 
     await waitFor(() => expect(writeProgressMock).toHaveBeenCalled())
     const latestPayload = writeProgressMock.mock.calls.at(-1)?.[1] as string
     expect(latestPayload).toContain('"bestStreak":5')
-    expect(latestPayload).toContain('"toneStyleMode":"flute"')
+    expect(latestPayload).toContain('"selectedInstrumentId":"flute"')
     expect(latestPayload).toContain('"playbackVolume":84')
   })
 })

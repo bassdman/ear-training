@@ -10,7 +10,6 @@ import {
   TONE_STYLE_IDS,
   type Feedback,
   type NoteName,
-  type ToneStyleMode,
   type ToneStyleId,
   type Trial,
 } from '../config'
@@ -28,7 +27,6 @@ type UseEarTrainerGameOptions = {
   bestStreak: number
   progressSetters: ProgressSetters
   frequencyMultipliers: number[]
-  toneStyleMode: ToneStyleMode
 }
 
 export function useEarTrainerGame({
@@ -37,7 +35,6 @@ export function useEarTrainerGame({
   bestStreak,
   progressSetters,
   frequencyMultipliers,
-  toneStyleMode,
 }: UseEarTrainerGameOptions) {
   const [sectionProgress, setSectionProgress] = useState(0)
   const [currentTrial, setCurrentTrial] = useState<Trial | null>(null)
@@ -88,11 +85,10 @@ export function useEarTrainerGame({
       forcedTrial ??
       ({
         note: toneSet[Math.floor(Math.random() * toneSet.length)] as NoteName,
-        toneStyle: (toneStyleMode === 'auto'
-          ? unlockedToneStyles[
-              Math.floor(Math.random() * unlockedToneStyles.length)
-            ]
-          : toneStyleMode) as ToneStyleId,
+        toneStyle:
+          unlockedToneStyles[
+            Math.floor(Math.random() * unlockedToneStyles.length)
+          ] as ToneStyleId,
         frequencyMultiplier:
           activeMultipliers[Math.floor(Math.random() * activeMultipliers.length)] ?? 1,
       } as Trial)

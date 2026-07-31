@@ -19,7 +19,7 @@ describe('EarTrainer', () => {
     mockUseEarTrainerGame.mockReturnValue({
       toneSet: ['C', 'D', 'E'],
       guessOptions: [{ id: 'C|1', note: 'C', frequencyMultiplier: 1, label: 'c4' }],
-      unlockedToneStyles: ['piano'],
+      unlockedToneStyles: ['colorA'],
       levelProgress: 3,
       levelProgressTotal: 25,
       forcedTrial: null,
@@ -27,18 +27,20 @@ describe('EarTrainer', () => {
       feedback: null,
       leveledUpToast: null,
       accuracy: 80,
-      startTrial: vi.fn(() => ({ note: 'C', toneStyle: 'piano', frequencyMultiplier: 1 })),
-      getCurrentTrial: vi.fn(() => ({ note: 'C', toneStyle: 'piano', frequencyMultiplier: 1 })),
+      startTrial: vi.fn(() => ({ note: 'C', toneStyle: 'colorA', frequencyMultiplier: 1 })),
+      getCurrentTrial: vi.fn(() => ({ note: 'C', toneStyle: 'colorA', frequencyMultiplier: 1 })),
       handleGuess: vi.fn(),
     })
 
     mockUseTonePlayer.mockReturnValue({
       isPlaying: false,
       isPreloading: false,
-      overallLoad: { loaded: 1, total: 1 },
+      loadStateByInstrument: {
+        piano: { loaded: 1, total: 1, ready: true, failed: false },
+      },
       startTone: vi.fn(async () => {}),
       stopTone: vi.fn(),
-      preloadToneStyles: vi.fn(async () => {}),
+      preloadInstrument: vi.fn(async () => {}),
     })
   })
 
@@ -56,9 +58,8 @@ describe('EarTrainer', () => {
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
-        toneStyleMode="auto"
+        selectedInstrumentId="piano"
         playbackVolume={100}
-        setToneStyleMode={vi.fn()}
         setPlaybackVolume={vi.fn()}
         onBackToCourse={vi.fn()}
       />,
@@ -69,7 +70,6 @@ describe('EarTrainer', () => {
 
   it('rendert Audio-Panel und Back-Button', () => {
     const onBackToCourse = vi.fn()
-    const setToneStyleMode = vi.fn()
     const setPlaybackVolume = vi.fn()
 
     render(
@@ -85,9 +85,8 @@ describe('EarTrainer', () => {
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
-        toneStyleMode="auto"
+        selectedInstrumentId="piano"
         playbackVolume={100}
-        setToneStyleMode={setToneStyleMode}
         setPlaybackVolume={setPlaybackVolume}
         onBackToCourse={onBackToCourse}
       />,
@@ -96,8 +95,7 @@ describe('EarTrainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Zur Kursseite' }))
     expect(onBackToCourse).toHaveBeenCalledTimes(1)
 
-    fireEvent.change(screen.getByLabelText('Instrument'), { target: { value: 'piano' } })
-    expect(setToneStyleMode).toHaveBeenCalledWith('piano')
+    expect(screen.getByText('Klavier')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Lautstärke'), { target: { value: '90' } })
     expect(setPlaybackVolume).toHaveBeenCalledWith(90)

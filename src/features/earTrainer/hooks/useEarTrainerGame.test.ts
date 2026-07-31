@@ -25,16 +25,15 @@ describe('useEarTrainerGame', () => {
         bestStreak: 0,
         progressSetters,
         frequencyMultipliers: [1],
-        toneStyleMode: 'auto',
       }),
     )
 
-    let trial: ReturnType<typeof result.current.startTrial> = null
+    let trial!: ReturnType<typeof result.current.startTrial>
     act(() => {
       trial = result.current.startTrial()
     })
 
-    expect(trial).toEqual({ note: 'D', toneStyle: 'piano', frequencyMultiplier: 1 })
+    expect(trial).toEqual({ note: 'D', toneStyle: 'colorA', frequencyMultiplier: 1 })
     expect(result.current.awaitingGuess).toBe(true)
     expect(result.current.guessOptions[0].id).toContain('|1')
   })
@@ -56,11 +55,10 @@ describe('useEarTrainerGame', () => {
         bestStreak: 0,
         progressSetters,
         frequencyMultipliers: [1],
-        toneStyleMode: 'auto',
       }),
     )
 
-    let trial: ReturnType<typeof result.current.startTrial> = null
+    let trial!: ReturnType<typeof result.current.startTrial>
     act(() => {
       trial = result.current.startTrial()
     })
@@ -91,12 +89,11 @@ describe('useEarTrainerGame', () => {
         bestStreak: 0,
         progressSetters,
         frequencyMultipliers: [1],
-        toneStyleMode: 'auto',
       }),
     )
 
     for (let i = 0; i < 5; i += 1) {
-      let trial: ReturnType<typeof result.current.startTrial> = null
+      let trial!: ReturnType<typeof result.current.startTrial>
       act(() => {
         trial = result.current.startTrial()
       })

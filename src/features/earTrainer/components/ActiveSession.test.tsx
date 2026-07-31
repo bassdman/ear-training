@@ -2,8 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ActiveSession } from './ActiveSession'
+import type { Feedback, GuessOption, NoteName, ToneStyleId } from '../config'
 
 function createProps() {
+  const guessOptions: GuessOption[] = [
+    { id: 'C|1', note: 'C' as NoteName, frequencyMultiplier: 1, label: 'c4' },
+    { id: 'D|1', note: 'D' as NoteName, frequencyMultiplier: 1, label: 'd4' },
+  ]
+
   return {
     accuracy: 85,
     forcedTrial: null,
@@ -11,16 +17,13 @@ function createProps() {
     awaitingGuess: false,
     hasCurrentTrial: false,
     feedback: null,
-    guessOptions: [
-      { id: 'C|1', note: 'C', frequencyMultiplier: 1, label: 'c4' },
-      { id: 'D|1', note: 'D', frequencyMultiplier: 1, label: 'd4' },
-    ],
+    guessOptions,
     onStartTrialPress: vi.fn(),
     onStartTrialRelease: vi.fn(),
     onReplayPress: vi.fn(),
     onReplayRelease: vi.fn(),
     onGuess: vi.fn(),
-  } as const
+  }
 }
 
 describe('ActiveSession', () => {
@@ -50,19 +53,25 @@ describe('ActiveSession', () => {
   })
 
   it('zeigt Feedback und Wiederholungs-Hinweis', () => {
+    const feedback: Feedback = {
+      correct: false,
+      guessed: 'D',
+      actual: 'C',
+      guessedFrequencyMultiplier: 1,
+      actualFrequencyMultiplier: 1,
+      guessedLabel: 'd4',
+      actualLabel: 'c4',
+      toneStyle: 'colorA' as ToneStyleId,
+    }
+
     const props = {
       ...createProps(),
-      forcedTrial: { note: 'C', toneStyle: 'piano', frequencyMultiplier: 1 },
-      feedback: {
-        correct: false,
-        guessed: 'D',
-        actual: 'C',
-        guessedFrequencyMultiplier: 1,
-        actualFrequencyMultiplier: 1,
-        guessedLabel: 'd4',
-        actualLabel: 'c4',
-        toneStyle: 'piano',
+      forcedTrial: {
+        note: 'C' as NoteName,
+        toneStyle: 'colorA' as ToneStyleId,
+        frequencyMultiplier: 1,
       },
+      feedback,
     }
 
     render(<ActiveSession {...props} />)

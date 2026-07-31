@@ -1,11 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
 import { ProgressPanel } from '../features/earTrainer/components/ProgressPanel'
 import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import {
-  TONE_STYLES,
-  type ToneStyleMode,
+  INSTRUMENTS,
+  type InstrumentId,
 } from '../features/earTrainer/config'
 import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
 import { useTonePlayer } from '../features/earTrainer/hooks/useTonePlayer'
@@ -23,9 +23,8 @@ type EarTrainerProps = {
   rangeLabel: string
   rangeSubtitle: string
   rangeFrequencyMultipliers: number[]
-  toneStyleMode: ToneStyleMode
+  selectedInstrumentId: InstrumentId
   playbackVolume: number
-  setToneStyleMode: React.Dispatch<React.SetStateAction<ToneStyleMode>>
   setPlaybackVolume: React.Dispatch<React.SetStateAction<number>>
   onBackToCourse: () => void
 }
@@ -42,9 +41,8 @@ export default function EarTrainer({
   rangeLabel,
   rangeSubtitle,
   rangeFrequencyMultipliers,
-  toneStyleMode,
+  selectedInstrumentId,
   playbackVolume,
-  setToneStyleMode,
   setPlaybackVolume,
   onBackToCourse,
 }: EarTrainerProps) {
@@ -74,39 +72,36 @@ export default function EarTrainer({
       setUnlockedLevelIdx,
     },
     frequencyMultipliers: rangeFrequencyMultipliers,
-    toneStyleMode,
   })
 
   const {
     isPlaying,
     isPreloading,
-    overallLoad,
+    loadStateByInstrument,
     startTone,
     stopTone,
-    preloadToneStyles,
+    preloadInstrument,
   } = useTonePlayer()
 
-  const activeToneStylesForPreload = useMemo(
-    () => (toneStyleMode === 'auto' ? unlockedToneStyles : [toneStyleMode]),
-    [toneStyleMode, unlockedToneStyles],
-  )
-
+  const activeLoad = loadStateByInstrument[selectedInstrumentId]
   const loadingPercent =
-    overallLoad.total > 0
-      ? Math.min(100, Math.round((overallLoad.loaded / overallLoad.total) * 100))
+    activeLoad?.total && activeLoad.total > 0
+      ? Math.min(100, Math.round((activeLoad.loaded / activeLoad.total) * 100))
       : 0
-
-  const isSamplesLoading = isPreloading || (overallLoad.total > 0 && loadingPercent < 100)
+  const isSamplesLoading =
+    INSTRUMENTS[selectedInstrumentId].playbackEngine === 'soundfont' &&
+    (isPreloading || !activeLoad?.ready)
 
   useEffect(() => {
-    void preloadToneStyles(activeToneStylesForPreload)
-  }, [preloadToneStyles, activeToneStylesForPreload])
+    void preloadInstrument(selectedInstrumentId)
+  }, [preloadInstrument, selectedInstrumentId])
 
   const startAndHoldTrial = async () => {
     const trial = startTrial()
     if (!trial) return
     await startTone(
       trial.note,
+      selectedInstrumentId,
       trial.toneStyle,
       trial.frequencyMultiplier,
       playbackVolume,
@@ -118,6 +113,7 @@ export default function EarTrainer({
     if (!trial) return
     await startTone(
       trial.note,
+      selectedInstrumentId,
       trial.toneStyle,
       trial.frequencyMultiplier,
       playbackVolume,
@@ -140,21 +136,8 @@ export default function EarTrainer({
 
           <div className="ear-panel ear-audio-panel">
             <div className="ear-audio-row">
-              <label htmlFor="ear-tone-style">Instrument</label>
-              <select
-                id="ear-tone-style"
-                value={toneStyleMode}
-                onChange={(event) =>
-                  setToneStyleMode(event.target.value as ToneStyleMode)
-                }
-              >
-                <option value="auto">Auto (gemischt nach Abschnitt)</option>
-                {Object.entries(TONE_STYLES).map(([styleId, style]) => (
-                  <option key={styleId} value={styleId}>
-                    Nur {style.label}
-                  </option>
-                ))}
-              </select>
+              <label>Instrument</label>
+              <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
             </div>
 
             <div className="ear-audio-row">

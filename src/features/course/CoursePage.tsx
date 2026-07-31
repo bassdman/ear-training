@@ -1,8 +1,7 @@
 import {
   EXERCISES,
   type CategoryProgressState,
-  type ToneStyleId,
-  type ToneStyleMode,
+  type InstrumentId,
   type TrainingCategory,
 } from '../earTrainer/config'
 import './coursePage.css'
@@ -10,17 +9,17 @@ import './coursePage.css'
 type CoursePageProps = {
   loaded: boolean
   categories: TrainingCategory[]
-  toneStyles: Record<
-    ToneStyleId,
+  instruments: Record<
+    InstrumentId,
     {
       label: string
     }
   >
   activeCategoryIdx: number
   categoryProgress: CategoryProgressState[]
-  toneStyleMode: ToneStyleMode
+  selectedInstrumentId: InstrumentId
   playbackVolume: number
-  onToneStyleModeChange: (value: ToneStyleMode) => void
+  onSelectedInstrumentChange: (value: InstrumentId) => void
   onPlaybackVolumeChange: (value: number) => void
   onOpenLevel: (categoryIdx: number, levelIdx: number) => void
   onContinue: () => void
@@ -29,12 +28,12 @@ type CoursePageProps = {
 export function CoursePage({
   loaded,
   categories,
-  toneStyles,
+  instruments,
   activeCategoryIdx,
   categoryProgress,
-  toneStyleMode,
+  selectedInstrumentId,
   playbackVolume,
-  onToneStyleModeChange,
+  onSelectedInstrumentChange,
   onPlaybackVolumeChange,
   onOpenLevel,
   onContinue,
@@ -70,15 +69,14 @@ export function CoursePage({
                 <label className="course-audio-row">
                   <span>Instrument</span>
                   <select
-                    value={toneStyleMode}
+                    value={selectedInstrumentId}
                     onChange={(event) =>
-                      onToneStyleModeChange(event.target.value as ToneStyleMode)
+                      onSelectedInstrumentChange(event.target.value as InstrumentId)
                     }
                   >
-                    <option value="auto">Auto (gemischt nach Abschnitt)</option>
-                    {(Object.keys(toneStyles) as ToneStyleId[]).map((styleId) => (
+                    {(Object.keys(instruments) as InstrumentId[]).map((styleId) => (
                       <option key={styleId} value={styleId}>
-                        Nur {toneStyles[styleId].label}
+                        {instruments[styleId].label}
                       </option>
                     ))}
                   </select>

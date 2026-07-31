@@ -10,7 +10,7 @@ describe('ProgressPanel', () => {
         levelIdx={1}
         sectionIdx={2}
         toneSet={['C', 'E', 'G']}
-        unlockedToneStyles={['piano', 'flute']}
+        unlockedToneStyles={['colorA', 'colorB']}
         levelProgress={7}
         levelProgressTotal={25}
         leveledUpToast="Abschnitt 4 freigeschaltet"
@@ -20,7 +20,7 @@ describe('ProgressPanel', () => {
     expect(screen.getByText('Übung 2 / 12')).toBeInTheDocument()
     expect(screen.getByText('Abschnitt 3 / 4')).toBeInTheDocument()
     expect(screen.getByText('Töne: C · E · G')).toBeInTheDocument()
-    expect(screen.getByText(/Tonstile im Spiel: Klavier · Flöte/)).toBeInTheDocument()
+    expect(screen.getByText(/Tonstile im Spiel: Klangfarbe A · Klangfarbe B/)).toBeInTheDocument()
     expect(screen.getByText('Abschnitt 4 freigeschaltet')).toBeInTheDocument()
 
     expect(container.querySelectorAll('.ear-scale-cell').length).toBe(25)

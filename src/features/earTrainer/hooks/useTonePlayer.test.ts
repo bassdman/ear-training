@@ -3,18 +3,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useTonePlayer } from './useTonePlayer'
 
-const startMock = vi.fn(() => vi.fn())
-const disposeMock = vi.fn()
-const readyPromise = Promise.resolve()
-const soundfontMock = vi.fn(() => ({
-  ready: readyPromise,
-  start: startMock,
-  dispose: disposeMock,
-  output: { volume: 100 },
-}))
+const { startMock, disposeMock, soundfontMock } = vi.hoisted(() => {
+  const start = vi.fn(() => vi.fn())
+  const dispose = vi.fn()
+  const soundfont = vi.fn(() => ({
+    ready: Promise.resolve(),
+    start,
+    dispose,
+    output: { volume: 100 },
+  }))
+
+  return {
+    startMock: start,
+    disposeMock: dispose,
+    soundfontMock: soundfont,
+  }
+})
 
 vi.mock('smplr', () => ({
-  Soundfont: (...args: unknown[]) => soundfontMock(...args),
+  Soundfont: soundfontMock,
 }))
 
 class FakeAudioContext {
@@ -68,18 +75,18 @@ describe('useTonePlayer', () => {
     const { result } = renderHook(() => useTonePlayer())
 
     await act(async () => {
-      await result.current.preloadToneStyles(['piano'])
+      await result.current.preloadInstrument('piano')
     })
 
     expect(soundfontMock).toHaveBeenCalledTimes(1)
-    expect(result.current.overallLoad.total).toBeGreaterThanOrEqual(0)
+    expect(result.current.loadStateByInstrument.piano.ready).toBe(true)
   })
 
   it('startet und stoppt Soundfont-Ton', async () => {
     const { result } = renderHook(() => useTonePlayer())
 
     await act(async () => {
-      await result.current.startTone('C', 'piano', 1, 90)
+      await result.current.startTone('C', 'piano', 'colorA', 1, 90)
     })
 
     await waitFor(() => expect(startMock).toHaveBeenCalled())
@@ -96,7 +103,7 @@ describe('useTonePlayer', () => {
     const { result } = renderHook(() => useTonePlayer())
 
     await act(async () => {
-      await result.current.startTone('C', 'synthWarm', 1, 100)
+      await result.current.startTone('C', 'synth', 'colorA', 1, 100)
     })
 
     expect(soundfontMock).not.toHaveBeenCalled()

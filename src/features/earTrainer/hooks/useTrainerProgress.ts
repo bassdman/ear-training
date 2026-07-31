@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react'
 
 import {
+  INSTRUMENT_IDS,
   LEVEL_COUNT,
   PROGRESS_STORAGE_KEY,
   SECTION_COUNT,
   TRAINING_CATEGORIES,
-  TONE_STYLE_IDS,
-  type ToneStyleMode,
+  type InstrumentId,
   type CategoryProgressState,
   type ProgressState,
 } from '../config'
@@ -29,7 +29,7 @@ export function useTrainerProgress() {
     DEFAULT_CATEGORY_PROGRESS,
   )
   const [bestStreak, setBestStreak] = useState(0)
-  const [toneStyleMode, setToneStyleMode] = useState<ToneStyleMode>('auto')
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<InstrumentId>('piano')
   const [playbackVolume, setPlaybackVolume] = useState(100)
 
   const safeActiveCategoryIdx = useMemo(
@@ -164,11 +164,17 @@ export function useTrainerProgress() {
 
           if (typeof data.bestStreak === 'number') setBestStreak(data.bestStreak)
           if (
-            data.toneStyleMode === 'auto' ||
-            (typeof data.toneStyleMode === 'string' &&
-              TONE_STYLE_IDS.includes(data.toneStyleMode as (typeof TONE_STYLE_IDS)[number]))
+            typeof data.selectedInstrumentId === 'string' &&
+            INSTRUMENT_IDS.includes(data.selectedInstrumentId as InstrumentId)
           ) {
-            setToneStyleMode(data.toneStyleMode)
+            setSelectedInstrumentId(data.selectedInstrumentId as InstrumentId)
+          } else if (typeof data.toneStyleMode === 'string') {
+            const migrated = data.toneStyleMode.startsWith('synth')
+              ? 'synth'
+              : data.toneStyleMode
+            if (INSTRUMENT_IDS.includes(migrated as InstrumentId)) {
+              setSelectedInstrumentId(migrated as InstrumentId)
+            }
           }
           if (typeof data.playbackVolume === 'number') {
             setPlaybackVolume(Math.min(127, Math.max(0, data.playbackVolume)))
@@ -193,19 +199,19 @@ export function useTrainerProgress() {
           sectionIdx: active.sectionIdx,
           bestStreak: best,
           unlockedLevelIdx: active.unlockedLevelIdx,
-          toneStyleMode,
+          selectedInstrumentId,
           playbackVolume,
         }),
       )
     } catch (error) {
       console.error('Speichern fehlgeschlagen', error)
     }
-  }, [categoryProgress, playbackVolume, safeActiveCategoryIdx, toneStyleMode])
+  }, [categoryProgress, playbackVolume, safeActiveCategoryIdx, selectedInstrumentId])
 
   useEffect(() => {
     if (!loaded) return
     void saveProgress(bestStreak)
-  }, [bestStreak, loaded, playbackVolume, saveProgress, toneStyleMode])
+  }, [bestStreak, loaded, playbackVolume, saveProgress, selectedInstrumentId])
 
   return {
     loaded,
@@ -215,13 +221,13 @@ export function useTrainerProgress() {
     levelIdx,
     sectionIdx,
     bestStreak,
-    toneStyleMode,
+    selectedInstrumentId,
     playbackVolume,
     unlockedLevelIdx,
     setLevelIdx,
     setSectionIdx,
     setBestStreak,
-    setToneStyleMode,
+    setSelectedInstrumentId,
     setPlaybackVolume,
     setUnlockedLevelIdx,
     setCategoryLevelIdx,

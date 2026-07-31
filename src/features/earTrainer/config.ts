@@ -32,68 +32,74 @@ export const EXERCISES = [
 
 export const LEVEL_COUNT = EXERCISES.length
 
-export const TONE_STYLES = {
+export const INSTRUMENTS = {
   piano: {
     label: 'Klavier',
     playbackEngine: 'soundfont' as const,
     soundfontInstrument: 'acoustic_grand_piano',
     oscillatorType: 'triangle' as OscillatorType,
-    envelope: { attack: 0.005, decay: 0.22, sustain: 0.15, release: 1.1 },
   },
   guitar: {
     label: 'Gitarre',
     playbackEngine: 'soundfont' as const,
     soundfontInstrument: 'acoustic_guitar_nylon',
     oscillatorType: 'sawtooth' as OscillatorType,
-    envelope: { attack: 0.003, decay: 0.18, sustain: 0.04, release: 0.75 },
   },
   flute: {
     label: 'Flöte',
     playbackEngine: 'soundfont' as const,
     soundfontInstrument: 'flute',
     oscillatorType: 'sine' as OscillatorType,
-    envelope: { attack: 0.06, decay: 0.08, sustain: 0.82, release: 0.5 },
   },
   organ: {
     label: 'Orgel',
     playbackEngine: 'soundfont' as const,
     soundfontInstrument: 'church_organ',
     oscillatorType: 'square' as OscillatorType,
-    envelope: { attack: 0.01, decay: 0.04, sustain: 0.92, release: 0.65 },
   },
-  synthWarm: {
-    label: 'Synth Warm',
+  synth: {
+    label: 'Synth',
     playbackEngine: 'synth' as const,
-    soundfontInstrument: 'acoustic_grand_piano',
     oscillatorType: 'triangle' as OscillatorType,
-    envelope: { attack: 0.02, decay: 0.18, sustain: 0.62, release: 0.45 },
   },
-  synthBright: {
-    label: 'Synth Bright',
-    playbackEngine: 'synth' as const,
-    soundfontInstrument: 'acoustic_grand_piano',
+} as const
+
+export type InstrumentId = Extract<keyof typeof INSTRUMENTS, string>
+export const INSTRUMENT_IDS = Object.keys(INSTRUMENTS) as InstrumentId[]
+
+export const TONE_STYLES = {
+  colorA: {
+    label: 'Klangfarbe A',
+    oscillatorType: 'triangle' as OscillatorType,
+    velocity: 88,
+    detuneCents: -3,
+    envelope: { attack: 0.018, decay: 0.16, sustain: 0.62, release: 0.42 },
+  },
+  colorB: {
+    label: 'Klangfarbe B',
     oscillatorType: 'sawtooth' as OscillatorType,
-    envelope: { attack: 0.003, decay: 0.12, sustain: 0.36, release: 0.28 },
+    velocity: 98,
+    detuneCents: 0,
+    envelope: { attack: 0.006, decay: 0.11, sustain: 0.4, release: 0.26 },
   },
-  synthSoft: {
-    label: 'Synth Soft',
-    playbackEngine: 'synth' as const,
-    soundfontInstrument: 'acoustic_grand_piano',
+  colorC: {
+    label: 'Klangfarbe C',
     oscillatorType: 'sine' as OscillatorType,
-    envelope: { attack: 0.05, decay: 0.1, sustain: 0.74, release: 0.5 },
+    velocity: 80,
+    detuneCents: -7,
+    envelope: { attack: 0.05, decay: 0.1, sustain: 0.76, release: 0.5 },
   },
-  synthPulse: {
-    label: 'Synth Pulse',
-    playbackEngine: 'synth' as const,
-    soundfontInstrument: 'acoustic_grand_piano',
+  colorD: {
+    label: 'Klangfarbe D',
     oscillatorType: 'square' as OscillatorType,
-    envelope: { attack: 0.004, decay: 0.07, sustain: 0.5, release: 0.22 },
+    velocity: 94,
+    detuneCents: 5,
+    envelope: { attack: 0.004, decay: 0.08, sustain: 0.52, release: 0.24 },
   },
 } as const
 
 export type ToneStyleId = Extract<keyof typeof TONE_STYLES, string>
 export const TONE_STYLE_IDS = Object.keys(TONE_STYLES) as ToneStyleId[]
-export type ToneStyleMode = ToneStyleId | 'auto'
 
 export type Trial = {
   note: NoteName
@@ -202,7 +208,8 @@ export type ProgressState = {
   sectionIdx?: number
   bestStreak?: number
   unlockedLevelIdx?: number
-  toneStyleMode?: ToneStyleMode
+  selectedInstrumentId?: InstrumentId
+  toneStyleMode?: string
   playbackVolume?: number
 }
 

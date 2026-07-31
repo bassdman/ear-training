@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Soundfont } from 'smplr'
 
 import {
+  INSTRUMENT_IDS,
+  INSTRUMENTS,
   NOTE_FREQS,
-  TONE_STYLE_IDS,
   TONE_STYLES,
   getOctaveFromMultiplier,
+  type InstrumentId,
   type NoteName,
   type ToneStyleId,
 } from '../config'
@@ -37,19 +39,19 @@ type ToneStyleLoadState = {
   failed: boolean
 }
 
-const INITIAL_LOAD_STATE = TONE_STYLE_IDS.reduce((acc, styleId) => {
-  acc[styleId] = { loaded: 0, total: 0, ready: false, failed: false }
+const INITIAL_LOAD_STATE = INSTRUMENT_IDS.reduce((acc, instrumentId) => {
+  acc[instrumentId] = { loaded: 0, total: 0, ready: false, failed: false }
   return acc
-}, {} as Record<ToneStyleId, ToneStyleLoadState>)
+}, {} as Record<InstrumentId, ToneStyleLoadState>)
 
 export function useTonePlayer() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPreloading, setIsPreloading] = useState(false)
-  const [loadStateByStyle, setLoadStateByStyle] =
-    useState<Record<ToneStyleId, ToneStyleLoadState>>(INITIAL_LOAD_STATE)
+  const [loadStateByInstrument, setLoadStateByInstrument] =
+    useState<Record<InstrumentId, ToneStyleLoadState>>(INITIAL_LOAD_STATE)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const instrumentsRef = useRef<Partial<Record<ToneStyleId, ReturnType<typeof Soundfont>>>>({})
-  const readyPromisesRef = useRef<Partial<Record<ToneStyleId, Promise<void>>>>({})
+  const instrumentsRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof Soundfont>>>>({})
+  const readyPromisesRef = useRef<Partial<Record<InstrumentId, Promise<void>>>>({})
   const activeStopRef = useRef<(() => void) | null>(null)
   const playRequestIdRef = useRef(0)
 
@@ -66,24 +68,29 @@ export function useTonePlayer() {
   const fallbackPlayTone = (
     audioContext: AudioContext,
     note: NoteName,
+    instrumentId: InstrumentId,
     toneStyle: ToneStyleId,
     frequencyMultiplier: number,
   ) => {
-    const style = TONE_STYLES[toneStyle]
+    const toneColor = TONE_STYLES[toneStyle]
+    const instrument = INSTRUMENTS[instrumentId]
     const oscillator = audioContext.createOscillator()
     const gainNode = audioContext.createGain()
     const now = audioContext.currentTime
-    const sustainStart = now + style.envelope.attack + style.envelope.decay
+    const sustainStart = now + toneColor.envelope.attack + toneColor.envelope.decay
 
-    oscillator.type = style.oscillatorType
+    oscillator.type =
+      instrument.playbackEngine === 'synth'
+        ? toneColor.oscillatorType
+        : instrument.oscillatorType
     oscillator.frequency.setValueAtTime(NOTE_FREQS[note] * frequencyMultiplier, now)
     gainNode.gain.setValueAtTime(0.0001, now)
-    gainNode.gain.linearRampToValueAtTime(0.9, now + style.envelope.attack)
+    gainNode.gain.linearRampToValueAtTime(0.9, now + toneColor.envelope.attack)
     gainNode.gain.exponentialRampToValueAtTime(
-      Math.max(style.envelope.sustain, 0.04),
-      now + style.envelope.attack + style.envelope.decay,
+      Math.max(toneColor.envelope.sustain, 0.04),
+      now + toneColor.envelope.attack + toneColor.envelope.decay,
     )
-    gainNode.gain.setValueAtTime(Math.max(style.envelope.sustain, 0.04), sustainStart)
+    gainNode.gain.setValueAtTime(Math.max(toneColor.envelope.sustain, 0.04), sustainStart)
 
     oscillator.connect(gainNode)
     gainNode.connect(audioContext.destination)
@@ -91,7 +98,7 @@ export function useTonePlayer() {
 
     return () => {
       const stopNow = audioContext.currentTime
-      const stopAt = stopNow + style.envelope.release
+      const stopAt = stopNow + toneColor.envelope.release
       gainNode.gain.cancelScheduledValues(stopNow)
       gainNode.gain.setValueAtTime(Math.max(gainNode.gain.value, 0.0001), stopNow)
       gainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt)
@@ -112,95 +119,91 @@ export function useTonePlayer() {
     return audioContext
   }
 
-  const ensureInstrument = async (audioContext: AudioContext, toneStyle: ToneStyleId) => {
-    if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
-      throw new Error('Synth tone styles do not use soundfont loading.')
+  const ensureInstrument = async (audioContext: AudioContext, instrumentId: InstrumentId) => {
+    const instrumentConfig = INSTRUMENTS[instrumentId]
+    if (instrumentConfig.playbackEngine === 'synth') {
+      throw new Error('Synth instrument does not use soundfont loading.')
     }
 
-    let instrument = instrumentsRef.current[toneStyle]
+    let instrument = instrumentsRef.current[instrumentId]
     if (!instrument) {
       instrument = Soundfont(audioContext, {
-        instrument: TONE_STYLES[toneStyle].soundfontInstrument,
+        instrument: instrumentConfig.soundfontInstrument,
         volume: 100,
         velocity: 95,
         onLoadProgress: ({ loaded, total }) => {
-          setLoadStateByStyle((prev) => ({
+          setLoadStateByInstrument((prev) => ({
             ...prev,
-            [toneStyle]: {
-              ...prev[toneStyle],
+            [instrumentId]: {
+              ...prev[instrumentId],
               loaded,
               total,
             },
           }))
         },
       })
-      instrumentsRef.current[toneStyle] = instrument
+      instrumentsRef.current[instrumentId] = instrument
     }
 
-    let readyPromise = readyPromisesRef.current[toneStyle]
+    let readyPromise = readyPromisesRef.current[instrumentId]
     if (!readyPromise) {
       readyPromise = instrument.ready
         .then(() => {
-          setLoadStateByStyle((prev) => ({
+          setLoadStateByInstrument((prev) => ({
             ...prev,
-            [toneStyle]: {
-              ...prev[toneStyle],
+            [instrumentId]: {
+              ...prev[instrumentId],
               ready: true,
               failed: false,
-              loaded: prev[toneStyle].total || prev[toneStyle].loaded,
+              loaded: prev[instrumentId].total || prev[instrumentId].loaded,
             },
           }))
         })
         .catch((error) => {
-          setLoadStateByStyle((prev) => ({
+          setLoadStateByInstrument((prev) => ({
             ...prev,
-            [toneStyle]: {
-              ...prev[toneStyle],
+            [instrumentId]: {
+              ...prev[instrumentId],
               failed: true,
             },
           }))
           throw error
         })
 
-      readyPromisesRef.current[toneStyle] = readyPromise
+      readyPromisesRef.current[instrumentId] = readyPromise
     }
 
     await readyPromise
     return instrument
   }
 
-  const preloadToneStyles = useCallback(async (toneStyles: ToneStyleId[]) => {
-    if (toneStyles.length === 0) return
+  const preloadInstrument = useCallback(async (instrumentId: InstrumentId) => {
+    if (!instrumentId) return
 
     setIsPreloading(true)
 
     try {
       const audioContext = await ensureAudioContext(false)
-      const uniqueToneStyles = [...new Set(toneStyles)]
 
-      await Promise.all(
-        uniqueToneStyles.map(async (toneStyle) => {
-          if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
-            setLoadStateByStyle((prev) => ({
-              ...prev,
-              [toneStyle]: {
-                ...prev[toneStyle],
-                loaded: 1,
-                total: 1,
-                ready: true,
-                failed: false,
-              },
-            }))
-            return
-          }
+      if (INSTRUMENTS[instrumentId].playbackEngine === 'synth') {
+        setLoadStateByInstrument((prev) => ({
+          ...prev,
+          [instrumentId]: {
+            ...prev[instrumentId],
+            loaded: 1,
+            total: 1,
+            ready: true,
+            failed: false,
+          },
+        }))
+        return
+      }
 
-          try {
-            await ensureInstrument(audioContext, toneStyle)
-          } catch {
-            // Fallback handling happens during playback.
-          }
-        }),
-      )
+      try {
+        await ensureInstrument(audioContext, instrumentId)
+      } catch {
+        // Fallback handling happens during playback.
+      }
     } finally {
       setIsPreloading(false)
     }
@@ -222,6 +225,7 @@ export function useTonePlayer() {
 
   const startTone = async (
     note: NoteName,
+    instrumentId: InstrumentId,
     toneStyle: ToneStyleId,
     frequencyMultiplier = 1,
     playbackVolume = 100,
@@ -229,11 +233,18 @@ export function useTonePlayer() {
     stopTone()
     const audioContext = await ensureAudioContext(true)
     const requestId = ++playRequestIdRef.current
+    const toneColor = TONE_STYLES[toneStyle]
 
     setIsPlaying(true)
 
-    if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
-      const stopSynth = fallbackPlayTone(audioContext, note, toneStyle, frequencyMultiplier)
+    if (INSTRUMENTS[instrumentId].playbackEngine === 'synth') {
+      const stopSynth = fallbackPlayTone(
+        audioContext,
+        note,
+        instrumentId,
+        toneStyle,
+        frequencyMultiplier,
+      )
       if (requestId !== playRequestIdRef.current) {
         stopSynth()
         return
@@ -244,7 +255,7 @@ export function useTonePlayer() {
     }
 
     try {
-      const instrument = await ensureInstrument(audioContext, toneStyle)
+      const instrument = await ensureInstrument(audioContext, instrumentId)
       if (requestId !== playRequestIdRef.current) {
         return
       }
@@ -252,7 +263,8 @@ export function useTonePlayer() {
       instrument.output.volume = Math.min(127, Math.max(0, playbackVolume))
       activeStopRef.current = instrument.start({
         note: toSmplrNoteName(note, frequencyMultiplier),
-        velocity: 95,
+        velocity: toneColor.velocity,
+        detune: toneColor.detuneCents,
       })
     } catch (error) {
       console.warn('smplr playback failed, using oscillator fallback', error)
@@ -263,29 +275,19 @@ export function useTonePlayer() {
       activeStopRef.current = fallbackPlayTone(
         audioContext,
         note,
+        instrumentId,
         toneStyle,
         frequencyMultiplier,
       )
     }
   }
 
-  const overallLoad = TONE_STYLE_IDS.reduce(
-    (acc, style) => {
-      const state = loadStateByStyle[style]
-      acc.loaded += state.loaded
-      acc.total += state.total
-      return acc
-    },
-    { loaded: 0, total: 0 },
-  )
-
   return {
     isPlaying,
     isPreloading,
-    loadStateByStyle,
-    overallLoad,
+    loadStateByInstrument,
     startTone,
     stopTone,
-    preloadToneStyles,
+    preloadInstrument,
   }
 }

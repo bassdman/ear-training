@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import EarTrainer from './components/EarTrainer'
 import { CoursePage } from './features/course/CoursePage'
-import { TONE_STYLES, TRAINING_CATEGORIES } from './features/earTrainer/config'
+import { INSTRUMENTS, TRAINING_CATEGORIES } from './features/earTrainer/config'
 import { useTrainerProgress } from './features/earTrainer/hooks/useTrainerProgress'
 
 type Page = 'course' | 'trainer'
@@ -26,12 +26,12 @@ function App() {
       <CoursePage
         loaded={progress.loaded}
         categories={TRAINING_CATEGORIES}
-        toneStyles={TONE_STYLES}
+        instruments={INSTRUMENTS}
         activeCategoryIdx={progress.activeCategoryIdx}
         categoryProgress={progress.categoryProgress}
-        toneStyleMode={progress.toneStyleMode}
+        selectedInstrumentId={progress.selectedInstrumentId}
         playbackVolume={progress.playbackVolume}
-        onToneStyleModeChange={progress.setToneStyleMode}
+        onSelectedInstrumentChange={progress.setSelectedInstrumentId}
         onPlaybackVolumeChange={progress.setPlaybackVolume}
         onOpenLevel={openLevel}
         onContinue={() => setPage('trainer')}
@@ -49,9 +49,8 @@ function App() {
         rangeLabel={activeCategory.label}
         rangeSubtitle={activeCategory.subtitle}
         rangeFrequencyMultipliers={activeCategory.frequencyMultipliers}
-        toneStyleMode={progress.toneStyleMode}
+        selectedInstrumentId={progress.selectedInstrumentId}
         playbackVolume={progress.playbackVolume}
-        setToneStyleMode={progress.setToneStyleMode}
         setPlaybackVolume={progress.setPlaybackVolume}
         onBackToCourse={() => setPage('course')}
       />
