@@ -81,7 +81,7 @@ export function ActiveSession({
 
         <div className="ear-actions">
           <button
-            disabled={awaitingGuess}
+            disabled={awaitingGuess && !isPlaying}
             className="ear-button ear-button-primary"
             {...holdHandlers(onStartTrialPress, onStartTrialRelease)}
           >

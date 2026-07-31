@@ -99,13 +99,13 @@ export function useTonePlayer() {
     }
   }
 
-  const ensureAudioContext = async () => {
+  const ensureAudioContext = async (shouldResume: boolean) => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new window.AudioContext()
     }
 
     const audioContext = audioContextRef.current
-    if (audioContext.state === 'suspended') {
+    if (shouldResume && audioContext.state === 'suspended') {
       await audioContext.resume()
     }
 
@@ -175,7 +175,7 @@ export function useTonePlayer() {
     setIsPreloading(true)
 
     try {
-      const audioContext = await ensureAudioContext()
+      const audioContext = await ensureAudioContext(false)
       const uniqueToneStyles = [...new Set(toneStyles)]
 
       await Promise.all(
@@ -227,7 +227,7 @@ export function useTonePlayer() {
     playbackVolume = 100,
   ) => {
     stopTone()
-    const audioContext = await ensureAudioContext()
+    const audioContext = await ensureAudioContext(true)
     const requestId = ++playRequestIdRef.current
 
     setIsPlaying(true)
