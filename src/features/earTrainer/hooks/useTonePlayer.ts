@@ -48,9 +48,10 @@ export function useTonePlayer() {
   const [loadStateByStyle, setLoadStateByStyle] =
     useState<Record<ToneStyleId, ToneStyleLoadState>>(INITIAL_LOAD_STATE)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const playbackTimeoutRef = useRef<number | null>(null)
   const instrumentsRef = useRef<Partial<Record<ToneStyleId, ReturnType<typeof Soundfont>>>>({})
   const readyPromisesRef = useRef<Partial<Record<ToneStyleId, Promise<void>>>>({})
+  const activeStopRef = useRef<(() => void) | null>(null)
+  const playRequestIdRef = useRef(0)
 
   const cleanupAudioResources = useCallback(() => {
     readyPromisesRef.current = {}
@@ -72,8 +73,7 @@ export function useTonePlayer() {
     const oscillator = audioContext.createOscillator()
     const gainNode = audioContext.createGain()
     const now = audioContext.currentTime
-    const sustainUntil = now + 0.45
-    const stopAt = sustainUntil + style.envelope.release
+    const sustainStart = now + style.envelope.attack + style.envelope.decay
 
     oscillator.type = style.oscillatorType
     oscillator.frequency.setValueAtTime(NOTE_FREQS[note] * frequencyMultiplier, now)
@@ -83,13 +83,20 @@ export function useTonePlayer() {
       Math.max(style.envelope.sustain, 0.04),
       now + style.envelope.attack + style.envelope.decay,
     )
-    gainNode.gain.setValueAtTime(Math.max(style.envelope.sustain, 0.04), sustainUntil)
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt)
+    gainNode.gain.setValueAtTime(Math.max(style.envelope.sustain, 0.04), sustainStart)
 
     oscillator.connect(gainNode)
     gainNode.connect(audioContext.destination)
     oscillator.start(now)
-    oscillator.stop(stopAt)
+
+    return () => {
+      const stopNow = audioContext.currentTime
+      const stopAt = stopNow + style.envelope.release
+      gainNode.gain.cancelScheduledValues(stopNow)
+      gainNode.gain.setValueAtTime(Math.max(gainNode.gain.value, 0.0001), stopNow)
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt)
+      oscillator.stop(stopAt)
+    }
   }
 
   const ensureAudioContext = async () => {
@@ -201,50 +208,65 @@ export function useTonePlayer() {
 
   useEffect(() => {
     return () => {
-      if (playbackTimeoutRef.current !== null) {
-        window.clearTimeout(playbackTimeoutRef.current)
-      }
+      activeStopRef.current?.()
       cleanupAudioResources()
     }
   }, [cleanupAudioResources])
 
-  const playTone = async (
+  const stopTone = useCallback(() => {
+    playRequestIdRef.current += 1
+    activeStopRef.current?.()
+    activeStopRef.current = null
+    setIsPlaying(false)
+  }, [])
+
+  const startTone = async (
     note: NoteName,
     toneStyle: ToneStyleId,
     frequencyMultiplier = 1,
     playbackVolume = 100,
   ) => {
+    stopTone()
     const audioContext = await ensureAudioContext()
+    const requestId = ++playRequestIdRef.current
 
     setIsPlaying(true)
 
     if (TONE_STYLES[toneStyle].playbackEngine === 'synth') {
-      fallbackPlayTone(audioContext, note, toneStyle, frequencyMultiplier)
-
-      if (playbackTimeoutRef.current !== null) {
-        window.clearTimeout(playbackTimeoutRef.current)
+      const stopSynth = fallbackPlayTone(audioContext, note, toneStyle, frequencyMultiplier)
+      if (requestId !== playRequestIdRef.current) {
+        stopSynth()
+        return
       }
-      playbackTimeoutRef.current = window.setTimeout(() => setIsPlaying(false), 1000)
+
+      activeStopRef.current = stopSynth
       return
     }
 
     try {
       const instrument = await ensureInstrument(audioContext, toneStyle)
+      if (requestId !== playRequestIdRef.current) {
+        return
+      }
+
       instrument.output.volume = Math.min(127, Math.max(0, playbackVolume))
-      instrument.start({
+      activeStopRef.current = instrument.start({
         note: toSmplrNoteName(note, frequencyMultiplier),
-        duration: 0.9,
         velocity: 95,
       })
     } catch (error) {
       console.warn('smplr playback failed, using oscillator fallback', error)
-      fallbackPlayTone(audioContext, note, toneStyle, frequencyMultiplier)
-    }
+      if (requestId !== playRequestIdRef.current) {
+        return
+      }
 
-    if (playbackTimeoutRef.current !== null) {
-      window.clearTimeout(playbackTimeoutRef.current)
+      activeStopRef.current = fallbackPlayTone(
+        audioContext,
+        note,
+        toneStyle,
+        frequencyMultiplier,
+      )
     }
-    playbackTimeoutRef.current = window.setTimeout(() => setIsPlaying(false), 1000)
   }
 
   const overallLoad = TONE_STYLE_IDS.reduce(
@@ -262,7 +284,8 @@ export function useTonePlayer() {
     isPreloading,
     loadStateByStyle,
     overallLoad,
-    playTone,
+    startTone,
+    stopTone,
     preloadToneStyles,
   }
 }

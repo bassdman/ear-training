@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from 'react'
+
 import {
   TONE_STYLES,
   type Feedback,
@@ -18,8 +20,10 @@ type ActiveSessionProps = {
   hasCurrentTrial: boolean
   feedback: Feedback | null
   guessOptions: GuessOption[]
-  onStartTrial: () => void
-  onReplay: () => void
+  onStartTrialPress: () => void
+  onStartTrialRelease: () => void
+  onReplayPress: () => void
+  onReplayRelease: () => void
   onGuess: (guessOptionId: string) => void
 }
 
@@ -31,10 +35,32 @@ export function ActiveSession({
   hasCurrentTrial,
   feedback,
   guessOptions,
-  onStartTrial,
-  onReplay,
+  onStartTrialPress,
+  onStartTrialRelease,
+  onReplayPress,
+  onReplayRelease,
   onGuess,
 }: ActiveSessionProps) {
+  const holdHandlers = (onPress: () => void, onRelease: () => void) => ({
+    onPointerDown: () => onPress(),
+    onPointerUp: () => onRelease(),
+    onPointerCancel: () => onRelease(),
+    onPointerLeave: () => onRelease(),
+    onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.repeat) return
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault()
+        onPress()
+      }
+    },
+    onKeyUp: (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault()
+        onRelease()
+      }
+    },
+  })
+
   return (
     <>
       <div className="ear-stats">
@@ -55,16 +81,16 @@ export function ActiveSession({
 
         <div className="ear-actions">
           <button
-            onClick={onStartTrial}
             disabled={awaitingGuess}
             className="ear-button ear-button-primary"
+            {...holdHandlers(onStartTrialPress, onStartTrialRelease)}
           >
             {feedback || hasCurrentTrial ? 'Weiter' : 'Ton abspielen'}
           </button>
           <button
-            onClick={onReplay}
             disabled={!hasCurrentTrial}
             className="ear-button ear-button-secondary"
+            {...holdHandlers(onReplayPress, onReplayRelease)}
           >
             Nochmal hören
           </button>

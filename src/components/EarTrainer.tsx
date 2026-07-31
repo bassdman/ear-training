@@ -81,7 +81,8 @@ export default function EarTrainer({
     isPlaying,
     isPreloading,
     overallLoad,
-    playTone,
+    startTone,
+    stopTone,
     preloadToneStyles,
   } = useTonePlayer()
 
@@ -101,10 +102,10 @@ export default function EarTrainer({
     void preloadToneStyles(activeToneStylesForPreload)
   }, [preloadToneStyles, activeToneStylesForPreload])
 
-  const startAndPlayTrial = async () => {
+  const startAndHoldTrial = async () => {
     const trial = startTrial()
     if (!trial) return
-    await playTone(
+    await startTone(
       trial.note,
       trial.toneStyle,
       trial.frequencyMultiplier,
@@ -112,10 +113,10 @@ export default function EarTrainer({
     )
   }
 
-  const replayTone = async () => {
+  const replayAndHoldTone = async () => {
     const trial = getCurrentTrial()
     if (!trial) return
-    await playTone(
+    await startTone(
       trial.note,
       trial.toneStyle,
       trial.frequencyMultiplier,
@@ -197,12 +198,14 @@ export default function EarTrainer({
             hasCurrentTrial={Boolean(currentTrial)}
             feedback={feedback}
             guessOptions={guessOptions}
-            onStartTrial={() => {
-              void startAndPlayTrial()
+            onStartTrialPress={() => {
+              void startAndHoldTrial()
             }}
-            onReplay={() => {
-              void replayTone()
+            onStartTrialRelease={stopTone}
+            onReplayPress={() => {
+              void replayAndHoldTone()
             }}
+            onReplayRelease={stopTone}
             onGuess={handleGuess}
           />
         </div>
