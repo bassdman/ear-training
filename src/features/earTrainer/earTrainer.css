@@ -269,7 +269,7 @@
 
 .ear-actions {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
   width: 100%;

@@ -93,5 +93,6 @@ describe('EarTrainer', () => {
     expect(screen.getByText('Klavier')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Weiter' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'd4' })).toBeInTheDocument()
   })
 })

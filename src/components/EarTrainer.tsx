@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Soundfont } from 'smplr'
 
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
+import { ProgressPanel } from '../features/earTrainer/components/ProgressPanel'
 import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import {
   INSTRUMENTS,
@@ -19,8 +20,8 @@ type ToneButtonConfig = {
 }
 
 const TONE_BUTTONS: ToneButtonConfig[] = [
-  { id: 'trial', label: 'Weiter', mode: 'start' },
   { id: 'replay', label: 'nochmals anhören', mode: 'replay' },
+  { id: 'trial', label: 'Weiter', mode: 'start' },
 ]
 
 const NOTE_TO_SMPLR: Record<NoteName, string> = {
@@ -79,8 +80,18 @@ export default function EarTrainer({
   onBackToCourse,
 }: EarTrainerProps) {
   const {
+    toneSet,
+    guessOptions,
+    unlockedToneStyles,
+    levelProgress,
+    levelProgressTotal,
+    forcedTrial,
+    awaitingGuess,
+    feedback,
+    leveledUpToast,
     startTrial,
     getCurrentTrial,
+    handleGuess,
   } = useEarTrainerGame({
     levelIdx,
     sectionIdx,
@@ -233,11 +244,23 @@ export default function EarTrainer({
             </div>
           </div>
 
+          <ProgressPanel
+            levelIdx={levelIdx}
+            sectionIdx={sectionIdx}
+            toneSet={toneSet}
+            unlockedToneStyles={unlockedToneStyles}
+            levelProgress={levelProgress}
+            levelProgressTotal={levelProgressTotal}
+            leveledUpToast={leveledUpToast}
+          />
+
           <ActiveSession
             buttons={TONE_BUTTONS.map((button) => ({
               ...button,
               isPlaying: Boolean(isPlayingByButtonId[button.id]),
-              isReady: isInstrumentReady && (button.mode === 'start' || Boolean(getCurrentTrial())),
+              isReady:
+                isInstrumentReady &&
+                (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
             }))}
             onPlayTone={(buttonId) => {
               const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
@@ -245,6 +268,48 @@ export default function EarTrainer({
               void playTone(button)
             }}
           />
+
+          <div className="ear-note-grid">
+            {guessOptions.map((option) => {
+              const isCorrect =
+                feedback?.actual === option.note &&
+                feedback?.actualFrequencyMultiplier === option.frequencyMultiplier
+              const isWrong =
+                feedback?.guessed === option.note &&
+                feedback?.guessedFrequencyMultiplier === option.frequencyMultiplier &&
+                !feedback.correct
+              const stateClass = isCorrect
+                ? 'is-correct'
+                : isWrong
+                  ? 'is-wrong'
+                  : ''
+
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleGuess(option.id)}
+                  disabled={!awaitingGuess}
+                  className={`ear-note-button ${stateClass}`}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {forcedTrial && (
+            <div className="ear-retry">
+              Wiederholung: gleicher Tonstil und gleicher Ton wie eben
+            </div>
+          )}
+
+          {feedback && (
+            <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
+              {feedback.correct
+                ? `Richtig · ${feedback.actualLabel} (${feedback.toneStyle})`
+                : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
+            </div>
+          )}
         </div>
       )}
     </div>
