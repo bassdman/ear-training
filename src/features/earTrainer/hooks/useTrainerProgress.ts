@@ -170,7 +170,7 @@ export function useTrainerProgress() {
             setSelectedInstrumentId(data.selectedInstrumentId as InstrumentId)
           } else if (typeof data.toneStyleMode === 'string') {
             const migrated = data.toneStyleMode.startsWith('synth')
-              ? 'synth'
+              ? 'piano'
               : data.toneStyleMode
             if (INSTRUMENT_IDS.includes(migrated as InstrumentId)) {
               setSelectedInstrumentId(migrated as InstrumentId)

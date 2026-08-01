@@ -139,18 +139,25 @@ export default function EarTrainer({
     return audioContext
   }
 
-  const ensureInstrument = async (instrumentId: InstrumentId) => {
+  const ensureInstrument = async (instrumentId: InstrumentId, forceReload = false) => {
     const existingInstrument = instrumentsRef.current[instrumentId]
-    if (existingInstrument) {
-      await existingInstrument.ready
-      return existingInstrument
+    if (forceReload && existingInstrument) {
+      existingInstrument.dispose()
+      delete instrumentsRef.current[instrumentId]
+    }
+
+    const activeInstrument = instrumentsRef.current[instrumentId]
+    if (activeInstrument) {
+      await activeInstrument.ready
+      return activeInstrument
+    }
+
+    const instrumentConfig = INSTRUMENTS[instrumentId]
+    if (instrumentConfig.playbackEngine !== 'soundfont') {
+      throw new Error(`Instrument ${instrumentId} does not support soundfont playback.`)
     }
 
     const audioContext = await ensureAudioContext(false)
-    const instrumentConfig = INSTRUMENTS[instrumentId]
-    if (instrumentConfig.playbackEngine !== 'soundfont') {
-      throw new Error(`Instrument ${instrumentId} uses no soundfont playback.`)
-    }
     const instrument = Soundfont(audioContext, {
       instrument: instrumentConfig.soundfontInstrument,
       volume: 100,
@@ -162,12 +169,23 @@ export default function EarTrainer({
     return instrument
   }
 
+  const startSoundfontTone = async (instrumentId: InstrumentId, note: string) => {
+    const instrument = await ensureInstrument(instrumentId)
+
+    try {
+      return instrument.start({ note, duration: 1 })
+    } catch {
+      const refreshedInstrument = await ensureInstrument(instrumentId, true)
+      return refreshedInstrument.start({ note, duration: 1 })
+    }
+  }
+
   const instrumentQuery = useQuery({
     queryKey: ['ear-instrument', selectedInstrumentId],
     enabled: loaded,
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
+    staleTime: 0,
     retry: 1,
+    refetchOnMount: 'always',
     queryFn: async () => {
       await ensureInstrument(selectedInstrumentId)
       return true
@@ -188,11 +206,8 @@ export default function EarTrainer({
       button.mode === 'start' ? startTrial() : getCurrentTrial()
     if (!trial) return
 
-    const instrument = await ensureInstrument(selectedInstrumentId)
-    const stop = instrument.start({
-      note: toSmplrNoteName(trial.note, trial.frequencyMultiplier),
-      duration: 1,
-    })
+    const note = toSmplrNoteName(trial.note, trial.frequencyMultiplier)
+    const stop = await startSoundfontTone(selectedInstrumentId, note)
 
     setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: true }))
     activeStopRef.current = stop

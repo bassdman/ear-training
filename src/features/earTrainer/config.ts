@@ -57,11 +57,6 @@ export const INSTRUMENTS = {
     soundfontInstrument: 'church_organ',
     oscillatorType: 'square' as OscillatorType,
   },
-  synth: {
-    label: 'Synth',
-    playbackEngine: 'synth' as const,
-    oscillatorType: 'triangle' as OscillatorType,
-  },
 } as const
 
 export type InstrumentId = Extract<keyof typeof INSTRUMENTS, string>
