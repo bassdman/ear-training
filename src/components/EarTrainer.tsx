@@ -9,6 +9,18 @@ import {
 } from '../features/earTrainer/config'
 import '../features/earTrainer/earTrainer.css'
 
+type ToneButtonConfig = {
+  id: string
+  label: string
+  instrumentId: 'piano' | 'flute'
+  note: string
+}
+
+const TONE_BUTTONS: ToneButtonConfig[] = [
+  { id: 'piano-c4', label: 'Klavier C4', instrumentId: 'piano', note: 'C4' },
+  { id: 'flute-g4', label: 'Flöte G4', instrumentId: 'flute', note: 'G4' },
+]
+
 type EarTrainerProps = {
   loaded: boolean
   levelIdx: number
@@ -37,17 +49,32 @@ export default function EarTrainer({
   onBackToCourse,
 }: EarTrainerProps) {
   const audioContextRef = useRef<AudioContext | null>(null)
-  const pianoRef = useRef<ReturnType<typeof Soundfont> | null>(null)
-  const activeStopRef = useRef<(() => void) | null>(null)
-  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isPianoReady, setIsPianoReady] = useState(false)
+  const instrumentsRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof Soundfont>>>>({})
+  const activeStopsRef = useRef<Partial<Record<InstrumentId, (() => void) | null>>>({})
+  const stopTimerRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof setTimeout> | null>>>({})
+  const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
+  const [readyByInstrumentId, setReadyByInstrumentId] = useState<Record<InstrumentId, boolean>>({
+    piano: false,
+    guitar: false,
+    flute: false,
+    organ: false,
+    synth: false,
+  })
 
   const clearStopTimer = () => {
-    if (stopTimerRef.current) {
-      clearTimeout(stopTimerRef.current)
-      stopTimerRef.current = null
-    }
+    Object.values(stopTimerRef.current).forEach((timer) => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    })
+    stopTimerRef.current = {}
+  }
+
+  const stopAllTones = () => {
+    Object.values(activeStopsRef.current).forEach((stop) => stop?.())
+    activeStopsRef.current = {}
+    clearStopTimer()
+    setIsPlayingByButtonId({})
   }
 
   const ensureAudioContext = async () => {
@@ -63,55 +90,59 @@ export default function EarTrainer({
     return audioContext
   }
 
-  const ensurePiano = async () => {
-    if (pianoRef.current) {
-      return pianoRef.current
+  const ensureInstrument = async (instrumentId: 'piano' | 'flute') => {
+    const existingInstrument = instrumentsRef.current[instrumentId]
+    if (existingInstrument) {
+      return existingInstrument
     }
 
     const audioContext = await ensureAudioContext()
-    const piano = Soundfont(audioContext, {
-      instrument: 'acoustic_grand_piano',
+    const instrumentConfig = INSTRUMENTS[instrumentId]
+    const instrument = Soundfont(audioContext, {
+      instrument: instrumentConfig.soundfontInstrument,
       volume: 100,
       velocity: 95,
     })
 
-    pianoRef.current = piano
-    await piano.ready
-    setIsPianoReady(true)
-    return piano
+    instrumentsRef.current[instrumentId] = instrument
+    await instrument.ready
+    setReadyByInstrumentId((prev) => ({ ...prev, [instrumentId]: true }))
+    return instrument
   }
 
-  const playTone = async () => {
-    if (isPlaying) return
+  useEffect(() => {
+    if (!loaded) return
 
-    clearStopTimer()
-    activeStopRef.current?.()
-    activeStopRef.current = null
+    void Promise.all(TONE_BUTTONS.map((button) => ensureInstrument(button.instrumentId)))
+  }, [loaded])
 
-    const piano = await ensurePiano()
-    const note = 'C4'
-    const stop = piano.start({ note, duration: 1 })
+  const playTone = async (button: ToneButtonConfig) => {
+    if (isPlayingByButtonId[button.id]) return
 
-    setIsPlaying(true)
-    activeStopRef.current = stop
+    stopAllTones()
 
-    stopTimerRef.current = setTimeout(() => {
-      activeStopRef.current?.()
-      activeStopRef.current = null
-      stopTimerRef.current = null
-      setIsPlaying(false)
+    const instrument = await ensureInstrument(button.instrumentId)
+    const stop = instrument.start({ note: button.note, duration: 1 })
+
+    setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: true }))
+    activeStopsRef.current[button.instrumentId] = stop
+
+    stopTimerRef.current[button.instrumentId] = setTimeout(() => {
+      activeStopsRef.current[button.instrumentId]?.()
+      activeStopsRef.current[button.instrumentId] = null
+      stopTimerRef.current[button.instrumentId] = null
+      setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: false }))
     }, 1000)
   }
 
   useEffect(() => {
     return () => {
-      clearStopTimer()
-      activeStopRef.current?.()
-      pianoRef.current?.dispose()
+      stopAllTones()
+      Object.values(instrumentsRef.current).forEach((instrument) => instrument?.dispose())
       void audioContextRef.current?.close()
       audioContextRef.current = null
-      pianoRef.current = null
-      activeStopRef.current = null
+      instrumentsRef.current = {}
+      activeStopsRef.current = {}
     }
   }, [])
 
@@ -150,14 +181,22 @@ export default function EarTrainer({
             </div>
 
             <div className="ear-samples-status" role="status" aria-live="polite">
-              {isPianoReady ? 'Klavier bereit' : 'Klavier lädt...'}
+              {TONE_BUTTONS.every((button) => readyByInstrumentId[button.instrumentId])
+                ? 'Klavier und Flöte bereit'
+                : 'Klavier und Flöte laden...'}
             </div>
           </div>
 
           <ActiveSession
-            isPlaying={isPlaying}
-            onPlayTone={() => {
-              void playTone()
+            buttons={TONE_BUTTONS.map((button) => ({
+              ...button,
+              isPlaying: Boolean(isPlayingByButtonId[button.id]),
+              isReady: readyByInstrumentId[button.instrumentId],
+            }))}
+            onPlayTone={(buttonId) => {
+              const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
+              if (!button) return
+              void playTone(button)
             }}
           />
         </div>

@@ -1,14 +1,28 @@
 type ActiveSessionProps = {
-  isPlaying: boolean
-  onPlayTone: () => void
+  buttons: Array<{
+    id: string
+    label: string
+    isPlaying: boolean
+    isReady: boolean
+  }>
+  onPlayTone: (buttonId: string) => void
 }
 
-export function ActiveSession({ isPlaying, onPlayTone }: ActiveSessionProps) {
+export function ActiveSession({ buttons, onPlayTone }: ActiveSessionProps) {
   return (
     <div className="ear-player">
-      <button className="ear-button ear-button-primary" onClick={onPlayTone}>
-        {isPlaying ? 'Spielt...' : 'Ton abspielen'}
-      </button>
+      <div className="ear-actions">
+        {buttons.map((button) => (
+          <button
+            key={button.id}
+            className="ear-button ear-button-primary"
+            disabled={!button.isReady}
+            onClick={() => onPlayTone(button.id)}
+          >
+            {button.isPlaying ? `Spielt...` : button.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

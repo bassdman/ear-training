@@ -1,7 +1,48 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import EarTrainer from './EarTrainer'
+
+const { soundfontMock, startMock, disposeMock } = vi.hoisted(() => {
+  const start = vi.fn(() => vi.fn())
+  const dispose = vi.fn()
+  const soundfont = vi.fn(() => ({
+    ready: Promise.resolve(),
+    start,
+    dispose,
+    output: { volume: 100 },
+  }))
+
+  return {
+    soundfontMock: soundfont,
+    startMock: start,
+    disposeMock: dispose,
+  }
+})
+
+vi.mock('smplr', () => ({
+  Soundfont: soundfontMock,
+}))
+
+class FakeAudioContext {
+  state: AudioContextState = 'suspended'
+  destination = {}
+
+  async resume() {
+    this.state = 'running'
+  }
+
+  async close() {
+    this.state = 'closed'
+  }
+}
+
+beforeEach(() => {
+  soundfontMock.mockClear()
+  startMock.mockClear()
+  disposeMock.mockClear()
+  vi.stubGlobal('AudioContext', FakeAudioContext as unknown as typeof AudioContext)
+})
 
 describe('EarTrainer', () => {
   it('zeigt Loading-Zustand', () => {
@@ -50,6 +91,7 @@ describe('EarTrainer', () => {
     )
 
     expect(screen.getByText('Klavier')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Ton abspielen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Klavier C4' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Flöte G4' })).toBeInTheDocument()
   })
 })
