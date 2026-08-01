@@ -25,6 +25,7 @@ describe('useEarTrainerGame', () => {
         bestStreak: 0,
         progressSetters,
         frequencyMultipliers: [1],
+        toneStyleCount: 1,
       }),
     )
 
@@ -55,6 +56,7 @@ describe('useEarTrainerGame', () => {
         bestStreak: 0,
         progressSetters,
         frequencyMultipliers: [1],
+        toneStyleCount: 1,
       }),
     )
 
@@ -89,6 +91,7 @@ describe('useEarTrainerGame', () => {
         bestStreak: 0,
         progressSetters,
         frequencyMultipliers: [1],
+        toneStyleCount: 1,
       }),
     )
 

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { TRAINING_DIFFICULTIES } from './features/earTrainer/config'
 
 const { useTrainerProgressMock } = vi.hoisted(() => ({
   useTrainerProgressMock: vi.fn(),
@@ -21,6 +22,14 @@ describe('App', () => {
     useTrainerProgressMock.mockReturnValue({
       loaded: true,
       activeCategoryIdx: 0,
+      activeDifficultyId: 'easy',
+      difficultyIds: ['easy', 'medium', 'hard'],
+      difficultyConfig: TRAINING_DIFFICULTIES,
+      categoryDifficultyProgress: {
+        easy: [{ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 }],
+        medium: [{ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 }],
+        hard: [{ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 }],
+      },
       categoryProgress: [{ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 }],
       selectedInstrumentId: 'piano',
       playbackVolume: 100,
@@ -35,9 +44,10 @@ describe('App', () => {
       setSectionIdx: vi.fn(),
       setBestStreak: vi.fn(),
       setUnlockedLevelIdx: vi.fn(),
-      setCategoryLevelIdx: vi.fn(),
-      setCategorySectionIdx: vi.fn(),
-      setCategoryUnlockedLevelIdx: vi.fn(),
+      setActiveDifficultyId: vi.fn(),
+      setCategoryLevelIdx: vi.fn((_, __, value) => value),
+      setCategorySectionIdx: vi.fn((_, __, value) => value),
+      setCategoryUnlockedLevelIdx: vi.fn((_, __, value) => value),
     })
 
     render(

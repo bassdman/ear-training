@@ -31,6 +31,7 @@ type UseEarTrainerGameOptions = {
   bestStreak: number
   progressSetters: ProgressSetters
   frequencyMultipliers: number[]
+  toneStyleCount: number
 }
 
 export function useEarTrainerGame({
@@ -39,6 +40,7 @@ export function useEarTrainerGame({
   bestStreak,
   progressSetters,
   frequencyMultipliers,
+  toneStyleCount,
 }: UseEarTrainerGameOptions) {
   const [sectionProgress, setSectionProgress] = useState(0)
   const [currentTrial, setCurrentTrial] = useState<Trial | null>(null)
@@ -69,8 +71,8 @@ export function useEarTrainerGame({
   )
 
   const unlockedToneStyles = useMemo(
-    () => TONE_STYLE_IDS.slice(0, sectionIdx + 1),
-    [sectionIdx],
+    () => TONE_STYLE_IDS.slice(0, Math.max(1, Math.min(TONE_STYLE_IDS.length, toneStyleCount))),
+    [toneStyleCount],
   )
 
   useEffect(() => {

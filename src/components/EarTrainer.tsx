@@ -103,6 +103,7 @@ type EarTrainerProps = {
   rangeLabel: string
   rangeSubtitle: string
   rangeFrequencyMultipliers: number[]
+  toneStyleCount: number
   selectedInstrumentId: InstrumentId
   playbackVolume: number
   setPlaybackVolume: React.Dispatch<React.SetStateAction<number>>
@@ -121,6 +122,7 @@ export default function EarTrainer({
   rangeLabel,
   rangeSubtitle,
   rangeFrequencyMultipliers,
+  toneStyleCount,
   selectedInstrumentId,
   playbackVolume,
   setPlaybackVolume,
@@ -150,6 +152,7 @@ export default function EarTrainer({
       setUnlockedLevelIdx,
     },
     frequencyMultipliers: rangeFrequencyMultipliers,
+    toneStyleCount,
   })
 
   const audioContextRef = useRef<AudioContext | null>(null)

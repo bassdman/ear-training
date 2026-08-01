@@ -2,7 +2,11 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import EarTrainer from './components/EarTrainer'
 import { CoursePage } from './features/course/CoursePage'
-import { INSTRUMENTS, TRAINING_CATEGORIES } from './features/earTrainer/config'
+import {
+  INSTRUMENTS,
+  TRAINING_CATEGORIES,
+  type DifficultyId,
+} from './features/earTrainer/config'
 import { useTrainerProgress } from './features/earTrainer/hooks/useTrainerProgress'
 
 function App() {
@@ -12,10 +16,15 @@ function App() {
   const activeCategory =
     TRAINING_CATEGORIES[progress.activeCategoryIdx] ?? TRAINING_CATEGORIES[0]
 
-  const openLevel = (categoryIdx: number, selectedLevelIdx: number) => {
+  const openLevel = (
+    categoryIdx: number,
+    difficultyId: DifficultyId,
+    selectedLevelIdx: number,
+  ) => {
     progress.setActiveCategoryIdx(categoryIdx)
-    progress.setCategoryLevelIdx(categoryIdx, selectedLevelIdx)
-    progress.setCategorySectionIdx(categoryIdx, 0)
+    progress.setActiveDifficultyId(difficultyId)
+    progress.setCategoryLevelIdx(categoryIdx, difficultyId, selectedLevelIdx)
+    progress.setCategorySectionIdx(categoryIdx, difficultyId, 0)
     navigate('/trainer')
   }
 
@@ -30,13 +39,21 @@ function App() {
             categories={TRAINING_CATEGORIES}
             instruments={INSTRUMENTS}
             activeCategoryIdx={progress.activeCategoryIdx}
-            categoryProgress={progress.categoryProgress}
+            activeDifficultyId={progress.activeDifficultyId}
+            difficultyConfig={progress.difficultyConfig}
+            difficultyIds={progress.difficultyIds}
+            categoryDifficultyProgress={progress.categoryDifficultyProgress}
             selectedInstrumentId={progress.selectedInstrumentId}
             playbackVolume={progress.playbackVolume}
             onSelectedInstrumentChange={progress.setSelectedInstrumentId}
             onPlaybackVolumeChange={progress.setPlaybackVolume}
+            onActiveDifficultyChange={progress.setActiveDifficultyId}
             onOpenLevel={openLevel}
-            onContinue={() => navigate('/trainer')}
+            onContinue={(categoryIdx, difficultyId) => {
+              progress.setActiveCategoryIdx(categoryIdx)
+              progress.setActiveDifficultyId(difficultyId)
+              navigate('/trainer')
+            }}
           />
         }
       />
@@ -55,6 +72,9 @@ function App() {
             rangeLabel={activeCategory.label}
             rangeSubtitle={activeCategory.subtitle}
             rangeFrequencyMultipliers={activeCategory.frequencyMultipliers}
+            toneStyleCount={
+              progress.difficultyConfig[progress.activeDifficultyId].toneStyleCount
+            }
             selectedInstrumentId={progress.selectedInstrumentId}
             playbackVolume={progress.playbackVolume}
             setPlaybackVolume={progress.setPlaybackVolume}

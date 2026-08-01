@@ -75,6 +75,7 @@ describe('EarTrainer', () => {
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
+        toneStyleCount={1}
         selectedInstrumentId="piano"
         playbackVolume={100}
         setPlaybackVolume={vi.fn()}
@@ -99,6 +100,7 @@ describe('EarTrainer', () => {
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
+        toneStyleCount={1}
         selectedInstrumentId="piano"
         playbackVolume={100}
         setPlaybackVolume={() => {}}

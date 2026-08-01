@@ -196,12 +196,26 @@ export type CategoryProgressState = {
   unlockedLevelIdx: number
 }
 
+export const TRAINING_DIFFICULTIES = {
+  easy: { label: 'Leicht', toneStyleCount: 1 },
+  medium: { label: 'Mittel', toneStyleCount: 2 },
+  hard: { label: 'Schwer', toneStyleCount: 4 },
+} as const
+
+export type DifficultyId = Extract<keyof typeof TRAINING_DIFFICULTIES, string>
+export const DIFFICULTY_IDS = Object.keys(TRAINING_DIFFICULTIES) as DifficultyId[]
+
+export type CategoryDifficultyProgressState = Record<DifficultyId, CategoryProgressState[]>
+
 export type ProgressState = {
   activeCategoryIdx?: number
+  activeDifficultyId?: DifficultyId
   categoryProgress?: CategoryProgressState[]
+  categoryDifficultyProgress?: Partial<Record<DifficultyId, CategoryProgressState[]>>
   levelIdx?: number
   sectionIdx?: number
   bestStreak?: number
+  bestStreakByDifficulty?: Partial<Record<DifficultyId, number>>
   unlockedLevelIdx?: number
   selectedInstrumentId?: InstrumentId
   toneStyleMode?: string

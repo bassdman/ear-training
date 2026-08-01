@@ -34,8 +34,13 @@ describe('useTrainerProgress', () => {
     readProgressMock.mockResolvedValue(
       JSON.stringify({
         activeCategoryIdx: 0,
-        categoryProgress: [{ levelIdx: 2, sectionIdx: 1, unlockedLevelIdx: 2 }],
-        bestStreak: 11,
+        activeDifficultyId: 'medium',
+        categoryDifficultyProgress: {
+          easy: [{ levelIdx: 1, sectionIdx: 0, unlockedLevelIdx: 1 }],
+          medium: [{ levelIdx: 2, sectionIdx: 1, unlockedLevelIdx: 2 }],
+          hard: [{ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 }],
+        },
+        bestStreakByDifficulty: { easy: 4, medium: 11, hard: 2 },
         selectedInstrumentId: 'piano',
         playbackVolume: 200,
       }),
@@ -45,6 +50,7 @@ describe('useTrainerProgress', () => {
     const { result } = renderHook(() => useTrainerProgress())
     await waitFor(() => expect(result.current.loaded).toBe(true))
 
+    expect(result.current.activeDifficultyId).toBe('medium')
     expect(result.current.levelIdx).toBe(2)
     expect(result.current.sectionIdx).toBe(1)
     expect(result.current.bestStreak).toBe(11)
@@ -60,6 +66,7 @@ describe('useTrainerProgress', () => {
     await waitFor(() => expect(result.current.loaded).toBe(true))
 
     act(() => {
+      result.current.setActiveDifficultyId('hard')
       result.current.setBestStreak(5)
       result.current.setSelectedInstrumentId('flute')
       result.current.setPlaybackVolume(84)
@@ -67,6 +74,8 @@ describe('useTrainerProgress', () => {
 
     await waitFor(() => expect(writeProgressMock).toHaveBeenCalled())
     const latestPayload = writeProgressMock.mock.calls.at(-1)?.[1] as string
+    expect(latestPayload).toContain('"activeDifficultyId":"hard"')
+    expect(latestPayload).toContain('"bestStreakByDifficulty"')
     expect(latestPayload).toContain('"bestStreak":5')
     expect(latestPayload).toContain('"selectedInstrumentId":"flute"')
     expect(latestPayload).toContain('"playbackVolume":84')

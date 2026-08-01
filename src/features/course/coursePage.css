@@ -56,6 +56,32 @@
   white-space: nowrap;
 }
 
+.course-difficulty-tabs {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #30374b;
+  border-radius: 999px;
+  padding: 4px;
+  background: rgba(13, 16, 24, 0.8);
+}
+
+.course-difficulty-tab {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: transparent;
+  color: #b9c2da;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.course-difficulty-tab.is-selected {
+  background: #c9a227;
+  color: #1d1a0f;
+}
+
 .course-kicker {
   margin: 0;
   font-size: 0.78rem;

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react'
 
 import {
+  DIFFICULTY_IDS,
   INSTRUMENT_IDS,
   LEVEL_COUNT,
   PROGRESS_STORAGE_KEY,
   SECTION_COUNT,
+  TRAINING_DIFFICULTIES,
   TRAINING_CATEGORIES,
   type InstrumentId,
+  type DifficultyId,
+  type CategoryDifficultyProgressState,
   type CategoryProgressState,
   type ProgressState,
 } from '../config'
@@ -19,16 +23,36 @@ const DEFAULT_CATEGORY_PROGRESS = (): CategoryProgressState[] =>
     unlockedLevelIdx: 0,
   }))
 
+const DEFAULT_CATEGORY_DIFFICULTY_PROGRESS = (): CategoryDifficultyProgressState => ({
+  easy: DEFAULT_CATEGORY_PROGRESS(),
+  medium: DEFAULT_CATEGORY_PROGRESS(),
+  hard: DEFAULT_CATEGORY_PROGRESS(),
+})
+
 const clampLevel = (value: number) => Math.min(Math.max(value, 0), LEVEL_COUNT - 1)
 const clampSection = (value: number) => Math.min(Math.max(value, 0), SECTION_COUNT - 1)
+
+const normalizeProgressEntry = (source?: Partial<CategoryProgressState>): CategoryProgressState => ({
+  levelIdx: clampLevel(source?.levelIdx ?? 0),
+  sectionIdx: clampSection(source?.sectionIdx ?? 0),
+  unlockedLevelIdx: clampLevel(Math.max(source?.unlockedLevelIdx ?? 0, source?.levelIdx ?? 0)),
+})
 
 export function useTrainerProgress() {
   const [loaded, setLoaded] = useState(false)
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0)
-  const [categoryProgress, setCategoryProgress] = useState<CategoryProgressState[]>(
-    DEFAULT_CATEGORY_PROGRESS,
+  const [activeDifficultyId, setActiveDifficultyId] = useState<DifficultyId>('easy')
+  const [categoryDifficultyProgress, setCategoryDifficultyProgress] =
+    useState<CategoryDifficultyProgressState>(
+      DEFAULT_CATEGORY_DIFFICULTY_PROGRESS,
+    )
+  const [bestStreakByDifficulty, setBestStreakByDifficulty] = useState<Record<DifficultyId, number>>(
+    {
+      easy: 0,
+      medium: 0,
+      hard: 0,
+    },
   )
-  const [bestStreak, setBestStreak] = useState(0)
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<InstrumentId>('piano')
   const [playbackVolume, setPlaybackVolume] = useState(100)
 
@@ -37,23 +61,32 @@ export function useTrainerProgress() {
     [activeCategoryIdx],
   )
 
+  const safeActiveDifficultyId = useMemo(
+    () => (DIFFICULTY_IDS.includes(activeDifficultyId) ? activeDifficultyId : 'easy'),
+    [activeDifficultyId],
+  )
+
+  const categoryProgress = categoryDifficultyProgress[safeActiveDifficultyId]
   const activeProgress =
     categoryProgress[safeActiveCategoryIdx] ?? DEFAULT_CATEGORY_PROGRESS()[0]
 
   const levelIdx = activeProgress.levelIdx
   const sectionIdx = activeProgress.sectionIdx
   const unlockedLevelIdx = activeProgress.unlockedLevelIdx
+  const bestStreak = bestStreakByDifficulty[safeActiveDifficultyId] ?? 0
 
   const updateCategoryValue = useCallback(
     (
       categoryIdx: number,
+      difficultyId: DifficultyId,
       key: keyof CategoryProgressState,
       nextValue: SetStateAction<number>,
     ) => {
-      setCategoryProgress((prev) => {
-        const next = [...prev]
+      setCategoryDifficultyProgress((prev) => {
+        const next = { ...prev }
+        const nextDifficultyProgress = [...next[difficultyId]]
         const safeIdx = Math.min(Math.max(categoryIdx, 0), TRAINING_CATEGORIES.length - 1)
-        const current = next[safeIdx] ?? DEFAULT_CATEGORY_PROGRESS()[0]
+        const current = nextDifficultyProgress[safeIdx] ?? DEFAULT_CATEGORY_PROGRESS()[0]
         const baseValue = current[key]
         const resolved =
           typeof nextValue === 'function'
@@ -65,15 +98,20 @@ export function useTrainerProgress() {
             ? clampSection(resolved)
             : clampLevel(resolved)
 
-        next[safeIdx] = {
+        nextDifficultyProgress[safeIdx] = {
           ...current,
           [key]: clamped,
         }
 
         if (key !== 'unlockedLevelIdx') {
-          const unlocked = Math.max(next[safeIdx].unlockedLevelIdx, next[safeIdx].levelIdx)
-          next[safeIdx].unlockedLevelIdx = clampLevel(unlocked)
+          const unlocked = Math.max(
+            nextDifficultyProgress[safeIdx].unlockedLevelIdx,
+            nextDifficultyProgress[safeIdx].levelIdx,
+          )
+          nextDifficultyProgress[safeIdx].unlockedLevelIdx = clampLevel(unlocked)
         }
+
+        next[difficultyId] = nextDifficultyProgress
 
         return next
       })
@@ -83,44 +121,67 @@ export function useTrainerProgress() {
 
   const setLevelIdx = useCallback(
     (nextValue: SetStateAction<number>) => {
-      updateCategoryValue(safeActiveCategoryIdx, 'levelIdx', nextValue)
+      updateCategoryValue(safeActiveCategoryIdx, safeActiveDifficultyId, 'levelIdx', nextValue)
     },
-    [safeActiveCategoryIdx, updateCategoryValue],
+    [safeActiveCategoryIdx, safeActiveDifficultyId, updateCategoryValue],
   )
 
   const setSectionIdx = useCallback(
     (nextValue: SetStateAction<number>) => {
-      updateCategoryValue(safeActiveCategoryIdx, 'sectionIdx', nextValue)
+      updateCategoryValue(safeActiveCategoryIdx, safeActiveDifficultyId, 'sectionIdx', nextValue)
     },
-    [safeActiveCategoryIdx, updateCategoryValue],
+    [safeActiveCategoryIdx, safeActiveDifficultyId, updateCategoryValue],
   )
 
   const setUnlockedLevelIdx = useCallback(
     (nextValue: SetStateAction<number>) => {
-      updateCategoryValue(safeActiveCategoryIdx, 'unlockedLevelIdx', nextValue)
+      updateCategoryValue(
+        safeActiveCategoryIdx,
+        safeActiveDifficultyId,
+        'unlockedLevelIdx',
+        nextValue,
+      )
     },
-    [safeActiveCategoryIdx, updateCategoryValue],
+    [safeActiveCategoryIdx, safeActiveDifficultyId, updateCategoryValue],
   )
 
   const setCategoryLevelIdx = useCallback(
-    (categoryIdx: number, nextValue: SetStateAction<number>) => {
-      updateCategoryValue(categoryIdx, 'levelIdx', nextValue)
+    (categoryIdx: number, difficultyId: DifficultyId, nextValue: SetStateAction<number>) => {
+      updateCategoryValue(categoryIdx, difficultyId, 'levelIdx', nextValue)
     },
     [updateCategoryValue],
   )
 
   const setCategorySectionIdx = useCallback(
-    (categoryIdx: number, nextValue: SetStateAction<number>) => {
-      updateCategoryValue(categoryIdx, 'sectionIdx', nextValue)
+    (categoryIdx: number, difficultyId: DifficultyId, nextValue: SetStateAction<number>) => {
+      updateCategoryValue(categoryIdx, difficultyId, 'sectionIdx', nextValue)
     },
     [updateCategoryValue],
   )
 
   const setCategoryUnlockedLevelIdx = useCallback(
-    (categoryIdx: number, nextValue: SetStateAction<number>) => {
-      updateCategoryValue(categoryIdx, 'unlockedLevelIdx', nextValue)
+    (categoryIdx: number, difficultyId: DifficultyId, nextValue: SetStateAction<number>) => {
+      updateCategoryValue(categoryIdx, difficultyId, 'unlockedLevelIdx', nextValue)
     },
     [updateCategoryValue],
+  )
+
+  const setBestStreak = useCallback(
+    (nextValue: SetStateAction<number>) => {
+      setBestStreakByDifficulty((prev) => {
+        const current = prev[safeActiveDifficultyId] ?? 0
+        const resolved =
+          typeof nextValue === 'function'
+            ? (nextValue as (prevState: number) => number)(current)
+            : nextValue
+
+        return {
+          ...prev,
+          [safeActiveDifficultyId]: Math.max(0, Math.round(resolved)),
+        }
+      })
+    },
+    [safeActiveDifficultyId],
   )
 
   useEffect(() => {
@@ -132,28 +193,43 @@ export function useTrainerProgress() {
           if (typeof data.activeCategoryIdx === 'number') {
             setActiveCategoryIdx(data.activeCategoryIdx)
           }
+          if (
+            typeof data.activeDifficultyId === 'string' &&
+            DIFFICULTY_IDS.includes(data.activeDifficultyId as DifficultyId)
+          ) {
+            setActiveDifficultyId(data.activeDifficultyId as DifficultyId)
+          }
 
-          if (Array.isArray(data.categoryProgress) && data.categoryProgress.length > 0) {
-            const mapped = TRAINING_CATEGORIES.map((_, idx) => {
-              const source = data.categoryProgress?.[idx]
-              return {
-                levelIdx: clampLevel(source?.levelIdx ?? 0),
-                sectionIdx: clampSection(source?.sectionIdx ?? 0),
-                unlockedLevelIdx: clampLevel(
-                  Math.max(source?.unlockedLevelIdx ?? 0, source?.levelIdx ?? 0),
-                ),
-              }
+          if (data.categoryDifficultyProgress) {
+            const mappedByDifficulty = DEFAULT_CATEGORY_DIFFICULTY_PROGRESS()
+
+            DIFFICULTY_IDS.forEach((difficultyId) => {
+              const sourceList = data.categoryDifficultyProgress?.[difficultyId] ?? []
+              mappedByDifficulty[difficultyId] = TRAINING_CATEGORIES.map((_, idx) =>
+                normalizeProgressEntry(sourceList[idx]),
+              )
             })
-            setCategoryProgress(mapped)
+
+            setCategoryDifficultyProgress(mappedByDifficulty)
+          } else if (Array.isArray(data.categoryProgress) && data.categoryProgress.length > 0) {
+            const mappedEasy = TRAINING_CATEGORIES.map((_, idx) =>
+              normalizeProgressEntry(data.categoryProgress?.[idx]),
+            )
+            setCategoryDifficultyProgress({
+              easy: mappedEasy,
+              medium: DEFAULT_CATEGORY_PROGRESS(),
+              hard: DEFAULT_CATEGORY_PROGRESS(),
+            })
           } else {
             const legacyLevel = clampLevel(data.levelIdx ?? 0)
             const legacySection = clampSection(data.sectionIdx ?? 0)
             const legacyUnlocked = clampLevel(
               Math.max(data.unlockedLevelIdx ?? legacyLevel, legacyLevel),
             )
-            setCategoryProgress((prev) => {
-              const next = [...prev]
-              next[0] = {
+            setCategoryDifficultyProgress((prev) => {
+              const next = { ...prev }
+              next.easy = [...next.easy]
+              next.easy[0] = {
                 levelIdx: legacyLevel,
                 sectionIdx: legacySection,
                 unlockedLevelIdx: legacyUnlocked,
@@ -162,7 +238,22 @@ export function useTrainerProgress() {
             })
           }
 
-          if (typeof data.bestStreak === 'number') setBestStreak(data.bestStreak)
+          if (
+            data.bestStreakByDifficulty &&
+            typeof data.bestStreakByDifficulty === 'object'
+          ) {
+            setBestStreakByDifficulty({
+              easy: Math.max(0, Math.round(data.bestStreakByDifficulty.easy ?? 0)),
+              medium: Math.max(0, Math.round(data.bestStreakByDifficulty.medium ?? 0)),
+              hard: Math.max(0, Math.round(data.bestStreakByDifficulty.hard ?? 0)),
+            })
+          } else if (typeof data.bestStreak === 'number') {
+            setBestStreakByDifficulty((prev) => ({
+              ...prev,
+              easy: Math.max(0, Math.round(data.bestStreak ?? 0)),
+            }))
+          }
+
           if (
             typeof data.selectedInstrumentId === 'string' &&
             INSTRUMENT_IDS.includes(data.selectedInstrumentId as InstrumentId)
@@ -187,17 +278,22 @@ export function useTrainerProgress() {
     })()
   }, [])
 
-  const saveProgress = useCallback(async (best: number) => {
+  const saveProgress = useCallback(async () => {
     try {
-      const active = categoryProgress[safeActiveCategoryIdx] ?? DEFAULT_CATEGORY_PROGRESS()[0]
+      const activeList = categoryDifficultyProgress[safeActiveDifficultyId] ??
+        DEFAULT_CATEGORY_PROGRESS()
+      const active = activeList[safeActiveCategoryIdx] ?? DEFAULT_CATEGORY_PROGRESS()[0]
       await writeProgress(
         PROGRESS_STORAGE_KEY,
         JSON.stringify({
           activeCategoryIdx: safeActiveCategoryIdx,
-          categoryProgress,
+          activeDifficultyId: safeActiveDifficultyId,
+          categoryDifficultyProgress,
+          categoryProgress: categoryDifficultyProgress.easy,
           levelIdx: active.levelIdx,
           sectionIdx: active.sectionIdx,
-          bestStreak: best,
+          bestStreak: bestStreakByDifficulty.easy,
+          bestStreakByDifficulty,
           unlockedLevelIdx: active.unlockedLevelIdx,
           selectedInstrumentId,
           playbackVolume,
@@ -206,17 +302,29 @@ export function useTrainerProgress() {
     } catch (error) {
       console.error('Speichern fehlgeschlagen', error)
     }
-  }, [categoryProgress, playbackVolume, safeActiveCategoryIdx, selectedInstrumentId])
+  }, [
+    bestStreakByDifficulty,
+    categoryDifficultyProgress,
+    playbackVolume,
+    safeActiveCategoryIdx,
+    safeActiveDifficultyId,
+    selectedInstrumentId,
+  ])
 
   useEffect(() => {
     if (!loaded) return
-    void saveProgress(bestStreak)
-  }, [bestStreak, loaded, playbackVolume, saveProgress, selectedInstrumentId])
+    void saveProgress()
+  }, [loaded, playbackVolume, saveProgress, selectedInstrumentId])
 
   return {
     loaded,
     activeCategoryIdx: safeActiveCategoryIdx,
+    activeDifficultyId: safeActiveDifficultyId,
+    difficultyConfig: TRAINING_DIFFICULTIES,
+    difficultyIds: DIFFICULTY_IDS,
     setActiveCategoryIdx,
+    setActiveDifficultyId,
+    categoryDifficultyProgress,
     categoryProgress,
     levelIdx,
     sectionIdx,
