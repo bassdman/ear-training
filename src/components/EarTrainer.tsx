@@ -224,6 +224,33 @@ export default function EarTrainer({
     }, 1000)
   }
 
+  const playGuessOptionTone = async (noteName: NoteName, frequencyMultiplier: number) => {
+    stopAllTones()
+    setPlaybackError(null)
+
+    await ensureAudioContext(true)
+    setIsPreparingInstrument(true)
+
+    let stop: (() => void) | null = null
+    try {
+      const note = toSmplrNoteName(noteName, frequencyMultiplier)
+      stop = await startSoundfontTone(selectedInstrumentId, note)
+    } catch {
+      setPlaybackError('Instrument konnte nicht gestartet werden. Bitte erneut versuchen.')
+      setIsPreparingInstrument(false)
+      return
+    }
+
+    setIsPreparingInstrument(false)
+    activeStopRef.current = stop
+
+    stopTimerRef.current = setTimeout(() => {
+      activeStopRef.current?.()
+      activeStopRef.current = null
+      stopTimerRef.current = null
+    }, 1000)
+  }
+
   useEffect(() => {
     if (!loaded || hasAutoStartedRef.current) return
 
@@ -335,7 +362,10 @@ export default function EarTrainer({
               return (
                 <button
                   key={option.id}
-                  onClick={() => handleGuess(option.id)}
+                  onClick={() => {
+                    void playGuessOptionTone(option.note, option.frequencyMultiplier)
+                    handleGuess(option.id)
+                  }}
                   disabled={!awaitingGuess}
                   className={`ear-note-button ${stateClass}`}
                 >
@@ -354,7 +384,7 @@ export default function EarTrainer({
           {feedback && (
             <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
               {feedback.correct
-                ? `Richtig · ${feedback.actualLabel} (${feedback.toneStyle})`
+                ? `Richtig · ${feedback.actualLabel}`
                 : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
             </div>
           )}
