@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 
 import {
   EXERCISES,
@@ -58,6 +65,8 @@ export function useEarTrainerGame({
   const [completionNotice, setCompletionNotice] = useState<CompletionNotice | null>(null)
   const [sessionGuesses, setSessionGuesses] = useState(0)
   const [sessionCorrect, setSessionCorrect] = useState(0)
+  const lastRandomNoteRef = useRef<NoteName | null>(null)
+  const randomNoteStreakRef = useRef(0)
 
   const toneSet = EXERCISES[levelIdx]
   const activeMultipliers = useMemo(
@@ -87,6 +96,15 @@ export function useEarTrainerGame({
     setSectionProgress(0)
   }, [levelIdx, sectionIdx])
 
+  useEffect(() => {
+    const availableNotes = toneSet as readonly NoteName[]
+    if (!lastRandomNoteRef.current) return
+    if (availableNotes.includes(lastRandomNoteRef.current)) return
+
+    lastRandomNoteRef.current = null
+    randomNoteStreakRef.current = 0
+  }, [toneSet])
+
   const sectionStart = useMemo(
     () => SECTION_STEPS.slice(0, sectionIdx).reduce((sum, steps) => sum + steps, 0),
     [sectionIdx],
@@ -95,10 +113,33 @@ export function useEarTrainerGame({
   const levelProgress = Math.min(LEVEL_PROGRESS_TOTAL, sectionStart + sectionProgress)
 
   const startTrial = () => {
+    const pickRandomNote = (): NoteName => {
+      const availableNotes = toneSet as readonly NoteName[]
+      const streakBlockedNote =
+        randomNoteStreakRef.current >= 2 ? lastRandomNoteRef.current : null
+
+      const pickableNotes =
+        streakBlockedNote && availableNotes.length > 1
+          ? availableNotes.filter((note) => note !== streakBlockedNote)
+          : availableNotes
+
+      const selectedNote =
+        pickableNotes[Math.floor(Math.random() * pickableNotes.length)] ?? availableNotes[0]
+
+      if (selectedNote === lastRandomNoteRef.current) {
+        randomNoteStreakRef.current += 1
+      } else {
+        lastRandomNoteRef.current = selectedNote
+        randomNoteStreakRef.current = 1
+      }
+
+      return selectedNote
+    }
+
     const nextTrial =
       forcedTrial ??
       ({
-        note: toneSet[Math.floor(Math.random() * toneSet.length)] as NoteName,
+        note: pickRandomNote(),
         toneStyle:
           unlockedToneStyles[
             Math.floor(Math.random() * unlockedToneStyles.length)

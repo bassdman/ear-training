@@ -108,4 +108,40 @@ describe('useEarTrainerGame', () => {
 
     expect(progressSetters.setSectionIdx).toHaveBeenCalledWith(1)
   })
+
+  it('erzwingt spaetestens beim dritten Trial eine andere Note', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const progressSetters = {
+      setLevelIdx: vi.fn(),
+      setSectionIdx: vi.fn(),
+      setBestStreak: vi.fn(),
+      setUnlockedLevelIdx: vi.fn(),
+    }
+
+    const { result } = renderHook(() =>
+      useEarTrainerGame({
+        levelIdx: 0,
+        sectionIdx: 0,
+        bestStreak: 0,
+        progressSetters,
+        frequencyMultipliers: [1],
+        toneStyleCount: 1,
+      }),
+    )
+
+    let firstTrial!: ReturnType<typeof result.current.startTrial>
+    let secondTrial!: ReturnType<typeof result.current.startTrial>
+    let thirdTrial!: ReturnType<typeof result.current.startTrial>
+
+    act(() => {
+      firstTrial = result.current.startTrial()
+      secondTrial = result.current.startTrial()
+      thirdTrial = result.current.startTrial()
+    })
+
+    expect(firstTrial.note).toBe('D')
+    expect(secondTrial.note).toBe('D')
+    expect(thirdTrial.note).not.toBe('D')
+  })
 })

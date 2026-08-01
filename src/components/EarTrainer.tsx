@@ -510,12 +510,6 @@ export default function EarTrainer({
             })}
           </div>
 
-          {forcedTrial && (
-            <div className="ear-retry">
-              Wiederholung: gleicher Tonstil und gleicher Ton wie eben
-            </div>
-          )}
-
           {feedback && (
             <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
               {feedback.correct
@@ -537,8 +531,18 @@ export default function EarTrainer({
                 <button
                   className="ear-button ear-button-primary"
                   onClick={() => {
+                    const shouldAutoStartNextExercise = Boolean(completionNotice.nextExerciseLabel)
                     setIsCompletionModalOpen(false)
                     dismissCompletionNotice()
+
+                    if (shouldAutoStartNextExercise) {
+                      const trialButton = TONE_BUTTONS.find((entry) => entry.mode === 'start')
+                      if (trialButton) {
+                        setTimeout(() => {
+                          void playTone(trialButton)
+                        }, 0)
+                      }
+                    }
                   }}
                 >
                   Weiter
