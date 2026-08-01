@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -106,13 +106,9 @@ describe('EarTrainer', () => {
       />,
     )
 
-    expect(screen.getByText('Instrument lädt...')).toBeInTheDocument()
-
-    return waitFor(() => {
-      expect(screen.getByText('Klavier')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Weiter' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'd4' })).toBeInTheDocument()
-    })
+    expect(screen.getByText('Klavier')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'd4' })).toBeInTheDocument()
   })
 })

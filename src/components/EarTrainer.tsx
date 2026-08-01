@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Soundfont } from 'smplr'
 
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
@@ -111,6 +110,8 @@ export default function EarTrainer({
   const activeStopRef = useRef<(() => void) | null>(null)
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
+  const [isPreparingInstrument, setIsPreparingInstrument] = useState(false)
+  const [playbackError, setPlaybackError] = useState<string | null>(null)
 
   const clearStopTimer = () => {
     if (stopTimerRef.current) {
@@ -139,7 +140,11 @@ export default function EarTrainer({
     return audioContext
   }
 
-  const ensureInstrument = async (instrumentId: InstrumentId, forceReload = false) => {
+  const ensureInstrument = async (
+    instrumentId: InstrumentId,
+    forceReload = false,
+    shouldResumeContext = false,
+  ) => {
     const existingInstrument = instrumentsRef.current[instrumentId]
     if (forceReload && existingInstrument) {
       existingInstrument.dispose()
@@ -157,7 +162,7 @@ export default function EarTrainer({
       throw new Error(`Instrument ${instrumentId} does not support soundfont playback.`)
     }
 
-    const audioContext = await ensureAudioContext(false)
+    const audioContext = await ensureAudioContext(shouldResumeContext)
     const instrument = Soundfont(audioContext, {
       instrument: instrumentConfig.soundfontInstrument,
       volume: 100,
@@ -170,34 +175,21 @@ export default function EarTrainer({
   }
 
   const startSoundfontTone = async (instrumentId: InstrumentId, note: string) => {
-    const instrument = await ensureInstrument(instrumentId)
+    const instrument = await ensureInstrument(instrumentId, false, true)
 
     try {
       return instrument.start({ note, duration: 1 })
     } catch {
-      const refreshedInstrument = await ensureInstrument(instrumentId, true)
+      const refreshedInstrument = await ensureInstrument(instrumentId, true, true)
       return refreshedInstrument.start({ note, duration: 1 })
     }
   }
-
-  const instrumentQuery = useQuery({
-    queryKey: ['ear-instrument', selectedInstrumentId],
-    enabled: loaded,
-    staleTime: 0,
-    retry: 1,
-    refetchOnMount: 'always',
-    queryFn: async () => {
-      await ensureInstrument(selectedInstrumentId)
-      return true
-    },
-  })
-
-  const isInstrumentReady = instrumentQuery.isSuccess
 
   const playTone = async (button: ToneButtonConfig) => {
     if (isPlayingByButtonId[button.id]) return
 
     stopAllTones()
+    setPlaybackError(null)
 
     // User interaction path: ensure context is running before triggering playback.
     await ensureAudioContext(true)
@@ -206,8 +198,19 @@ export default function EarTrainer({
       button.mode === 'start' ? startTrial() : getCurrentTrial()
     if (!trial) return
 
-    const note = toSmplrNoteName(trial.note, trial.frequencyMultiplier)
-    const stop = await startSoundfontTone(selectedInstrumentId, note)
+    setIsPreparingInstrument(true)
+
+    let stop: (() => void) | null = null
+    try {
+      const note = toSmplrNoteName(trial.note, trial.frequencyMultiplier)
+      stop = await startSoundfontTone(selectedInstrumentId, note)
+    } catch {
+      setPlaybackError('Instrument konnte nicht gestartet werden. Bitte erneut versuchen.')
+      setIsPreparingInstrument(false)
+      return
+    }
+
+    setIsPreparingInstrument(false)
 
     setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: true }))
     activeStopRef.current = stop
@@ -242,128 +245,109 @@ export default function EarTrainer({
           </div>
         </div>
       ) : (
-        instrumentQuery.isPending ? (
-          <div className="ear-loading-screen" role="status" aria-live="polite" aria-busy="true">
-            <div className="ear-loading-card">
-              <div className="ear-loading-spinner" aria-hidden="true" />
-              <div className="ear-loading-title">Instrument lädt...</div>
-              <div className="ear-loading-copy">Das Klavier wird vorbereitet, bitte kurz warten.</div>
+        <div className="ear-shell">
+          <button className="ear-back-button" onClick={onBackToCourse}>
+            Zur Kursseite
+          </button>
+
+          <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
+
+          <div className="ear-panel ear-audio-panel">
+            <div className="ear-audio-row">
+              <label>Instrument</label>
+              <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
+            </div>
+
+            <div className="ear-audio-row">
+              <label htmlFor="ear-volume">Lautstärke</label>
+              <div className="ear-volume-wrap">
+                <input
+                  id="ear-volume"
+                  type="range"
+                  min={0}
+                  max={127}
+                  step={1}
+                  value={playbackVolume}
+                  onChange={(event) => setPlaybackVolume(Number(event.target.value))}
+                />
+                <strong>{playbackVolume}</strong>
+              </div>
             </div>
           </div>
-        ) : instrumentQuery.isError ? (
-          <div className="ear-loading-screen" role="status" aria-live="polite" aria-busy="false">
-            <div className="ear-loading-card">
-              <div className="ear-loading-title">Instrument konnte nicht geladen werden</div>
-              <div className="ear-loading-copy">Bitte erneut versuchen.</div>
-              <button
-                className="ear-button ear-button-primary"
-                onClick={() => {
-                  void instrumentQuery.refetch()
-                }}
-              >
-                Erneut laden
-              </button>
+
+          <ProgressPanel
+            levelIdx={levelIdx}
+            sectionIdx={sectionIdx}
+            toneSet={toneSet}
+            unlockedToneStyles={unlockedToneStyles}
+            levelProgress={levelProgress}
+            levelProgressTotal={levelProgressTotal}
+            leveledUpToast={leveledUpToast}
+          />
+
+          <ActiveSession
+            buttons={TONE_BUTTONS.map((button) => ({
+              ...button,
+              isPlaying: Boolean(isPlayingByButtonId[button.id]),
+              isReady:
+                !isPreparingInstrument &&
+                (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
+            }))}
+            onPlayTone={(buttonId) => {
+              const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
+              if (!button) return
+              void playTone(button)
+            }}
+          />
+
+          {playbackError && (
+            <div className="toast ear-feedback is-wrong" role="status" aria-live="polite">
+              {playbackError}
             </div>
+          )}
+
+          <div className="ear-note-grid">
+            {guessOptions.map((option) => {
+              const isCorrect =
+                feedback?.actual === option.note &&
+                feedback?.actualFrequencyMultiplier === option.frequencyMultiplier
+              const isWrong =
+                feedback?.guessed === option.note &&
+                feedback?.guessedFrequencyMultiplier === option.frequencyMultiplier &&
+                !feedback.correct
+              const stateClass = isCorrect
+                ? 'is-correct'
+                : isWrong
+                  ? 'is-wrong'
+                  : ''
+
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleGuess(option.id)}
+                  disabled={!awaitingGuess}
+                  className={`ear-note-button ${stateClass}`}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
           </div>
-        ) : (
-          <div className="ear-shell">
-            <button className="ear-back-button" onClick={onBackToCourse}>
-              Zur Kursseite
-            </button>
 
-            <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
-
-            <div className="ear-panel ear-audio-panel">
-              <div className="ear-audio-row">
-                <label>Instrument</label>
-                <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
-              </div>
-
-              <div className="ear-audio-row">
-                <label htmlFor="ear-volume">Lautstärke</label>
-                <div className="ear-volume-wrap">
-                  <input
-                    id="ear-volume"
-                    type="range"
-                    min={0}
-                    max={127}
-                    step={1}
-                    value={playbackVolume}
-                    onChange={(event) => setPlaybackVolume(Number(event.target.value))}
-                  />
-                  <strong>{playbackVolume}</strong>
-                </div>
-              </div>
+          {forcedTrial && (
+            <div className="ear-retry">
+              Wiederholung: gleicher Tonstil und gleicher Ton wie eben
             </div>
+          )}
 
-            <ProgressPanel
-              levelIdx={levelIdx}
-              sectionIdx={sectionIdx}
-              toneSet={toneSet}
-              unlockedToneStyles={unlockedToneStyles}
-              levelProgress={levelProgress}
-              levelProgressTotal={levelProgressTotal}
-              leveledUpToast={leveledUpToast}
-            />
-
-            <ActiveSession
-              buttons={TONE_BUTTONS.map((button) => ({
-                ...button,
-                isPlaying: Boolean(isPlayingByButtonId[button.id]),
-                isReady:
-                  isInstrumentReady &&
-                  (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
-              }))}
-              onPlayTone={(buttonId) => {
-                const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
-                if (!button) return
-                void playTone(button)
-              }}
-            />
-
-            <div className="ear-note-grid">
-              {guessOptions.map((option) => {
-                const isCorrect =
-                  feedback?.actual === option.note &&
-                  feedback?.actualFrequencyMultiplier === option.frequencyMultiplier
-                const isWrong =
-                  feedback?.guessed === option.note &&
-                  feedback?.guessedFrequencyMultiplier === option.frequencyMultiplier &&
-                  !feedback.correct
-                const stateClass = isCorrect
-                  ? 'is-correct'
-                  : isWrong
-                    ? 'is-wrong'
-                    : ''
-
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => handleGuess(option.id)}
-                    disabled={!awaitingGuess}
-                    className={`ear-note-button ${stateClass}`}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
+          {feedback && (
+            <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
+              {feedback.correct
+                ? `Richtig · ${feedback.actualLabel} (${feedback.toneStyle})`
+                : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
             </div>
-
-            {forcedTrial && (
-              <div className="ear-retry">
-                Wiederholung: gleicher Tonstil und gleicher Ton wie eben
-              </div>
-            )}
-
-            {feedback && (
-              <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
-                {feedback.correct
-                  ? `Richtig · ${feedback.actualLabel} (${feedback.toneStyle})`
-                  : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
-              </div>
-            )}
-          </div>
-        )
+          )}
+        </div>
       )}
     </div>
   )
