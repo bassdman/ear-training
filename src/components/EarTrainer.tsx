@@ -508,7 +508,7 @@ export default function EarTrainer({
                     void playGuessOptionTone(option.note, option.frequencyMultiplier, toneStyleId)
                     handleGuess(option.id)
                   }}
-                  disabled={!awaitingGuess}
+                  disabled={!awaitingGuess && !feedback}
                   className={`ear-note-button ${stateClass}`}
                 >
                   {option.label}

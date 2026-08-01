@@ -121,4 +121,38 @@ describe('EarTrainer', () => {
     })
   })
 
+  it('laesst nach einem Guess weitere Toene als Referenz abspielbar', async () => {
+    renderWithQuery(
+      <EarTrainer
+        loaded
+        levelIdx={0}
+        sectionIdx={0}
+        bestStreak={0}
+        setLevelIdx={vi.fn()}
+        setSectionIdx={vi.fn()}
+        setBestStreak={vi.fn()}
+        setUnlockedLevelIdx={vi.fn()}
+        rangeLabel="Mittlere Lage"
+        rangeSubtitle="C4 bis H4"
+        rangeFrequencyMultipliers={[1]}
+        toneStyleCount={1}
+        selectedInstrumentId="piano"
+        playbackVolume={100}
+        setPlaybackVolume={() => {}}
+        onBackToCourse={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'd4' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Richtig|Gehört war/)).toBeInTheDocument()
+    })
+
+    const referenceToneButton = screen.getByRole('button', { name: 'f4' })
+    expect(referenceToneButton).toBeEnabled()
+    fireEvent.click(referenceToneButton)
+    expect(startMock).toHaveBeenCalled()
+  })
+
 })
