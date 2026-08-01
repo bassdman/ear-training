@@ -373,6 +373,11 @@
   will-change: transform, filter;
 }
 
+.ear-dot.is-hidden {
+  visibility: hidden;
+  animation-play-state: paused;
+}
+
 .ear-actions {
   display: flex;
   justify-content: flex-end;

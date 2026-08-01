@@ -76,6 +76,7 @@ describe('EarTrainer', () => {
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
         toneStyleCount={1}
+        toneSplashMode="persistent"
         selectedInstrumentId="piano"
         playbackVolume={100}
         setPlaybackVolume={vi.fn()}
@@ -101,6 +102,7 @@ describe('EarTrainer', () => {
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
         toneStyleCount={1}
+        toneSplashMode="persistent"
         selectedInstrumentId="piano"
         playbackVolume={100}
         setPlaybackVolume={() => {}}
@@ -136,6 +138,7 @@ describe('EarTrainer', () => {
         rangeSubtitle="C4 bis H4"
         rangeFrequencyMultipliers={[1]}
         toneStyleCount={1}
+        toneSplashMode="persistent"
         selectedInstrumentId="piano"
         playbackVolume={100}
         setPlaybackVolume={() => {}}

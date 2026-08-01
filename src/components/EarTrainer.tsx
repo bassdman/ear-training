@@ -10,6 +10,7 @@ import {
   type NoteName,
   type InstrumentId,
   type ToneStyleId,
+  type ToneSplashMode,
 } from '../features/earTrainer/config'
 import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
 import { getToneColor } from '../features/earTrainer/noteColor'
@@ -105,6 +106,7 @@ type EarTrainerProps = {
   rangeSubtitle: string
   rangeFrequencyMultipliers: number[]
   toneStyleCount: number
+  toneSplashMode: ToneSplashMode
   selectedInstrumentId: InstrumentId
   playbackVolume: number
   setPlaybackVolume: React.Dispatch<React.SetStateAction<number>>
@@ -124,6 +126,7 @@ export default function EarTrainer({
   rangeSubtitle,
   rangeFrequencyMultipliers,
   toneStyleCount,
+  toneSplashMode,
   selectedInstrumentId,
   playbackVolume,
   setPlaybackVolume,
@@ -161,6 +164,7 @@ export default function EarTrainer({
   const instrumentsRef = useRef<Partial<Record<string, ReturnType<typeof Soundfont>>>>({})
   const activeStopRef = useRef<(() => void) | null>(null)
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const toneSplashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const settingsMenuRef = useRef<HTMLDivElement | null>(null)
   const hasAutoStartedRef = useRef(false)
   const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
@@ -168,23 +172,48 @@ export default function EarTrainer({
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false)
+  const [transientToneSplashColor, setTransientToneSplashColor] = useState<string | null>(null)
   const lastCompletionNoticeIdRef = useRef<number | null>(null)
 
   const unlockedToneStyleNames = unlockedToneStyles.map((toneStyleId) => {
     const soundfontId = TONE_STYLE_INSTRUMENT_VARIANTS[selectedInstrumentId][toneStyleId]
     return SOUNDFONT_INSTRUMENT_LABELS_DE[soundfontId] ?? soundfontId
   })
-  const isEasyDifficulty = toneStyleCount === 1
+  const hasPersistentToneSplash = toneSplashMode === 'persistent'
+  const hasTransientToneSplash = toneSplashMode === 'transient'
   const currentTrial = getCurrentTrial()
-  const activeToneSplashColor =
-    isEasyDifficulty && currentTrial
+  const persistentToneSplashColor =
+    hasPersistentToneSplash && currentTrial
       ? getToneColor(currentTrial.note, currentTrial.frequencyMultiplier).hsl
       : null
+  const activeToneSplashColor = persistentToneSplashColor ?? transientToneSplashColor
+
+  const showTransientToneSplash = (color: string) => {
+    if (!hasTransientToneSplash) return
+
+    if (toneSplashTimerRef.current) {
+      clearTimeout(toneSplashTimerRef.current)
+      toneSplashTimerRef.current = null
+    }
+
+    setTransientToneSplashColor(color)
+    toneSplashTimerRef.current = setTimeout(() => {
+      setTransientToneSplashColor(null)
+      toneSplashTimerRef.current = null
+    }, 300)
+  }
 
   const clearStopTimer = () => {
     if (stopTimerRef.current) {
       clearTimeout(stopTimerRef.current)
       stopTimerRef.current = null
+    }
+  }
+
+  const clearToneSplashTimer = () => {
+    if (toneSplashTimerRef.current) {
+      clearTimeout(toneSplashTimerRef.current)
+      toneSplashTimerRef.current = null
     }
   }
 
@@ -277,6 +306,8 @@ export default function EarTrainer({
       button.mode === 'start' ? startTrial() : getCurrentTrial()
     if (!trial) return
 
+    showTransientToneSplash(getToneColor(trial.note, trial.frequencyMultiplier).hsl)
+
     // User interaction path: ensure context is running before triggering playback.
     await ensureAudioContext(true)
 
@@ -312,6 +343,7 @@ export default function EarTrainer({
   ) => {
     stopAllTones()
     setPlaybackError(null)
+    showTransientToneSplash(getToneColor(noteName, frequencyMultiplier).hsl)
 
     await ensureAudioContext(true)
     setIsPreparingInstrument(true)
@@ -335,6 +367,12 @@ export default function EarTrainer({
       stopTimerRef.current = null
     }, 1000)
   }
+
+  useEffect(() => {
+    if (hasTransientToneSplash) return
+    clearToneSplashTimer()
+    setTransientToneSplashColor(null)
+  }, [hasTransientToneSplash])
 
   useEffect(() => {
     if (!loaded || hasAutoStartedRef.current) return
@@ -381,6 +419,7 @@ export default function EarTrainer({
   useEffect(() => {
     return () => {
       stopAllTones()
+      clearToneSplashTimer()
       Object.values(instrumentsRef.current).forEach((instrument) => instrument?.dispose())
       void audioContextRef.current?.close()
       audioContextRef.current = null
@@ -470,6 +509,7 @@ export default function EarTrainer({
                 !isPreparingInstrument &&
                 (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
             }))}
+            toneSplashEnabled={hasPersistentToneSplash || hasTransientToneSplash}
             toneSplashColor={activeToneSplashColor}
             onPlayTone={(buttonId) => {
               const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)

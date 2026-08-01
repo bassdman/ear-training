@@ -75,6 +75,9 @@ function App() {
             toneStyleCount={
               progress.difficultyConfig[progress.activeDifficultyId].toneStyleCount
             }
+            toneSplashMode={
+              activeCategory.config.toneSplashByDifficulty[progress.activeDifficultyId]
+            }
             selectedInstrumentId={progress.selectedInstrumentId}
             playbackVolume={progress.playbackVolume}
             setPlaybackVolume={progress.setPlaybackVolume}

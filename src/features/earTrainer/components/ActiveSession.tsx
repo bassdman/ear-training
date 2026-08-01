@@ -6,19 +6,26 @@ type ActiveSessionProps = {
     isReady: boolean
   }>
   onPlayTone: (buttonId: string) => void
+  toneSplashEnabled?: boolean
   toneSplashColor?: string | null
 }
 
 export function ActiveSession({
   buttons,
   onPlayTone,
+  toneSplashEnabled = false,
   toneSplashColor,
 }: ActiveSessionProps) {
   return (
     <div className="ear-player">
-      {toneSplashColor && (
+      {toneSplashEnabled && (
         <div className="ear-ring-wrap" aria-live="polite">
-          <div className="ear-dot" style={{ background: toneSplashColor }} aria-label="Tonfarbe" />
+          <div
+            className={`ear-dot ${toneSplashColor ? '' : 'is-hidden'}`}
+            style={toneSplashColor ? { background: toneSplashColor } : undefined}
+            aria-hidden={!toneSplashColor}
+            aria-label={toneSplashColor ? 'Tonfarbe' : undefined}
+          />
         </div>
       )}
 

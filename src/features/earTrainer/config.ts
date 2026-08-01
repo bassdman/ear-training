@@ -120,11 +120,30 @@ export type Feedback = {
   toneStyle: ToneStyleId
 }
 
+type ToneSplashDifficultyId = 'easy' | 'medium' | 'hard'
+
+export type ToneSplashMode = 'off' | 'transient' | 'persistent'
+
+export type TrainingCategoryConfig = {
+  toneSplashByDifficulty: Record<ToneSplashDifficultyId, ToneSplashMode>
+}
+
+export const DEFAULT_TONE_SPLASH_BY_DIFFICULTY: Record<ToneSplashDifficultyId, ToneSplashMode> = {
+  easy: 'persistent',
+  medium: 'transient',
+  hard: 'off',
+}
+
+const createDefaultTrainingCategoryConfig = (): TrainingCategoryConfig => ({
+  toneSplashByDifficulty: { ...DEFAULT_TONE_SPLASH_BY_DIFFICULTY },
+})
+
 export type TrainingCategory = {
   id: string
   label: string
   subtitle: string
   frequencyMultipliers: number[]
+  config: TrainingCategoryConfig
 }
 
 export const TRAINING_CATEGORIES: TrainingCategory[] = [
@@ -133,60 +152,70 @@ export const TRAINING_CATEGORIES: TrainingCategory[] = [
     label: 'Sehr tiefe Männerlage',
     subtitle: 'C2 bis H2',
     frequencyMultipliers: [0.25],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'low',
     label: 'Tiefe Lage',
     subtitle: 'C3 bis H3',
     frequencyMultipliers: [0.5],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'mid',
     label: 'Mittlere Lage',
     subtitle: 'C4 bis H4',
     frequencyMultipliers: [1],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'high',
     label: 'Hohe Lage',
     subtitle: 'C5 bis H5',
     frequencyMultipliers: [2],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'range-2-3',
     label: 'Lagen 2,3',
     subtitle: 'C2 bis H3',
     frequencyMultipliers: [0.25, 0.5],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'range-3-4',
     label: 'Lagen 3,4',
     subtitle: 'C3 bis H4',
     frequencyMultipliers: [0.5, 1],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'range-4-5',
     label: 'Lagen 4,5',
     subtitle: 'C4 bis H5',
     frequencyMultipliers: [1, 2],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'range-2-3-4',
     label: 'Lagen 2,3,4',
     subtitle: 'C2 bis H4',
     frequencyMultipliers: [0.25, 0.5, 1],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'range-3-4-5',
     label: 'Lagen 3,4,5',
     subtitle: 'C3 bis H5',
     frequencyMultipliers: [0.5, 1, 2],
+    config: createDefaultTrainingCategoryConfig(),
   },
   {
     id: 'range-2-3-4-5',
     label: 'Lagen 2,3,4,5',
     subtitle: 'C2 bis H5',
     frequencyMultipliers: [0.25, 0.5, 1, 2],
+    config: createDefaultTrainingCategoryConfig(),
   },
 ]
 

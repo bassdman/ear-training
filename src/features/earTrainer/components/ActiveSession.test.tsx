@@ -46,10 +46,27 @@ describe('ActiveSession', () => {
           { id: 'trial', label: 'Weiter', isPlaying: false, isReady: true },
         ]}
         onPlayTone={vi.fn()}
+        toneSplashEnabled
         toneSplashColor="hsl(120 82% 22%)"
       />,
     )
 
     expect(screen.getByLabelText('Tonfarbe')).toBeInTheDocument()
+  })
+
+  it('haelt den Platz stabil und blendet den Klecks per visibility aus', () => {
+    const { container } = render(
+      <ActiveSession
+        buttons={[
+          { id: 'trial', label: 'Weiter', isPlaying: false, isReady: true },
+        ]}
+        onPlayTone={vi.fn()}
+        toneSplashEnabled
+        toneSplashColor={null}
+      />,
+    )
+
+    expect(container.querySelector('.ear-ring-wrap')).toBeInTheDocument()
+    expect(container.querySelector('.ear-dot.is-hidden')).toBeInTheDocument()
   })
 })
