@@ -6,11 +6,22 @@ type ActiveSessionProps = {
     isReady: boolean
   }>
   onPlayTone: (buttonId: string) => void
+  toneSplashColor?: string | null
 }
 
-export function ActiveSession({ buttons, onPlayTone }: ActiveSessionProps) {
+export function ActiveSession({
+  buttons,
+  onPlayTone,
+  toneSplashColor,
+}: ActiveSessionProps) {
   return (
     <div className="ear-player">
+      {toneSplashColor && (
+        <div className="ear-ring-wrap" aria-live="polite">
+          <div className="ear-dot" style={{ background: toneSplashColor }} aria-label="Tonfarbe" />
+        </div>
+      )}
+
       <div className="ear-actions">
         {buttons.map((button) => (
           <button

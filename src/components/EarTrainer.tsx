@@ -12,6 +12,7 @@ import {
   type ToneStyleId,
 } from '../features/earTrainer/config'
 import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
+import { getToneColor } from '../features/earTrainer/noteColor'
 import '../features/earTrainer/earTrainer.css'
 
 type ToneButtonConfig = {
@@ -134,7 +135,6 @@ export default function EarTrainer({
     unlockedToneStyles,
     levelProgress,
     levelProgressTotal,
-    forcedTrial,
     awaitingGuess,
     feedback,
     leveledUpToast,
@@ -174,6 +174,16 @@ export default function EarTrainer({
     const soundfontId = TONE_STYLE_INSTRUMENT_VARIANTS[selectedInstrumentId][toneStyleId]
     return SOUNDFONT_INSTRUMENT_LABELS_DE[soundfontId] ?? soundfontId
   })
+  const isEasyDifficulty = toneStyleCount === 1
+  const currentTrial = getCurrentTrial()
+  const activeToneSplashColor =
+    isEasyDifficulty && currentTrial
+      ? getToneColor(currentTrial.note, currentTrial.frequencyMultiplier).hsl
+      : null
+  const resolvedToneSplashColor =
+    feedback
+      ? getToneColor(feedback.actual, feedback.actualFrequencyMultiplier).hsl
+      : null
 
   const clearStopTimer = () => {
     if (stopTimerRef.current) {
@@ -464,6 +474,7 @@ export default function EarTrainer({
                 !isPreparingInstrument &&
                 (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
             }))}
+            toneSplashColor={activeToneSplashColor}
             onPlayTone={(buttonId) => {
               const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
               if (!button) return
@@ -511,10 +522,19 @@ export default function EarTrainer({
           </div>
 
           {feedback && (
-            <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
-              {feedback.correct
-                ? `Richtig · ${feedback.actualLabel}`
-                : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
+            <div className="ear-feedback-wrap">
+              {resolvedToneSplashColor && (
+                <div
+                  className="ear-feedback-dot"
+                  style={{ background: resolvedToneSplashColor }}
+                  aria-label="Aufgelöste Tonfarbe"
+                />
+              )}
+              <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
+                {feedback.correct
+                  ? `Richtig · ${feedback.actualLabel}`
+                  : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
+              </div>
             </div>
           )}
 

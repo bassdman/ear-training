@@ -13,6 +13,7 @@ describe('ActiveSession', () => {
           { id: 'flute-g4', label: 'Flöte G4', isPlaying: false, isReady: true },
         ]}
         onPlayTone={onPlayTone}
+        toneSplashColor={null}
       />,
     )
 
@@ -31,9 +32,24 @@ describe('ActiveSession', () => {
           { id: 'flute-g4', label: 'Flöte G4', isPlaying: false, isReady: true },
         ]}
         onPlayTone={vi.fn()}
+        toneSplashColor={null}
       />,
     )
 
     expect(screen.getByRole('button', { name: 'Spielt...' })).toBeInTheDocument()
+  })
+
+  it('zeigt den Farbklecks, wenn eine Tonfarbe gesetzt ist', () => {
+    render(
+      <ActiveSession
+        buttons={[
+          { id: 'trial', label: 'Weiter', isPlaying: false, isReady: true },
+        ]}
+        onPlayTone={vi.fn()}
+        toneSplashColor="hsl(120 82% 22%)"
+      />,
+    )
+
+    expect(screen.getByLabelText('Tonfarbe')).toBeInTheDocument()
   })
 })

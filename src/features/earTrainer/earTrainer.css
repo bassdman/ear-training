@@ -367,13 +367,10 @@
   width: 64px;
   height: 64px;
   border-radius: 999px;
-  border: 2px solid var(--ear-gold);
-  background: var(--ear-bg-panel);
-  transition: background 0.15s ease;
-}
-
-.ear-dot.is-playing {
-  background: var(--ear-gold);
+    transition: background 0.15s ease;
+  animation: toneBlobBreath 5.2s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: transform, filter;
 }
 
 .ear-actions {
@@ -465,6 +462,24 @@
 .ear-feedback {
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+.ear-feedback-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.ear-feedback-dot {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.08),
+    0 8px 20px rgba(0, 0, 0, 0.28);
+  animation: toneBlobBreath 5.8s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, filter;
 }
 
 @keyframes earSpin {
@@ -570,6 +585,23 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes toneBlobBreath {
+  0% {
+    transform: scale(0.985);
+    filter: brightness(0.93) saturate(0.97);
+  }
+
+  50% {
+    transform: scale(1.118);
+    filter: brightness(1.08) saturate(1.04);
+  }
+
+  100% {
+    transform: scaleX(0.985) scaleY(1.118);
+    filter: brightness(0.8) saturate(0.99);
   }
 }
 
