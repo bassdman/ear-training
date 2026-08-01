@@ -1,4 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import EarTrainer from './EarTrainer'
@@ -44,9 +46,23 @@ beforeEach(() => {
   vi.stubGlobal('AudioContext', FakeAudioContext as unknown as typeof AudioContext)
 })
 
+function renderWithQuery(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  )
+}
+
 describe('EarTrainer', () => {
   it('zeigt Loading-Zustand', () => {
-    render(
+    renderWithQuery(
       <EarTrainer
         loaded={false}
         levelIdx={0}
@@ -70,7 +86,7 @@ describe('EarTrainer', () => {
   })
 
   it('rendert die Trial- und Replay-Buttons und das Audio-Panel', () => {
-    render(
+    renderWithQuery(
       <EarTrainer
         loaded
         levelIdx={0}
@@ -90,9 +106,13 @@ describe('EarTrainer', () => {
       />,
     )
 
-    expect(screen.getByText('Klavier')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Weiter' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'd4' })).toBeInTheDocument()
+    expect(screen.getByText('Instrument lädt...')).toBeInTheDocument()
+
+    return waitFor(() => {
+      expect(screen.getByText('Klavier')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Weiter' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'd4' })).toBeInTheDocument()
+    })
   })
 })

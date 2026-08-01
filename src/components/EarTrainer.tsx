@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Soundfont } from 'smplr'
 
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
@@ -110,7 +111,6 @@ export default function EarTrainer({
   const activeStopRef = useRef<(() => void) | null>(null)
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
-  const [isInstrumentReady, setIsInstrumentReady] = useState(false)
 
   const clearStopTimer = () => {
     if (stopTimerRef.current) {
@@ -126,13 +126,13 @@ export default function EarTrainer({
     setIsPlayingByButtonId({})
   }
 
-  const ensureAudioContext = async () => {
+  const ensureAudioContext = async (shouldResume = true) => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new window.AudioContext()
     }
 
     const audioContext = audioContextRef.current
-    if (audioContext.state === 'suspended') {
+    if (shouldResume && audioContext.state === 'suspended') {
       await audioContext.resume()
     }
 
@@ -142,10 +142,11 @@ export default function EarTrainer({
   const ensureInstrument = async (instrumentId: InstrumentId) => {
     const existingInstrument = instrumentsRef.current[instrumentId]
     if (existingInstrument) {
+      await existingInstrument.ready
       return existingInstrument
     }
 
-    const audioContext = await ensureAudioContext()
+    const audioContext = await ensureAudioContext(false)
     const instrumentConfig = INSTRUMENTS[instrumentId]
     if (instrumentConfig.playbackEngine !== 'soundfont') {
       throw new Error(`Instrument ${instrumentId} uses no soundfont playback.`)
@@ -158,20 +159,30 @@ export default function EarTrainer({
 
     instrumentsRef.current[instrumentId] = instrument
     await instrument.ready
-    setIsInstrumentReady(true)
     return instrument
   }
 
-  useEffect(() => {
-    if (!loaded) return
+  const instrumentQuery = useQuery({
+    queryKey: ['ear-instrument', selectedInstrumentId],
+    enabled: loaded,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+    retry: 1,
+    queryFn: async () => {
+      await ensureInstrument(selectedInstrumentId)
+      return true
+    },
+  })
 
-    void ensureInstrument(selectedInstrumentId)
-  }, [loaded, selectedInstrumentId])
+  const isInstrumentReady = instrumentQuery.isSuccess
 
   const playTone = async (button: ToneButtonConfig) => {
     if (isPlayingByButtonId[button.id]) return
 
     stopAllTones()
+
+    // User interaction path: ensure context is running before triggering playback.
+    await ensureAudioContext(true)
 
     const trial =
       button.mode === 'start' ? startTrial() : getCurrentTrial()
@@ -208,109 +219,136 @@ export default function EarTrainer({
   return (
     <div className="ear-page">
       {!loaded ? (
-        <div className="ear-loading">Lade Fortschritt ...</div>
+        <div className="ear-loading-screen" role="status" aria-live="polite">
+          <div className="ear-loading-card">
+            <div className="ear-loading-spinner" aria-hidden="true" />
+            <div className="ear-loading-title">Lade Fortschritt ...</div>
+            <div className="ear-loading-copy">Bitte kurz warten, die Übung wird vorbereitet.</div>
+          </div>
+        </div>
       ) : (
-        <div className="ear-shell">
-          <button className="ear-back-button" onClick={onBackToCourse}>
-            Zur Kursseite
-          </button>
-
-          <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
-
-          <div className="ear-panel ear-audio-panel">
-            <div className="ear-audio-row">
-              <label>Instrument</label>
-              <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
+        instrumentQuery.isPending ? (
+          <div className="ear-loading-screen" role="status" aria-live="polite" aria-busy="true">
+            <div className="ear-loading-card">
+              <div className="ear-loading-spinner" aria-hidden="true" />
+              <div className="ear-loading-title">Instrument lädt...</div>
+              <div className="ear-loading-copy">Das Klavier wird vorbereitet, bitte kurz warten.</div>
             </div>
+          </div>
+        ) : instrumentQuery.isError ? (
+          <div className="ear-loading-screen" role="status" aria-live="polite" aria-busy="false">
+            <div className="ear-loading-card">
+              <div className="ear-loading-title">Instrument konnte nicht geladen werden</div>
+              <div className="ear-loading-copy">Bitte erneut versuchen.</div>
+              <button
+                className="ear-button ear-button-primary"
+                onClick={() => {
+                  void instrumentQuery.refetch()
+                }}
+              >
+                Erneut laden
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="ear-shell">
+            <button className="ear-back-button" onClick={onBackToCourse}>
+              Zur Kursseite
+            </button>
 
-            <div className="ear-audio-row">
-              <label htmlFor="ear-volume">Lautstärke</label>
-              <div className="ear-volume-wrap">
-                <input
-                  id="ear-volume"
-                  type="range"
-                  min={0}
-                  max={127}
-                  step={1}
-                  value={playbackVolume}
-                  onChange={(event) => setPlaybackVolume(Number(event.target.value))}
-                />
-                <strong>{playbackVolume}</strong>
+            <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
+
+            <div className="ear-panel ear-audio-panel">
+              <div className="ear-audio-row">
+                <label>Instrument</label>
+                <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
+              </div>
+
+              <div className="ear-audio-row">
+                <label htmlFor="ear-volume">Lautstärke</label>
+                <div className="ear-volume-wrap">
+                  <input
+                    id="ear-volume"
+                    type="range"
+                    min={0}
+                    max={127}
+                    step={1}
+                    value={playbackVolume}
+                    onChange={(event) => setPlaybackVolume(Number(event.target.value))}
+                  />
+                  <strong>{playbackVolume}</strong>
+                </div>
               </div>
             </div>
 
-            <div className="ear-samples-status" role="status" aria-live="polite">
-              {isInstrumentReady ? 'Instrument bereit' : 'Instrument lädt...'}
+            <ProgressPanel
+              levelIdx={levelIdx}
+              sectionIdx={sectionIdx}
+              toneSet={toneSet}
+              unlockedToneStyles={unlockedToneStyles}
+              levelProgress={levelProgress}
+              levelProgressTotal={levelProgressTotal}
+              leveledUpToast={leveledUpToast}
+            />
+
+            <ActiveSession
+              buttons={TONE_BUTTONS.map((button) => ({
+                ...button,
+                isPlaying: Boolean(isPlayingByButtonId[button.id]),
+                isReady:
+                  isInstrumentReady &&
+                  (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
+              }))}
+              onPlayTone={(buttonId) => {
+                const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
+                if (!button) return
+                void playTone(button)
+              }}
+            />
+
+            <div className="ear-note-grid">
+              {guessOptions.map((option) => {
+                const isCorrect =
+                  feedback?.actual === option.note &&
+                  feedback?.actualFrequencyMultiplier === option.frequencyMultiplier
+                const isWrong =
+                  feedback?.guessed === option.note &&
+                  feedback?.guessedFrequencyMultiplier === option.frequencyMultiplier &&
+                  !feedback.correct
+                const stateClass = isCorrect
+                  ? 'is-correct'
+                  : isWrong
+                    ? 'is-wrong'
+                    : ''
+
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => handleGuess(option.id)}
+                    disabled={!awaitingGuess}
+                    className={`ear-note-button ${stateClass}`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
             </div>
+
+            {forcedTrial && (
+              <div className="ear-retry">
+                Wiederholung: gleicher Tonstil und gleicher Ton wie eben
+              </div>
+            )}
+
+            {feedback && (
+              <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
+                {feedback.correct
+                  ? `Richtig · ${feedback.actualLabel} (${feedback.toneStyle})`
+                  : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
+              </div>
+            )}
           </div>
-
-          <ProgressPanel
-            levelIdx={levelIdx}
-            sectionIdx={sectionIdx}
-            toneSet={toneSet}
-            unlockedToneStyles={unlockedToneStyles}
-            levelProgress={levelProgress}
-            levelProgressTotal={levelProgressTotal}
-            leveledUpToast={leveledUpToast}
-          />
-
-          <ActiveSession
-            buttons={TONE_BUTTONS.map((button) => ({
-              ...button,
-              isPlaying: Boolean(isPlayingByButtonId[button.id]),
-              isReady:
-                isInstrumentReady &&
-                (button.mode === 'start' ? !awaitingGuess : Boolean(getCurrentTrial())),
-            }))}
-            onPlayTone={(buttonId) => {
-              const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
-              if (!button) return
-              void playTone(button)
-            }}
-          />
-
-          <div className="ear-note-grid">
-            {guessOptions.map((option) => {
-              const isCorrect =
-                feedback?.actual === option.note &&
-                feedback?.actualFrequencyMultiplier === option.frequencyMultiplier
-              const isWrong =
-                feedback?.guessed === option.note &&
-                feedback?.guessedFrequencyMultiplier === option.frequencyMultiplier &&
-                !feedback.correct
-              const stateClass = isCorrect
-                ? 'is-correct'
-                : isWrong
-                  ? 'is-wrong'
-                  : ''
-
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => handleGuess(option.id)}
-                  disabled={!awaitingGuess}
-                  className={`ear-note-button ${stateClass}`}
-                >
-                  {option.label}
-                </button>
-              )
-            })}
-          </div>
-
-          {forcedTrial && (
-            <div className="ear-retry">
-              Wiederholung: gleicher Tonstil und gleicher Ton wie eben
-            </div>
-          )}
-
-          {feedback && (
-            <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
-              {feedback.correct
-                ? `Richtig · ${feedback.actualLabel} (${feedback.toneStyle})`
-                : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
-            </div>
-          )}
-        </div>
+        )
       )}
     </div>
   )

@@ -18,6 +18,52 @@
   font-family: 'IBM Plex Sans', sans-serif;
 }
 
+.ear-loading-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at top, rgba(201, 162, 39, 0.16), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(198, 84, 63, 0.14), transparent 34%),
+    var(--ear-bg);
+  color: var(--ear-text);
+}
+
+.ear-loading-card {
+  width: min(92vw, 340px);
+  padding: 28px 24px;
+  border-radius: 22px;
+  background: rgba(25, 28, 39, 0.92);
+  border: 1px solid rgba(230, 198, 92, 0.18);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.ear-loading-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 3px solid rgba(230, 198, 92, 0.18);
+  border-top-color: var(--ear-gold-soft);
+  animation: earSpin 0.9s linear infinite;
+}
+
+.ear-loading-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.ear-loading-copy {
+  color: var(--ear-text-dim);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .ear-shell {
   width: min(100%, 760px);
   margin: 0 auto;
@@ -356,6 +402,16 @@
 .ear-feedback {
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+@keyframes earSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ear-feedback.is-correct {
