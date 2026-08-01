@@ -14,6 +14,10 @@ import {
   type Trial,
 } from '../config'
 
+const logGame = (...parts: unknown[]) => {
+  console.info('[ear-game]', ...parts)
+}
+
 type ProgressSetters = {
   setLevelIdx: Dispatch<SetStateAction<number>>
   setSectionIdx: Dispatch<SetStateAction<number>>
@@ -93,6 +97,12 @@ export function useEarTrainerGame({
           activeMultipliers[Math.floor(Math.random() * activeMultipliers.length)] ?? 1,
       } as Trial)
 
+    logGame('trial:start', {
+      nextTrial,
+      forcedTrial,
+      levelIdx,
+      sectionIdx,
+    })
     setCurrentTrial(nextTrial)
     setFeedback(null)
     setAwaitingGuess(true)
@@ -108,6 +118,13 @@ export function useEarTrainerGame({
     if (!awaitingGuess || !currentTrial) return
     const guessedOption = guessOptions.find((option) => option.id === guessOptionId)
     if (!guessedOption) return
+
+    logGame('guess:received', {
+      guessOptionId,
+      guessedOption,
+      currentTrial,
+      awaitingGuess,
+    })
     setAwaitingGuess(false)
 
     const isCorrect =
@@ -134,10 +151,19 @@ export function useEarTrainerGame({
     if (!isCorrect) {
       setForcedTrial(currentTrial)
       setSectionProgress(0)
+      logGame('guess:result', { correct: false, currentTrial, guessedOption })
     } else {
       setForcedTrial(null)
       const newSectionProgress = sectionProgress + 1
       const reachedSectionTarget = newSectionProgress >= sectionTarget
+
+      logGame('guess:result', {
+        correct: true,
+        currentTrial,
+        guessedOption,
+        newSectionProgress,
+        reachedSectionTarget,
+      })
 
       if (reachedSectionTarget) {
         if (sectionIdx < SECTION_STEPS.length - 1) {

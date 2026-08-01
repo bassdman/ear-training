@@ -1,14 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Soundfont } from 'smplr'
 
 import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
-import { ProgressPanel } from '../features/earTrainer/components/ProgressPanel'
 import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import {
   INSTRUMENTS,
   type InstrumentId,
 } from '../features/earTrainer/config'
-import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
-import { useTonePlayer } from '../features/earTrainer/hooks/useTonePlayer'
 import '../features/earTrainer/earTrainer.css'
 
 type EarTrainerProps = {
@@ -31,96 +29,91 @@ type EarTrainerProps = {
 
 export default function EarTrainer({
   loaded,
-  levelIdx,
-  sectionIdx,
-  bestStreak,
-  setLevelIdx,
-  setSectionIdx,
-  setBestStreak,
-  setUnlockedLevelIdx,
   rangeLabel,
   rangeSubtitle,
-  rangeFrequencyMultipliers,
   selectedInstrumentId,
   playbackVolume,
   setPlaybackVolume,
   onBackToCourse,
 }: EarTrainerProps) {
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const pianoRef = useRef<ReturnType<typeof Soundfont> | null>(null)
+  const activeStopRef = useRef<(() => void) | null>(null)
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPianoReady, setIsPianoReady] = useState(false)
 
-  const {
-    toneSet,
-    guessOptions,
-    unlockedToneStyles,
-    levelProgress,
-    levelProgressTotal,
-    forcedTrial,
-    awaitingGuess,
-    feedback,
-    leveledUpToast,
-    accuracy,
-    startTrial,
-    getCurrentTrial,
-    handleGuess,
-  } = useEarTrainerGame({
-    levelIdx,
-    sectionIdx,
-    bestStreak,
-    progressSetters: {
-      setLevelIdx,
-      setSectionIdx,
-      setBestStreak,
-      setUnlockedLevelIdx,
-    },
-    frequencyMultipliers: rangeFrequencyMultipliers,
-  })
+  const clearStopTimer = () => {
+    if (stopTimerRef.current) {
+      clearTimeout(stopTimerRef.current)
+      stopTimerRef.current = null
+    }
+  }
 
-  const {
-    isPlaying,
-    isPreloading,
-    loadStateByInstrument,
-    startTone,
-    stopTone,
-    preloadInstrument,
-  } = useTonePlayer()
+  const ensureAudioContext = async () => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new window.AudioContext()
+    }
 
-  const activeLoad = loadStateByInstrument[selectedInstrumentId]
-  const loadingPercent =
-    activeLoad?.total && activeLoad.total > 0
-      ? Math.min(100, Math.round((activeLoad.loaded / activeLoad.total) * 100))
-      : 0
-  const isSamplesLoading =
-    INSTRUMENTS[selectedInstrumentId].playbackEngine === 'soundfont' &&
-    (isPreloading || !activeLoad?.ready)
+    const audioContext = audioContextRef.current
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume()
+    }
+
+    return audioContext
+  }
+
+  const ensurePiano = async () => {
+    if (pianoRef.current) {
+      return pianoRef.current
+    }
+
+    const audioContext = await ensureAudioContext()
+    const piano = Soundfont(audioContext, {
+      instrument: 'acoustic_grand_piano',
+      volume: 100,
+      velocity: 95,
+    })
+
+    pianoRef.current = piano
+    await piano.ready
+    setIsPianoReady(true)
+    return piano
+  }
+
+  const playTone = async () => {
+    if (isPlaying) return
+
+    clearStopTimer()
+    activeStopRef.current?.()
+    activeStopRef.current = null
+
+    const piano = await ensurePiano()
+    const note = 'C4'
+    const stop = piano.start({ note, duration: 1 })
+
+    setIsPlaying(true)
+    activeStopRef.current = stop
+
+    stopTimerRef.current = setTimeout(() => {
+      activeStopRef.current?.()
+      activeStopRef.current = null
+      stopTimerRef.current = null
+      setIsPlaying(false)
+    }, 1000)
+  }
 
   useEffect(() => {
-    void preloadInstrument(selectedInstrumentId)
-  }, [preloadInstrument, selectedInstrumentId])
-
-  const startAndHoldTrial = async () => {
-    const trial = startTrial()
-    if (!trial) return
-    await startTone(
-      trial.note,
-      selectedInstrumentId,
-      trial.toneStyle,
-      trial.frequencyMultiplier,
-      playbackVolume,
-    )
-  }
-
-  const replayAndHoldTone = async () => {
-    const trial = getCurrentTrial()
-    if (!trial) return
-    await startTone(
-      trial.note,
-      selectedInstrumentId,
-      trial.toneStyle,
-      trial.frequencyMultiplier,
-      playbackVolume,
-    )
-  }
-
-  const currentTrial = getCurrentTrial()
+    return () => {
+      clearStopTimer()
+      activeStopRef.current?.()
+      pianoRef.current?.dispose()
+      void audioContextRef.current?.close()
+      audioContextRef.current = null
+      pianoRef.current = null
+      activeStopRef.current = null
+    }
+  }, [])
 
   return (
     <div className="ear-page">
@@ -157,39 +150,15 @@ export default function EarTrainer({
             </div>
 
             <div className="ear-samples-status" role="status" aria-live="polite">
-              {isSamplesLoading
-                ? `Samples laden: ${loadingPercent}%`
-                : 'Samples bereit'}
+              {isPianoReady ? 'Klavier bereit' : 'Klavier lädt...'}
             </div>
           </div>
 
-          <ProgressPanel
-            levelIdx={levelIdx}
-            sectionIdx={sectionIdx}
-            toneSet={toneSet}
-            unlockedToneStyles={unlockedToneStyles}
-            levelProgress={levelProgress}
-            levelProgressTotal={levelProgressTotal}
-            leveledUpToast={leveledUpToast}
-          />
-
           <ActiveSession
-            accuracy={accuracy}
-            forcedTrial={forcedTrial}
             isPlaying={isPlaying}
-            awaitingGuess={awaitingGuess}
-            hasCurrentTrial={Boolean(currentTrial)}
-            feedback={feedback}
-            guessOptions={guessOptions}
-            onStartTrialPress={() => {
-              void startAndHoldTrial()
+            onPlayTone={() => {
+              void playTone()
             }}
-            onStartTrialRelease={stopTone}
-            onReplayPress={() => {
-              void replayAndHoldTone()
-            }}
-            onReplayRelease={stopTone}
-            onGuess={handleGuess}
           />
         </div>
       )}
