@@ -19,7 +19,7 @@ export function ActiveSession({ buttons, onPlayTone }: ActiveSessionProps) {
             disabled={!button.isReady}
             onClick={() => onPlayTone(button.id)}
           >
-            {button.isPlaying ? `Spielt...` : button.label}
+            {button.isPlaying ? 'Spielt...' : button.label}
           </button>
         ))}
       </div>

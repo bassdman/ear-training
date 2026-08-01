@@ -69,7 +69,7 @@ describe('EarTrainer', () => {
     expect(screen.getByText('Lade Fortschritt ...')).toBeInTheDocument()
   })
 
-  it('rendert den statischen Ton-Button und das Audio-Panel', () => {
+  it('rendert die Trial- und Replay-Buttons und das Audio-Panel', () => {
     render(
       <EarTrainer
         loaded
@@ -91,7 +91,7 @@ describe('EarTrainer', () => {
     )
 
     expect(screen.getByText('Klavier')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Klavier C4' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Flöte G4' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
   })
 })

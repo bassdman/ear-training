@@ -5,21 +5,43 @@ import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
 import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import {
   INSTRUMENTS,
+  getOctaveFromMultiplier,
+  type NoteName,
   type InstrumentId,
 } from '../features/earTrainer/config'
+import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
 import '../features/earTrainer/earTrainer.css'
 
 type ToneButtonConfig = {
   id: string
   label: string
-  instrumentId: 'piano' | 'flute'
-  note: string
+  mode: 'start' | 'replay'
 }
 
 const TONE_BUTTONS: ToneButtonConfig[] = [
-  { id: 'piano-c4', label: 'Klavier C4', instrumentId: 'piano', note: 'C4' },
-  { id: 'flute-g4', label: 'Flöte G4', instrumentId: 'flute', note: 'G4' },
+  { id: 'trial', label: 'Weiter', mode: 'start' },
+  { id: 'replay', label: 'nochmals anhören', mode: 'replay' },
 ]
+
+const NOTE_TO_SMPLR: Record<NoteName, string> = {
+  C: 'C',
+  Cis: 'C#',
+  D: 'D',
+  Dis: 'D#',
+  E: 'E',
+  F: 'F',
+  Fis: 'F#',
+  G: 'G',
+  Gis: 'G#',
+  A: 'A',
+  Ais: 'A#',
+  H: 'B',
+}
+
+function toSmplrNoteName(note: NoteName, frequencyMultiplier: number) {
+  const octave = getOctaveFromMultiplier(frequencyMultiplier)
+  return `${NOTE_TO_SMPLR[note]}${octave}`
+}
 
 type EarTrainerProps = {
   loaded: boolean
@@ -41,38 +63,54 @@ type EarTrainerProps = {
 
 export default function EarTrainer({
   loaded,
+  levelIdx,
+  sectionIdx,
+  bestStreak,
+  setLevelIdx,
+  setSectionIdx,
+  setBestStreak,
+  setUnlockedLevelIdx,
   rangeLabel,
   rangeSubtitle,
+  rangeFrequencyMultipliers,
   selectedInstrumentId,
   playbackVolume,
   setPlaybackVolume,
   onBackToCourse,
 }: EarTrainerProps) {
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const instrumentsRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof Soundfont>>>>({})
-  const activeStopsRef = useRef<Partial<Record<InstrumentId, (() => void) | null>>>({})
-  const stopTimerRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof setTimeout> | null>>>({})
-  const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
-  const [readyByInstrumentId, setReadyByInstrumentId] = useState<Record<InstrumentId, boolean>>({
-    piano: false,
-    guitar: false,
-    flute: false,
-    organ: false,
-    synth: false,
+  const {
+    startTrial,
+    getCurrentTrial,
+  } = useEarTrainerGame({
+    levelIdx,
+    sectionIdx,
+    bestStreak,
+    progressSetters: {
+      setLevelIdx,
+      setSectionIdx,
+      setBestStreak,
+      setUnlockedLevelIdx,
+    },
+    frequencyMultipliers: rangeFrequencyMultipliers,
   })
 
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const instrumentsRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof Soundfont>>>>({})
+  const activeStopRef = useRef<(() => void) | null>(null)
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
+  const [isInstrumentReady, setIsInstrumentReady] = useState(false)
+
   const clearStopTimer = () => {
-    Object.values(stopTimerRef.current).forEach((timer) => {
-      if (timer) {
-        clearTimeout(timer)
-      }
-    })
-    stopTimerRef.current = {}
+    if (stopTimerRef.current) {
+      clearTimeout(stopTimerRef.current)
+      stopTimerRef.current = null
+    }
   }
 
   const stopAllTones = () => {
-    Object.values(activeStopsRef.current).forEach((stop) => stop?.())
-    activeStopsRef.current = {}
+    activeStopRef.current?.()
+    activeStopRef.current = null
     clearStopTimer()
     setIsPlayingByButtonId({})
   }
@@ -90,7 +128,7 @@ export default function EarTrainer({
     return audioContext
   }
 
-  const ensureInstrument = async (instrumentId: 'piano' | 'flute') => {
+  const ensureInstrument = async (instrumentId: InstrumentId) => {
     const existingInstrument = instrumentsRef.current[instrumentId]
     if (existingInstrument) {
       return existingInstrument
@@ -98,6 +136,9 @@ export default function EarTrainer({
 
     const audioContext = await ensureAudioContext()
     const instrumentConfig = INSTRUMENTS[instrumentId]
+    if (instrumentConfig.playbackEngine !== 'soundfont') {
+      throw new Error(`Instrument ${instrumentId} uses no soundfont playback.`)
+    }
     const instrument = Soundfont(audioContext, {
       instrument: instrumentConfig.soundfontInstrument,
       volume: 100,
@@ -106,31 +147,38 @@ export default function EarTrainer({
 
     instrumentsRef.current[instrumentId] = instrument
     await instrument.ready
-    setReadyByInstrumentId((prev) => ({ ...prev, [instrumentId]: true }))
+    setIsInstrumentReady(true)
     return instrument
   }
 
   useEffect(() => {
     if (!loaded) return
 
-    void Promise.all(TONE_BUTTONS.map((button) => ensureInstrument(button.instrumentId)))
-  }, [loaded])
+    void ensureInstrument(selectedInstrumentId)
+  }, [loaded, selectedInstrumentId])
 
   const playTone = async (button: ToneButtonConfig) => {
     if (isPlayingByButtonId[button.id]) return
 
     stopAllTones()
 
-    const instrument = await ensureInstrument(button.instrumentId)
-    const stop = instrument.start({ note: button.note, duration: 1 })
+    const trial =
+      button.mode === 'start' ? startTrial() : getCurrentTrial()
+    if (!trial) return
+
+    const instrument = await ensureInstrument(selectedInstrumentId)
+    const stop = instrument.start({
+      note: toSmplrNoteName(trial.note, trial.frequencyMultiplier),
+      duration: 1,
+    })
 
     setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: true }))
-    activeStopsRef.current[button.instrumentId] = stop
+    activeStopRef.current = stop
 
-    stopTimerRef.current[button.instrumentId] = setTimeout(() => {
-      activeStopsRef.current[button.instrumentId]?.()
-      activeStopsRef.current[button.instrumentId] = null
-      stopTimerRef.current[button.instrumentId] = null
+    stopTimerRef.current = setTimeout(() => {
+      activeStopRef.current?.()
+      activeStopRef.current = null
+      stopTimerRef.current = null
       setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: false }))
     }, 1000)
   }
@@ -142,7 +190,7 @@ export default function EarTrainer({
       void audioContextRef.current?.close()
       audioContextRef.current = null
       instrumentsRef.current = {}
-      activeStopsRef.current = {}
+      activeStopRef.current = null
     }
   }, [])
 
@@ -181,9 +229,7 @@ export default function EarTrainer({
             </div>
 
             <div className="ear-samples-status" role="status" aria-live="polite">
-              {TONE_BUTTONS.every((button) => readyByInstrumentId[button.instrumentId])
-                ? 'Klavier und Flöte bereit'
-                : 'Klavier und Flöte laden...'}
+              {isInstrumentReady ? 'Instrument bereit' : 'Instrument lädt...'}
             </div>
           </div>
 
@@ -191,7 +237,7 @@ export default function EarTrainer({
             buttons={TONE_BUTTONS.map((button) => ({
               ...button,
               isPlaying: Boolean(isPlayingByButtonId[button.id]),
-              isReady: readyByInstrumentId[button.instrumentId],
+              isReady: isInstrumentReady && (button.mode === 'start' || Boolean(getCurrentTrial())),
             }))}
             onPlayTone={(buttonId) => {
               const button = TONE_BUTTONS.find((entry) => entry.id === buttonId)
