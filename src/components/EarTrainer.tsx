@@ -109,6 +109,7 @@ export default function EarTrainer({
   const instrumentsRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof Soundfont>>>>({})
   const activeStopRef = useRef<(() => void) | null>(null)
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasAutoStartedRef = useRef(false)
   const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
   const [isPreparingInstrument, setIsPreparingInstrument] = useState(false)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
@@ -191,12 +192,12 @@ export default function EarTrainer({
     stopAllTones()
     setPlaybackError(null)
 
-    // User interaction path: ensure context is running before triggering playback.
-    await ensureAudioContext(true)
-
     const trial =
       button.mode === 'start' ? startTrial() : getCurrentTrial()
     if (!trial) return
+
+    // User interaction path: ensure context is running before triggering playback.
+    await ensureAudioContext(true)
 
     setIsPreparingInstrument(true)
 
@@ -222,6 +223,16 @@ export default function EarTrainer({
       setIsPlayingByButtonId((prev) => ({ ...prev, [button.id]: false }))
     }, 1000)
   }
+
+  useEffect(() => {
+    if (!loaded || hasAutoStartedRef.current) return
+
+    const trialButton = TONE_BUTTONS.find((entry) => entry.mode === 'start')
+    if (!trialButton) return
+
+    hasAutoStartedRef.current = true
+    void playTone(trialButton)
+  }, [loaded])
 
   useEffect(() => {
     return () => {
