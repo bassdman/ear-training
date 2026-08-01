@@ -180,10 +180,6 @@ export default function EarTrainer({
     isEasyDifficulty && currentTrial
       ? getToneColor(currentTrial.note, currentTrial.frequencyMultiplier).hsl
       : null
-  const resolvedToneSplashColor =
-    feedback
-      ? getToneColor(feedback.actual, feedback.actualFrequencyMultiplier).hsl
-      : null
 
   const clearStopTimer = () => {
     if (stopTimerRef.current) {
@@ -523,13 +519,6 @@ export default function EarTrainer({
 
           {feedback && (
             <div className="ear-feedback-wrap">
-              {resolvedToneSplashColor && (
-                <div
-                  className="ear-feedback-dot"
-                  style={{ background: resolvedToneSplashColor }}
-                  aria-label="Aufgelöste Tonfarbe"
-                />
-              )}
               <div className={`toast ear-feedback ${feedback.correct ? 'is-correct' : 'is-wrong'}`}>
                 {feedback.correct
                   ? `Richtig · ${feedback.actualLabel}`
