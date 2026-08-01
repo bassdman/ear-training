@@ -159,10 +159,12 @@ export default function EarTrainer({
   const instrumentsRef = useRef<Partial<Record<string, ReturnType<typeof Soundfont>>>>({})
   const activeStopRef = useRef<(() => void) | null>(null)
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null)
   const hasAutoStartedRef = useRef(false)
   const [isPlayingByButtonId, setIsPlayingByButtonId] = useState<Record<string, boolean>>({})
   const [isPreparingInstrument, setIsPreparingInstrument] = useState(false)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const unlockedToneStyleNames = unlockedToneStyles.map((toneStyleId) => {
     const soundfontId = TONE_STYLE_INSTRUMENT_VARIANTS[selectedInstrumentId][toneStyleId]
@@ -335,6 +337,30 @@ export default function EarTrainer({
   }, [loaded])
 
   useEffect(() => {
+    if (!isSettingsOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!settingsMenuRef.current?.contains(event.target as Node)) {
+        setIsSettingsOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSettingsOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handlePointerDown)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isSettingsOpen])
+
+  useEffect(() => {
     return () => {
       stopAllTones()
       Object.values(instrumentsRef.current).forEach((instrument) => instrument?.dispose())
@@ -357,34 +383,55 @@ export default function EarTrainer({
         </div>
       ) : (
         <div className="ear-shell">
-          <button className="ear-back-button" onClick={onBackToCourse}>
-            Zur Kursseite
-          </button>
+          <div className="ear-topbar">
+            <button className="ear-back-button" onClick={onBackToCourse}>
+              Zur Kursseite
+            </button>
 
-          <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
+            <div className="ear-settings-wrap" ref={settingsMenuRef}>
+              <button
+                className="ear-settings-toggle"
+                aria-label="Einstellungen"
+                aria-expanded={isSettingsOpen}
+                aria-haspopup="dialog"
+                onClick={() => setIsSettingsOpen((prev) => !prev)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm9.2 3.5-.05-1.12-2.2-.84a7.28 7.28 0 0 0-.54-1.29l1-2.14-.8-.78-2.13 1a7.52 7.52 0 0 0-1.3-.54l-.83-2.2L13.2 2h-2.4l-.83 2.2a7.52 7.52 0 0 0-1.3.54l-2.13-1-.8.78 1 2.14a7.28 7.28 0 0 0-.54 1.29l-2.2.84L2.8 12l.05 1.12 2.2.84c.13.45.3.88.54 1.29l-1 2.14.8.78 2.13-1c.4.24.84.41 1.3.54l.83 2.2h2.4l.83-2.2c.46-.13.9-.3 1.3-.54l2.13 1 .8-.78-1-2.14c.24-.4.41-.84.54-1.29l2.2-.84L21.2 12Z" />
+                </svg>
+                <span className="sr-only">Einstellungen öffnen</span>
+              </button>
 
-          <div className="ear-panel ear-audio-panel">
-            <div className="ear-audio-row">
-              <label>Instrument</label>
-              <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
-            </div>
+              {isSettingsOpen && (
+                <div className="ear-settings-menu" role="dialog" aria-label="Einstellungen">
+                  <div className="ear-settings-title">Einstellungen</div>
 
-            <div className="ear-audio-row">
-              <label htmlFor="ear-volume">Lautstärke</label>
-              <div className="ear-volume-wrap">
-                <input
-                  id="ear-volume"
-                  type="range"
-                  min={0}
-                  max={127}
-                  step={1}
-                  value={playbackVolume}
-                  onChange={(event) => setPlaybackVolume(Number(event.target.value))}
-                />
-                <strong>{playbackVolume}</strong>
-              </div>
+                  <div className="ear-audio-row">
+                    <label>Instrument</label>
+                    <div className="ear-samples-status">{INSTRUMENTS[selectedInstrumentId].label}</div>
+                  </div>
+
+                  <div className="ear-audio-row">
+                    <label htmlFor="ear-volume">Lautstärke</label>
+                    <div className="ear-volume-wrap">
+                      <input
+                        id="ear-volume"
+                        type="range"
+                        min={0}
+                        max={127}
+                        step={1}
+                        value={playbackVolume}
+                        onChange={(event) => setPlaybackVolume(Number(event.target.value))}
+                      />
+                      <strong>{playbackVolume}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
+          <TrainerHeader rangeLabel={rangeLabel} rangeSubtitle={rangeSubtitle} />
 
           <ProgressPanel
             levelIdx={levelIdx}

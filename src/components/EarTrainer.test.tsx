@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -86,7 +86,7 @@ describe('EarTrainer', () => {
     expect(screen.getByText('Lade Fortschritt ...')).toBeInTheDocument()
   })
 
-  it('rendert die Trial- und Replay-Buttons und das Audio-Panel', () => {
+  it('rendert die Trial- und Replay-Buttons und zeigt Audio-Einstellungen im Menü', () => {
     renderWithQuery(
       <EarTrainer
         loaded
@@ -108,6 +108,9 @@ describe('EarTrainer', () => {
       />,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen' }))
+
+    expect(screen.getByRole('dialog', { name: 'Einstellungen' })).toBeInTheDocument()
     expect(screen.getByText('Klavier')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Weiter|Spielt.../ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'nochmals anhören' })).toBeInTheDocument()
