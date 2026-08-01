@@ -12,6 +12,7 @@ type ProgressPanelProps = {
   sectionIdx: number
   toneSet: readonly string[]
   unlockedToneStyles: ToneStyleId[]
+  unlockedToneStyleNames?: string[]
   levelProgress: number
   levelProgressTotal: number
   leveledUpToast: string | null
@@ -22,6 +23,7 @@ export function ProgressPanel({
   sectionIdx,
   toneSet,
   unlockedToneStyles,
+  unlockedToneStyleNames,
   levelProgress,
   levelProgressTotal,
   leveledUpToast,
@@ -63,7 +65,10 @@ export function ProgressPanel({
       <div className="ear-copy">Töne: {toneSet.join(' · ')}</div>
       <div className="ear-copy">
         Tonstile im Spiel:{' '}
-        {unlockedToneStyles.map((style) => TONE_STYLES[style].label).join(' · ')}
+        {(unlockedToneStyleNames && unlockedToneStyleNames.length > 0
+          ? unlockedToneStyleNames
+          : unlockedToneStyles.map((style) => TONE_STYLES[style].label)
+        ).join(' · ')}
       </div>
 
       <div className="ear-streak-wrap">
