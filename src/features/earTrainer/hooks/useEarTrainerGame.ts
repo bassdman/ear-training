@@ -34,6 +34,13 @@ type UseEarTrainerGameOptions = {
   toneStyleCount: number
 }
 
+type CompletionNotice = {
+  id: number
+  title: string
+  message: string
+  nextExerciseLabel?: string
+}
+
 export function useEarTrainerGame({
   levelIdx,
   sectionIdx,
@@ -48,6 +55,7 @@ export function useEarTrainerGame({
   const [awaitingGuess, setAwaitingGuess] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [leveledUpToast, setLeveledUpToast] = useState<string | null>(null)
+  const [completionNotice, setCompletionNotice] = useState<CompletionNotice | null>(null)
   const [sessionGuesses, setSessionGuesses] = useState(0)
   const [sessionCorrect, setSessionCorrect] = useState(0)
 
@@ -184,9 +192,20 @@ export function useEarTrainerGame({
           setLeveledUpToast(
             `Übung ${newLevel + 1}/${LEVEL_COUNT} freigeschaltet`,
           )
+          setCompletionNotice({
+            id: Date.now(),
+            title: 'Übung abgeschlossen',
+            message: 'Glückwunsch! Du hast die gesamte Übung abgeschlossen.',
+            nextExerciseLabel: `Übung ${newLevel + 1}`,
+          })
         } else {
           setSectionProgress(sectionTarget)
           setLeveledUpToast('Höchste Übung gehalten')
+          setCompletionNotice({
+            id: Date.now(),
+            title: 'Übung abgeschlossen',
+            message: 'Glückwunsch! Du hast die letzte Übung abgeschlossen.',
+          })
         }
 
         setTimeout(() => setLeveledUpToast(null), 2600)
@@ -217,10 +236,12 @@ export function useEarTrainerGame({
     awaitingGuess,
     feedback,
     leveledUpToast,
+    completionNotice,
     sessionGuesses,
     accuracy,
     startTrial,
     getCurrentTrial,
     handleGuess,
+    dismissCompletionNotice: () => setCompletionNotice(null),
   }
 }

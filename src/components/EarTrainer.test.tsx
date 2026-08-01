@@ -120,4 +120,5 @@ describe('EarTrainer', () => {
       expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled()
     })
   })
+
 })

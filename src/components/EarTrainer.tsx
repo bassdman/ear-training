@@ -138,9 +138,11 @@ export default function EarTrainer({
     awaitingGuess,
     feedback,
     leveledUpToast,
+    completionNotice,
     startTrial,
     getCurrentTrial,
     handleGuess,
+    dismissCompletionNotice,
   } = useEarTrainerGame({
     levelIdx,
     sectionIdx,
@@ -165,6 +167,8 @@ export default function EarTrainer({
   const [isPreparingInstrument, setIsPreparingInstrument] = useState(false)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false)
+  const lastCompletionNoticeIdRef = useRef<number | null>(null)
 
   const unlockedToneStyleNames = unlockedToneStyles.map((toneStyleId) => {
     const soundfontId = TONE_STYLE_INSTRUMENT_VARIANTS[selectedInstrumentId][toneStyleId]
@@ -335,6 +339,14 @@ export default function EarTrainer({
     hasAutoStartedRef.current = true
     void playTone(trialButton)
   }, [loaded])
+
+  useEffect(() => {
+    if (!completionNotice) return
+    if (lastCompletionNoticeIdRef.current === completionNotice.id) return
+
+    lastCompletionNoticeIdRef.current = completionNotice.id
+    setIsCompletionModalOpen(true)
+  }, [completionNotice])
 
   useEffect(() => {
     if (!isSettingsOpen) return
@@ -509,6 +521,29 @@ export default function EarTrainer({
               {feedback.correct
                 ? `Richtig · ${feedback.actualLabel}`
                 : `Gehört war ${feedback.actualLabel} · geraten: ${feedback.guessedLabel}`}
+            </div>
+          )}
+
+          {isCompletionModalOpen && completionNotice && (
+            <div className="ear-modal-backdrop" role="presentation">
+              <div className="ear-modal" role="dialog" aria-modal="true" aria-label={completionNotice.title}>
+                <h3>{completionNotice.title}</h3>
+                <p>{completionNotice.message}</p>
+                {completionNotice.nextExerciseLabel && (
+                  <p className="ear-modal-next">
+                    Nächste Übung: <strong>{completionNotice.nextExerciseLabel}</strong>
+                  </p>
+                )}
+                <button
+                  className="ear-button ear-button-primary"
+                  onClick={() => {
+                    setIsCompletionModalOpen(false)
+                    dismissCompletionNotice()
+                  }}
+                >
+                  Weiter
+                </button>
+              </div>
             </div>
           )}
         </div>

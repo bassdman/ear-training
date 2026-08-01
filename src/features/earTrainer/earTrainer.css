@@ -519,6 +519,49 @@
   }
 }
 
+.ear-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 9, 14, 0.74);
+  z-index: 40;
+  padding: 20px;
+}
+
+.ear-modal {
+  width: min(92vw, 420px);
+  background: #1a1f2b;
+  border: 1px solid #3a4054;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  display: grid;
+  gap: 10px;
+}
+
+.ear-modal h3 {
+  margin: 0;
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem;
+}
+
+.ear-modal p {
+  margin: 0;
+  color: var(--ear-text-dim);
+  line-height: 1.45;
+}
+
+.ear-modal-next {
+  color: var(--ear-text);
+}
+
+.ear-modal .ear-button {
+  justify-self: center;
+  margin-top: 6px;
+}
+
 @keyframes fadeSlide {
   from {
     opacity: 0;
