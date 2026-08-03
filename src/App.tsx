@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import EarTrainer from './components/EarTrainer'
+import { CampaignPage } from './features/campaign/CampaignPage'
 import { CoursePage } from './features/course/CoursePage'
+import { HomePage } from './features/home/HomePage'
 import {
   INSTRUMENTS,
   TRAINING_CATEGORIES,
@@ -30,7 +32,7 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/course" replace />} />
+      <Route path="/" element={<HomePage />} />
       <Route
         path="/course"
         element={
@@ -54,6 +56,16 @@ function App() {
               progress.setActiveDifficultyId(difficultyId)
               navigate('/trainer')
             }}
+            onOpenCampaign={() => navigate('/campaign')}
+          />
+        }
+      />
+      <Route
+        path="/campaign"
+        element={
+          <CampaignPage
+            onBackHome={() => navigate('/')}
+            onOpenExercises={() => navigate('/course')}
           />
         }
       />
@@ -85,7 +97,7 @@ function App() {
           />
         }
       />
-      <Route path="*" element={<Navigate to="/course" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

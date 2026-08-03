@@ -34,6 +34,7 @@ describe('CoursePage', () => {
         onActiveDifficultyChange={vi.fn()}
         onOpenLevel={vi.fn()}
         onContinue={vi.fn()}
+        onOpenCampaign={vi.fn()}
       />,
     )
 
@@ -46,6 +47,7 @@ describe('CoursePage', () => {
     const onActiveDifficultyChange = vi.fn()
     const onOpenLevel = vi.fn()
     const onContinue = vi.fn()
+    const onOpenCampaign = vi.fn()
 
     render(
       <CoursePage
@@ -64,6 +66,7 @@ describe('CoursePage', () => {
         onActiveDifficultyChange={onActiveDifficultyChange}
         onOpenLevel={onOpenLevel}
         onContinue={onContinue}
+        onOpenCampaign={onOpenCampaign}
       />,
     )
 

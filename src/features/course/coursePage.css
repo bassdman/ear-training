@@ -159,6 +159,24 @@
   cursor: pointer;
 }
 
+.course-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.course-campaign-link {
+  margin-top: 16px;
+  border: 1px solid #354058;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 600;
+  background: rgba(20, 25, 37, 0.94);
+  color: #e2e7f2;
+  cursor: pointer;
+}
+
 .course-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

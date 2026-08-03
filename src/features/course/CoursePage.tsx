@@ -32,6 +32,7 @@ type CoursePageProps = {
   onActiveDifficultyChange: (difficultyId: DifficultyId) => void
   onOpenLevel: (categoryIdx: number, difficultyId: DifficultyId, levelIdx: number) => void
   onContinue: (categoryIdx: number, difficultyId: DifficultyId) => void
+  onOpenCampaign: () => void
 }
 
 export function CoursePage({
@@ -50,6 +51,7 @@ export function CoursePage({
   onActiveDifficultyChange,
   onOpenLevel,
   onContinue,
+  onOpenCampaign,
 }: CoursePageProps) {
   const [selectedDifficultyByCategory, setSelectedDifficultyByCategory] = useState<
     Record<string, DifficultyId>
@@ -123,12 +125,17 @@ export function CoursePage({
               </div>
             </label>
           </div>
-          <button
-            className="course-continue"
-            onClick={() => onContinue(activeCategoryIdx, activeCategoryDifficulty)}
-          >
-            Weiter in {activeCategory.label}: {difficultyConfig[activeCategoryDifficulty].label} · Übung {activeProgress.levelIdx + 1}
-          </button>
+          <div className="course-header-actions">
+            <button
+              className="course-continue"
+              onClick={() => onContinue(activeCategoryIdx, activeCategoryDifficulty)}
+            >
+              Weiter in {activeCategory.label}: {difficultyConfig[activeCategoryDifficulty].label} · Übung {activeProgress.levelIdx + 1}
+            </button>
+            <button className="course-campaign-link" onClick={onOpenCampaign}>
+              Kampagnenmodus öffnen
+            </button>
+          </div>
         </header>
 
         <section className="course-groups" aria-label="Kategorien">
