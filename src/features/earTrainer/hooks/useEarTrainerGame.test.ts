@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { createExerciseSessionConfig } from '../config'
 import { useEarTrainerGame } from './useEarTrainerGame'
 
 describe('useEarTrainerGame', () => {
@@ -24,8 +25,7 @@ describe('useEarTrainerGame', () => {
         sectionIdx: 0,
         bestStreak: 0,
         progressSetters,
-        frequencyMultipliers: [1],
-        toneStyleCount: 1,
+        sessionConfig: createExerciseSessionConfig(0, [1], 1),
       }),
     )
 
@@ -55,8 +55,7 @@ describe('useEarTrainerGame', () => {
         sectionIdx: 0,
         bestStreak: 0,
         progressSetters,
-        frequencyMultipliers: [1],
-        toneStyleCount: 1,
+        sessionConfig: createExerciseSessionConfig(0, [1], 1),
       }),
     )
 
@@ -90,8 +89,7 @@ describe('useEarTrainerGame', () => {
         sectionIdx: 0,
         bestStreak: 0,
         progressSetters,
-        frequencyMultipliers: [1],
-        toneStyleCount: 1,
+        sessionConfig: createExerciseSessionConfig(0, [1], 1),
       }),
     )
 
@@ -125,8 +123,7 @@ describe('useEarTrainerGame', () => {
         sectionIdx: 0,
         bestStreak: 0,
         progressSetters,
-        frequencyMultipliers: [1],
-        toneStyleCount: 1,
+        sessionConfig: createExerciseSessionConfig(0, [1], 1),
       }),
     )
 

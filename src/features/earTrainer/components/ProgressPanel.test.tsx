@@ -13,6 +13,8 @@ describe('ProgressPanel', () => {
         unlockedToneStyles={['colorA', 'colorB']}
         levelProgress={7}
         levelProgressTotal={25}
+        levelCount={12}
+        sectionSteps={[5, 5, 5, 10]}
         leveledUpToast="Abschnitt 4 freigeschaltet"
       />,
     )

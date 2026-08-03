@@ -7,6 +7,7 @@ import { HomePage } from './features/home/HomePage'
 import {
   INSTRUMENTS,
   TRAINING_CATEGORIES,
+  createExerciseSessionConfig,
   type DifficultyId,
 } from './features/earTrainer/config'
 import { useTrainerProgress } from './features/earTrainer/hooks/useTrainerProgress'
@@ -17,6 +18,11 @@ function App() {
 
   const activeCategory =
     TRAINING_CATEGORIES[progress.activeCategoryIdx] ?? TRAINING_CATEGORIES[0]
+  const activeSessionConfig = createExerciseSessionConfig(
+    progress.levelIdx,
+    activeCategory.frequencyMultipliers,
+    progress.difficultyConfig[progress.activeDifficultyId].toneStyleCount,
+  )
 
   const openLevel = (
     categoryIdx: number,
@@ -83,10 +89,7 @@ function App() {
             setUnlockedLevelIdx={progress.setUnlockedLevelIdx}
             rangeLabel={activeCategory.label}
             rangeSubtitle={activeCategory.subtitle}
-            rangeFrequencyMultipliers={activeCategory.frequencyMultipliers}
-            toneStyleCount={
-              progress.difficultyConfig[progress.activeDifficultyId].toneStyleCount
-            }
+            sessionConfig={activeSessionConfig}
             toneSplashMode={
               activeCategory.config.toneSplashByDifficulty[progress.activeDifficultyId]
             }

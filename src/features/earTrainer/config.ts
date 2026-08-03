@@ -102,6 +102,14 @@ export type Trial = {
   frequencyMultiplier: number
 }
 
+export type EarTrainerSessionConfig = {
+  toneSet: readonly NoteName[]
+  frequencyMultipliers: number[]
+  toneStyleCount: number
+  sectionSteps: readonly number[]
+  levelCount: number
+}
+
 export type GuessOption = {
   id: string
   note: NoteName
@@ -255,6 +263,20 @@ export const PROGRESS_STORAGE_KEY = 'earTrainer-progress-v2'
 export const SECTION_COUNT = 4
 export const SECTION_STEPS = [5, 5, 5, 10] as const
 export const LEVEL_PROGRESS_TOTAL = SECTION_STEPS.reduce((sum, steps) => sum + steps, 0)
+
+export function createExerciseSessionConfig(
+  levelIdx: number,
+  frequencyMultipliers: number[],
+  toneStyleCount: number,
+): EarTrainerSessionConfig {
+  return {
+    toneSet: EXERCISES[levelIdx] ?? EXERCISES[0],
+    frequencyMultipliers,
+    toneStyleCount,
+    sectionSteps: SECTION_STEPS,
+    levelCount: LEVEL_COUNT,
+  }
+}
 
 export function getOctaveFromMultiplier(frequencyMultiplier: number) {
   return 4 + Math.round(Math.log2(frequencyMultiplier))

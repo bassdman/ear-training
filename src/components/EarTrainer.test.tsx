@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import EarTrainer from './EarTrainer'
+import { createExerciseSessionConfig } from '../features/earTrainer/config'
 
 const { soundfontMock, startMock, disposeMock } = vi.hoisted(() => {
   const start = vi.fn(() => vi.fn())
@@ -74,8 +75,7 @@ describe('EarTrainer', () => {
         setUnlockedLevelIdx={vi.fn()}
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
-        rangeFrequencyMultipliers={[1]}
-        toneStyleCount={1}
+        sessionConfig={createExerciseSessionConfig(0, [1], 1)}
         toneSplashMode="persistent"
         selectedInstrumentId="piano"
         playbackVolume={100}
@@ -100,8 +100,7 @@ describe('EarTrainer', () => {
         setUnlockedLevelIdx={vi.fn()}
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
-        rangeFrequencyMultipliers={[1]}
-        toneStyleCount={1}
+        sessionConfig={createExerciseSessionConfig(0, [1], 1)}
         toneSplashMode="persistent"
         selectedInstrumentId="piano"
         playbackVolume={100}
@@ -136,8 +135,7 @@ describe('EarTrainer', () => {
         setUnlockedLevelIdx={vi.fn()}
         rangeLabel="Mittlere Lage"
         rangeSubtitle="C4 bis H4"
-        rangeFrequencyMultipliers={[1]}
-        toneStyleCount={1}
+        sessionConfig={createExerciseSessionConfig(0, [1], 1)}
         toneSplashMode="persistent"
         selectedInstrumentId="piano"
         playbackVolume={100}

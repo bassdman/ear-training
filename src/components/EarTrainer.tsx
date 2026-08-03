@@ -7,6 +7,7 @@ import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
 import {
   INSTRUMENTS,
   getOctaveFromMultiplier,
+  type EarTrainerSessionConfig,
   type NoteName,
   type InstrumentId,
   type ToneStyleId,
@@ -104,8 +105,7 @@ type EarTrainerProps = {
   setUnlockedLevelIdx: React.Dispatch<React.SetStateAction<number>>
   rangeLabel: string
   rangeSubtitle: string
-  rangeFrequencyMultipliers: number[]
-  toneStyleCount: number
+  sessionConfig: EarTrainerSessionConfig
   toneSplashMode: ToneSplashMode
   selectedInstrumentId: InstrumentId
   playbackVolume: number
@@ -124,8 +124,7 @@ export default function EarTrainer({
   setUnlockedLevelIdx,
   rangeLabel,
   rangeSubtitle,
-  rangeFrequencyMultipliers,
-  toneStyleCount,
+  sessionConfig,
   toneSplashMode,
   selectedInstrumentId,
   playbackVolume,
@@ -134,6 +133,8 @@ export default function EarTrainer({
 }: EarTrainerProps) {
   const {
     toneSet,
+    sectionSteps,
+    levelCount,
     guessOptions,
     unlockedToneStyles,
     levelProgress,
@@ -156,8 +157,7 @@ export default function EarTrainer({
       setBestStreak,
       setUnlockedLevelIdx,
     },
-    frequencyMultipliers: rangeFrequencyMultipliers,
-    toneStyleCount,
+    sessionConfig,
   })
 
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -498,6 +498,8 @@ export default function EarTrainer({
             unlockedToneStyleNames={unlockedToneStyleNames}
             levelProgress={levelProgress}
             levelProgressTotal={levelProgressTotal}
+            levelCount={levelCount}
+            sectionSteps={sectionSteps}
             leveledUpToast={leveledUpToast}
           />
 

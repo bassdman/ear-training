@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
 
 import {
-  LEVEL_COUNT,
-  SECTION_COUNT,
   TONE_STYLES,
   type ToneStyleId,
 } from '../config'
@@ -15,6 +13,8 @@ type ProgressPanelProps = {
   unlockedToneStyleNames?: string[]
   levelProgress: number
   levelProgressTotal: number
+  levelCount: number
+  sectionSteps: readonly number[]
   leveledUpToast: string | null
 }
 
@@ -26,10 +26,18 @@ export function ProgressPanel({
   unlockedToneStyleNames,
   levelProgress,
   levelProgressTotal,
+  levelCount,
+  sectionSteps,
   leveledUpToast,
 }: ProgressPanelProps) {
   const scaleCells = Array.from({ length: levelProgressTotal }, (_, index) => index)
-  const sectionBreaks = new Set([5, 10, 15])
+  const sectionBreaks = new Set(
+    sectionSteps.slice(0, -1).reduce<number[]>((breaks, steps, index) => {
+      const previous = index === 0 ? 0 : breaks[index - 1]
+      breaks.push(previous + steps)
+      return breaks
+    }, []),
+  )
   const scaleParts = scaleCells.flatMap((cell) => {
     const parts: ReactNode[] = []
 
@@ -55,10 +63,10 @@ export function ProgressPanel({
 
       <div className="ear-meta">
         <span className="ear-meta-primary">
-          Übung {levelIdx + 1} / {LEVEL_COUNT}
+          Übung {levelIdx + 1} / {levelCount}
         </span>
         <span className="ear-meta-secondary">
-          Abschnitt {sectionIdx + 1} / {SECTION_COUNT}
+          Abschnitt {sectionIdx + 1} / {sectionSteps.length}
         </span>
       </div>
 

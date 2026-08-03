@@ -8,13 +8,10 @@ import {
 } from 'react'
 
 import {
-  EXERCISES,
   formatPitchLabel,
   type GuessOption,
-  LEVEL_PROGRESS_TOTAL,
-  LEVEL_COUNT,
-  SECTION_STEPS,
   TONE_STYLE_IDS,
+  type EarTrainerSessionConfig,
   type Feedback,
   type NoteName,
   type ToneStyleId,
@@ -37,8 +34,7 @@ type UseEarTrainerGameOptions = {
   sectionIdx: number
   bestStreak: number
   progressSetters: ProgressSetters
-  frequencyMultipliers: number[]
-  toneStyleCount: number
+  sessionConfig: EarTrainerSessionConfig
 }
 
 type CompletionNotice = {
@@ -53,8 +49,7 @@ export function useEarTrainerGame({
   sectionIdx,
   bestStreak,
   progressSetters,
-  frequencyMultipliers,
-  toneStyleCount,
+  sessionConfig,
 }: UseEarTrainerGameOptions) {
   const [sectionProgress, setSectionProgress] = useState(0)
   const [currentTrial, setCurrentTrial] = useState<Trial | null>(null)
@@ -68,7 +63,11 @@ export function useEarTrainerGame({
   const lastRandomNoteRef = useRef<NoteName | null>(null)
   const randomNoteStreakRef = useRef(0)
 
-  const toneSet = EXERCISES[levelIdx]
+  const { toneSet, frequencyMultipliers, toneStyleCount, sectionSteps, levelCount } = sessionConfig
+  const levelProgressTotal = useMemo(
+    () => sectionSteps.reduce((sum, steps) => sum + steps, 0),
+    [sectionSteps],
+  )
   const activeMultipliers = useMemo(
     () => [...new Set(frequencyMultipliers)].sort((a, b) => a - b),
     [frequencyMultipliers],
@@ -106,11 +105,11 @@ export function useEarTrainerGame({
   }, [toneSet])
 
   const sectionStart = useMemo(
-    () => SECTION_STEPS.slice(0, sectionIdx).reduce((sum, steps) => sum + steps, 0),
-    [sectionIdx],
+    () => sectionSteps.slice(0, sectionIdx).reduce((sum, steps) => sum + steps, 0),
+    [sectionIdx, sectionSteps],
   )
-  const sectionTarget = SECTION_STEPS[sectionIdx] ?? SECTION_STEPS[SECTION_STEPS.length - 1]
-  const levelProgress = Math.min(LEVEL_PROGRESS_TOTAL, sectionStart + sectionProgress)
+  const sectionTarget = sectionSteps[sectionIdx] ?? sectionSteps[sectionSteps.length - 1]
+  const levelProgress = Math.min(levelProgressTotal, sectionStart + sectionProgress)
 
   const startTrial = () => {
     const pickRandomNote = (): NoteName => {
@@ -217,21 +216,21 @@ export function useEarTrainerGame({
       })
 
       if (reachedSectionTarget) {
-        if (sectionIdx < SECTION_STEPS.length - 1) {
+        if (sectionIdx < sectionSteps.length - 1) {
           const newSection = sectionIdx + 1
           setSectionProgress(0)
           progressSetters.setSectionIdx(newSection)
           setLeveledUpToast(
-            `Abschnitt ${newSection + 1}/${SECTION_STEPS.length} freigeschaltet`,
+            `Abschnitt ${newSection + 1}/${sectionSteps.length} freigeschaltet`,
           )
-        } else if (levelIdx < LEVEL_COUNT - 1) {
+        } else if (levelIdx < levelCount - 1) {
           const newLevel = levelIdx + 1
           setSectionProgress(0)
           progressSetters.setLevelIdx(newLevel)
           progressSetters.setUnlockedLevelIdx((prev) => Math.max(prev, newLevel))
           progressSetters.setSectionIdx(0)
           setLeveledUpToast(
-            `Übung ${newLevel + 1}/${LEVEL_COUNT} freigeschaltet`,
+            `Übung ${newLevel + 1}/${levelCount} freigeschaltet`,
           )
           setCompletionNotice({
             id: Date.now(),
@@ -269,10 +268,12 @@ export function useEarTrainerGame({
 
   return {
     toneSet,
+    sectionSteps,
+    levelCount,
     guessOptions,
     unlockedToneStyles,
     levelProgress,
-    levelProgressTotal: LEVEL_PROGRESS_TOTAL,
+    levelProgressTotal,
     forcedTrial,
     awaitingGuess,
     feedback,
