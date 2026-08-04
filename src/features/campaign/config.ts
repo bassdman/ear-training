@@ -82,8 +82,9 @@ export const DEFAULT_CAMPAIGN_PROGRESS = {
   bestStreak: 0,
   unlockedLevelIdx: 0,
   spentPoints: 0,
-  noteUpgradePoints: 0,
-  aidReductionPoints: 0,
+  noteDifficultyPoints: 1,
+  toneStyleDifficultyPoints: 1,
+  toneSplashDifficultyPoints: 1,
 } as const
 
 export type CampaignAidSettings = {
@@ -91,30 +92,69 @@ export type CampaignAidSettings = {
   toneSplashMode: ToneSplashMode
 }
 
-export function resolveCampaignAidSettings(aidReductionPoints: number): CampaignAidSettings {
-  if (aidReductionPoints <= 0) {
-    return { toneStyleCount: 1, toneSplashMode: 'persistent' }
-  }
+export function resolveCampaignExerciseLevelIdx(
+  currentLevelIdx: number,
+  noteDifficultyPoints: number,
+) {
+  const effectiveLevelIdx =
+    Math.round(currentLevelIdx) + Math.max(0, Math.round(noteDifficultyPoints - 1))
 
-  if (aidReductionPoints === 1) {
-    return { toneStyleCount: 2, toneSplashMode: 'transient' }
-  }
+  return Math.max(0, Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, effectiveLevelIdx))
+}
 
-  return { toneStyleCount: 4, toneSplashMode: 'off' }
+export function resolveCampaignAidSettings(
+  toneStyleDifficultyPoints: number,
+  toneSplashDifficultyPoints: number,
+): CampaignAidSettings {
+  const toneStyleCountMap = [1, 2, 2, 3, 4]
+  const toneSplashModeMap: ToneSplashMode[] = [
+    'persistent',
+    'persistent',
+    'transient',
+    'transient',
+    'off',
+  ]
+
+  const safeToneStyleIdx = Math.max(0, Math.min(4, Math.round(toneStyleDifficultyPoints)))
+  const safeToneSplashIdx = Math.max(0, Math.min(4, Math.round(toneSplashDifficultyPoints)))
+
+  return {
+    toneStyleCount: toneStyleCountMap[safeToneStyleIdx] ?? 1,
+    toneSplashMode: toneSplashModeMap[safeToneSplashIdx] ?? 'persistent',
+  }
+}
+
+export function resolveCampaignTotalDifficulty(
+  noteDifficultyPoints: number,
+  toneStyleDifficultyPoints: number,
+  toneSplashDifficultyPoints: number,
+) {
+  return (
+    Math.max(0, Math.round(noteDifficultyPoints)) +
+    Math.max(0, Math.round(toneStyleDifficultyPoints)) +
+    Math.max(0, Math.round(toneSplashDifficultyPoints))
+  )
+}
+
+export function resolveRequiredDifficultyForLevel(levelIdx: number) {
+  return Math.max(0, Math.round(levelIdx)) + 3
 }
 
 export function createCampaignSessionConfig(
   startRangeId: CampaignRangeId,
   currentLevelIdx: number,
-  noteUpgradePoints: number,
-  aidReductionPoints: number,
+  noteDifficultyPoints: number,
+  toneStyleDifficultyPoints: number,
+  toneSplashDifficultyPoints: number,
 ): EarTrainerSessionConfig {
-  const effectiveLevelIdx = Math.round(currentLevelIdx) + Math.max(0, Math.round(noteUpgradePoints))
-  const safeLevelIdx = Math.max(
-    0,
-    Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, effectiveLevelIdx),
+  const safeLevelIdx = resolveCampaignExerciseLevelIdx(
+    currentLevelIdx,
+    noteDifficultyPoints,
   )
-  const aidSettings = resolveCampaignAidSettings(aidReductionPoints)
+  const aidSettings = resolveCampaignAidSettings(
+    toneStyleDifficultyPoints,
+    toneSplashDifficultyPoints,
+  )
 
   return {
     toneSet: EXERCISES[safeLevelIdx] ?? EXERCISES[0],

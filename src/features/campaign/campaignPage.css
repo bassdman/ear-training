@@ -146,11 +146,108 @@
   gap: 6px;
 }
 
+.campaign-track-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.campaign-track-card {
+  border: 1px solid #354458;
+  border-radius: 14px;
+  background: rgba(20, 27, 39, 0.88);
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.campaign-track-card span {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9fb0c3;
+}
+
+.campaign-track-card strong {
+  color: #eff4fb;
+}
+
+.campaign-track-card p {
+  margin: 0;
+  color: #a9b7c8;
+  line-height: 1.45;
+}
+
 .campaign-upgrade-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 16px;
+}
+
+.campaign-upgrade-actions .campaign-primary-button,
+.campaign-upgrade-actions .campaign-reset-button,
+.campaign-upgrade-footer .campaign-primary-button,
+.campaign-upgrade-footer .campaign-reset-button {
+  margin-top: 0;
+}
+
+.campaign-upgrade-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.campaign-upgrade-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 12, 18, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 20;
+}
+
+.campaign-upgrade-modal {
+  width: min(560px, 100%);
+  border: 1px solid #364356;
+  border-radius: 18px;
+  background: rgba(16, 22, 32, 0.98);
+  padding: 20px;
+}
+
+.campaign-upgrade-modal h2 {
+  margin: 0;
+  color: #f5f8fd;
+}
+
+.campaign-upgrade-modal p {
+  margin: 10px 0 0;
+  color: #a9b7c8;
+  line-height: 1.55;
+}
+
+.campaign-slider-row {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.campaign-slider-row span {
+  font-size: 0.82rem;
+  color: #dce6f4;
+}
+
+.campaign-slider-row input[type='range'] {
+  width: 100%;
+}
+
+.campaign-slider-description {
+  margin-top: 8px;
+  color: #a9b7c8;
 }
 
 .campaign-primary-button:disabled,
@@ -173,6 +270,7 @@
   display: grid;
   place-items: center;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .campaign-path-node.is-current {
@@ -190,6 +288,14 @@
 .campaign-path-node.is-locked {
   background: rgba(25, 32, 43, 0.84);
   color: #6f8092;
+}
+
+.campaign-path-node.is-selected {
+  box-shadow: 0 0 0 2px rgba(154, 220, 255, 0.5) inset;
+}
+
+.campaign-path-node:disabled {
+  cursor: not-allowed;
 }
 
 .campaign-footnote {

@@ -16,21 +16,26 @@ const clampSection = (value: number) => Math.max(0, Math.min(3, Math.round(value
 const clampPlayableLevel = (value: number) =>
   Math.max(0, Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, Math.round(value)))
 const clampNonNegative = (value: number) => Math.max(0, Math.round(value))
-const clampAidReduction = (value: number) => Math.max(0, Math.min(2, Math.round(value)))
+const clampDifficultySlider = (value: number) => Math.max(0, Math.min(4, Math.round(value)))
 
-const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgressState => ({
-  voiceType: raw?.voiceType ?? DEFAULT_CAMPAIGN_PROGRESS.voiceType,
-  startRangeId: raw?.startRangeId ?? DEFAULT_CAMPAIGN_PROGRESS.startRangeId,
-  currentLevelIdx: clampPlayableLevel(raw?.currentLevelIdx ?? 0),
-  sectionIdx: clampSection(raw?.sectionIdx ?? 0),
-  bestStreak: Math.max(0, Math.round(raw?.bestStreak ?? 0)),
-  unlockedLevelIdx: clampPlayableLevel(
-    Math.max(raw?.unlockedLevelIdx ?? 0, raw?.currentLevelIdx ?? 0),
-  ),
-  spentPoints: clampNonNegative(raw?.spentPoints ?? 0),
-  noteUpgradePoints: clampNonNegative(raw?.noteUpgradePoints ?? 0),
-  aidReductionPoints: clampAidReduction(raw?.aidReductionPoints ?? 0),
-})
+const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgressState => {
+  const currentLevelIdx = clampPlayableLevel(raw?.currentLevelIdx ?? 0)
+  const spentPoints = clampNonNegative(raw?.spentPoints ?? 0)
+  return {
+    voiceType: raw?.voiceType ?? DEFAULT_CAMPAIGN_PROGRESS.voiceType,
+    startRangeId: raw?.startRangeId ?? DEFAULT_CAMPAIGN_PROGRESS.startRangeId,
+    currentLevelIdx,
+    sectionIdx: clampSection(raw?.sectionIdx ?? 0),
+    bestStreak: Math.max(0, Math.round(raw?.bestStreak ?? 0)),
+    unlockedLevelIdx: clampPlayableLevel(
+      Math.max(raw?.unlockedLevelIdx ?? 0, currentLevelIdx),
+    ),
+    spentPoints,
+    noteDifficultyPoints: clampDifficultySlider(raw?.noteDifficultyPoints ?? 1),
+    toneStyleDifficultyPoints: clampDifficultySlider(raw?.toneStyleDifficultyPoints ?? 1),
+    toneSplashDifficultyPoints: clampDifficultySlider(raw?.toneSplashDifficultyPoints ?? 1),
+  }
+}
 
 export function useCampaignProgress() {
   const [loaded, setLoaded] = useState(false)
@@ -73,8 +78,9 @@ export function useCampaignProgress() {
       bestStreak: 0,
       unlockedLevelIdx: 0,
       spentPoints: 0,
-      noteUpgradePoints: 0,
-      aidReductionPoints: 0,
+      noteDifficultyPoints: 1,
+      toneStyleDifficultyPoints: 1,
+      toneSplashDifficultyPoints: 1,
     })
   }
 
@@ -84,11 +90,11 @@ export function useCampaignProgress() {
         typeof nextValue === 'function' ? nextValue(prev.currentLevelIdx) : nextValue
       const currentLevelIdx = clampPlayableLevel(resolved)
 
-      return {
+      return normalizeProgress({
         ...prev,
         currentLevelIdx,
         unlockedLevelIdx: Math.max(prev.unlockedLevelIdx, currentLevelIdx),
-      }
+      })
     })
   }
 
@@ -120,38 +126,31 @@ export function useCampaignProgress() {
     setProgress((prev) => {
       const resolved =
         typeof nextValue === 'function' ? nextValue(prev.unlockedLevelIdx) : nextValue
+      const nextUnlockedLevelIdx = Math.max(
+        prev.currentLevelIdx,
+        clampPlayableLevel(resolved),
+      )
 
-      return {
+      return normalizeProgress({
         ...prev,
-        unlockedLevelIdx: Math.max(prev.currentLevelIdx, clampPlayableLevel(resolved)),
-        spentPoints: Math.max(prev.spentPoints, Math.max(prev.currentLevelIdx, clampPlayableLevel(resolved))),
-      }
+        unlockedLevelIdx: nextUnlockedLevelIdx,
+        spentPoints: Math.max(prev.spentPoints, nextUnlockedLevelIdx),
+      })
     })
   }
 
-  const allocatePoint = (kind: 'notes' | 'aids') => {
+  const setCampaignDifficulty = (next: {
+    notes: number
+    toneStyle: number
+    toneSplash: number
+  }) => {
     setProgress((prev) => {
-      const allocatedPoints = prev.noteUpgradePoints + prev.aidReductionPoints
-      const pendingPoints = Math.max(0, prev.spentPoints - allocatedPoints)
-      if (pendingPoints < 1) {
-        return prev
-      }
-
-      if (kind === 'notes') {
-        return {
-          ...prev,
-          noteUpgradePoints: prev.noteUpgradePoints + 1,
-        }
-      }
-
-      if (prev.aidReductionPoints >= 2) {
-        return prev
-      }
-
-      return {
+      return normalizeProgress({
         ...prev,
-        aidReductionPoints: prev.aidReductionPoints + 1,
-      }
+        noteDifficultyPoints: next.notes,
+        toneStyleDifficultyPoints: next.toneStyle,
+        toneSplashDifficultyPoints: next.toneSplash,
+      })
     })
   }
 
@@ -168,7 +167,7 @@ export function useCampaignProgress() {
     setSectionIdx,
     setBestStreak,
     setUnlockedLevelIdx,
-    allocatePoint,
+    setCampaignDifficulty,
     resetProfile,
   }
 }

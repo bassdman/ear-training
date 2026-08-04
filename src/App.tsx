@@ -73,7 +73,7 @@ function App() {
           <CampaignPage
             onBackHome={() => navigate('/')}
             onOpenExercises={() => navigate('/course')}
-            onOpenTrainer={() => navigate('/campaign/trainer')}
+            onOpenTrainer={(levelIdx) => navigate(`/campaign/trainer?level=${levelIdx}`)}
           />
         }
       />

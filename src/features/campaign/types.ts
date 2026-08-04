@@ -10,6 +10,7 @@ export type CampaignProgressState = {
   bestStreak: number
   unlockedLevelIdx: number
   spentPoints: number
-  noteUpgradePoints: number
-  aidReductionPoints: number
+  noteDifficultyPoints: number
+  toneStyleDifficultyPoints: number
+  toneSplashDifficultyPoints: number
 }

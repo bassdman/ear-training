@@ -1,4 +1,5 @@
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 
 import EarTrainer from '../../components/EarTrainer'
 import {
@@ -10,7 +11,33 @@ import { useCampaignProgress } from './hooks/useCampaignProgress'
 
 export function CampaignTrainerPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const progress = useCampaignProgress()
+
+  const requestedLevel = Number(searchParams.get('level'))
+  const selectedLevelIdx = useMemo(() => {
+    if (!Number.isFinite(requestedLevel)) {
+      return progress.progress.currentLevelIdx
+    }
+
+    const rounded = Math.round(requestedLevel)
+    const clamped = Math.max(0, Math.min(progress.progress.unlockedLevelIdx, rounded))
+    return clamped
+  }, [progress.progress.currentLevelIdx, progress.progress.unlockedLevelIdx, requestedLevel])
+
+  const isProgressionRun = selectedLevelIdx === progress.progress.currentLevelIdx
+
+  const [localLevelIdx, setLocalLevelIdx] = useState(selectedLevelIdx)
+  const [localSectionIdx, setLocalSectionIdx] = useState(0)
+  const [, setLocalUnlockedLevelIdx] = useState(selectedLevelIdx)
+
+  useEffect(() => {
+    if (isProgressionRun) return
+
+    setLocalLevelIdx(selectedLevelIdx)
+    setLocalSectionIdx(0)
+    setLocalUnlockedLevelIdx(selectedLevelIdx)
+  }, [isProgressionRun, selectedLevelIdx])
 
   if (progress.loaded && (!progress.hasProfile || !progress.progress.startRangeId)) {
     return <Navigate to="/campaign" replace />
@@ -20,34 +47,37 @@ export function CampaignTrainerPage() {
     return null
   }
 
-  const allocatedPoints =
-    progress.progress.noteUpgradePoints + progress.progress.aidReductionPoints
-  const pendingPoints = Math.max(0, progress.progress.spentPoints - allocatedPoints)
-
-  if (pendingPoints > 0) {
-    return <Navigate to="/campaign" replace />
-  }
-
   const range = CAMPAIGN_RANGES[progress.progress.startRangeId]
-  const aidSettings = resolveCampaignAidSettings(progress.progress.aidReductionPoints)
+  const aidSettings = resolveCampaignAidSettings(
+    progress.progress.toneStyleDifficultyPoints,
+    progress.progress.toneSplashDifficultyPoints,
+  )
+  const trainerLevelIdx = isProgressionRun ? progress.progress.currentLevelIdx : localLevelIdx
+  const trainerSectionIdx = isProgressionRun ? progress.progress.sectionIdx : localSectionIdx
+  const trainerSetLevelIdx = isProgressionRun ? progress.setCurrentLevelIdx : setLocalLevelIdx
+  const trainerSetSectionIdx = isProgressionRun ? progress.setSectionIdx : setLocalSectionIdx
+  const trainerSetUnlockedLevelIdx = isProgressionRun
+    ? progress.setUnlockedLevelIdx
+    : setLocalUnlockedLevelIdx
 
   return (
     <EarTrainer
       loaded={progress.loaded}
-      levelIdx={progress.progress.currentLevelIdx}
-      sectionIdx={progress.progress.sectionIdx}
+      levelIdx={trainerLevelIdx}
+      sectionIdx={trainerSectionIdx}
       bestStreak={progress.progress.bestStreak}
-      setLevelIdx={progress.setCurrentLevelIdx}
-      setSectionIdx={progress.setSectionIdx}
+      setLevelIdx={trainerSetLevelIdx}
+      setSectionIdx={trainerSetSectionIdx}
       setBestStreak={progress.setBestStreak}
-      setUnlockedLevelIdx={progress.setUnlockedLevelIdx}
+      setUnlockedLevelIdx={trainerSetUnlockedLevelIdx}
       rangeLabel={range.label}
       rangeSubtitle={range.subtitle}
       sessionConfig={createCampaignSessionConfig(
         progress.progress.startRangeId,
-        progress.progress.currentLevelIdx,
-        progress.progress.noteUpgradePoints,
-        progress.progress.aidReductionPoints,
+        trainerLevelIdx,
+        progress.progress.noteDifficultyPoints,
+        progress.progress.toneStyleDifficultyPoints,
+        progress.progress.toneSplashDifficultyPoints,
       )}
       toneSplashMode={aidSettings.toneSplashMode}
       selectedInstrumentId="piano"
@@ -56,7 +86,7 @@ export function CampaignTrainerPage() {
       onBackToCourse={() => navigate('/campaign')}
       backButtonLabel="Zur Kampagne"
       autoStartNextOnLevelUp={false}
-      onLevelCompleted={() => navigate('/campaign')}
+      onLevelCompleted={() => navigate(isProgressionRun ? '/campaign?upgrade=1' : '/campaign')}
     />
   )
 }
