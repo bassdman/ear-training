@@ -1,6 +1,7 @@
 import {
   EXERCISES,
   SECTION_STEPS,
+  type ToneSplashMode,
   type EarTrainerSessionConfig,
 } from '../earTrainer/config'
 import type { CampaignRangeId, CampaignVoiceType } from './types'
@@ -81,21 +82,44 @@ export const DEFAULT_CAMPAIGN_PROGRESS = {
   bestStreak: 0,
   unlockedLevelIdx: 0,
   spentPoints: 0,
+  noteUpgradePoints: 0,
+  aidReductionPoints: 0,
 } as const
+
+export type CampaignAidSettings = {
+  toneStyleCount: number
+  toneSplashMode: ToneSplashMode
+}
+
+export function resolveCampaignAidSettings(aidReductionPoints: number): CampaignAidSettings {
+  if (aidReductionPoints <= 0) {
+    return { toneStyleCount: 1, toneSplashMode: 'persistent' }
+  }
+
+  if (aidReductionPoints === 1) {
+    return { toneStyleCount: 2, toneSplashMode: 'transient' }
+  }
+
+  return { toneStyleCount: 4, toneSplashMode: 'off' }
+}
 
 export function createCampaignSessionConfig(
   startRangeId: CampaignRangeId,
   currentLevelIdx: number,
+  noteUpgradePoints: number,
+  aidReductionPoints: number,
 ): EarTrainerSessionConfig {
+  const effectiveLevelIdx = Math.round(currentLevelIdx) + Math.max(0, Math.round(noteUpgradePoints))
   const safeLevelIdx = Math.max(
     0,
-    Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, Math.round(currentLevelIdx)),
+    Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, effectiveLevelIdx),
   )
+  const aidSettings = resolveCampaignAidSettings(aidReductionPoints)
 
   return {
     toneSet: EXERCISES[safeLevelIdx] ?? EXERCISES[0],
     frequencyMultipliers: CAMPAIGN_RANGES[startRangeId].frequencyMultipliers,
-    toneStyleCount: 1,
+    toneStyleCount: aidSettings.toneStyleCount,
     sectionSteps: SECTION_STEPS,
     levelCount: CAMPAIGN_PLAYABLE_LEVEL_COUNT,
   }

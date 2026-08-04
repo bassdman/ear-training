@@ -146,6 +146,19 @@
   gap: 6px;
 }
 
+.campaign-upgrade-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.campaign-primary-button:disabled,
+.campaign-reset-button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 .campaign-path-grid {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));

@@ -18,7 +18,7 @@ type CampaignPageProps = {
 }
 
 export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: CampaignPageProps) {
-  const { loaded, progress, hasProfile, setProfile, resetProfile } = useCampaignProgress()
+  const { loaded, progress, hasProfile, setProfile, allocatePoint, resetProfile } = useCampaignProgress()
   const [selectedVoiceType, setSelectedVoiceType] = useState<CampaignVoiceType>('bass')
 
   const selectedVoice = CAMPAIGN_VOICE_TYPES[selectedVoiceType]
@@ -28,6 +28,9 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     () => Array.from({ length: CAMPAIGN_LEVEL_COUNT }, (_, levelIdx) => levelIdx),
     [],
   )
+  const allocatedPoints = progress.noteUpgradePoints + progress.aidReductionPoints
+  const pendingPoints = Math.max(0, progress.spentPoints - allocatedPoints)
+  const aidReductionAtMax = progress.aidReductionPoints >= 2
 
   if (!loaded) {
     return (
@@ -119,7 +122,42 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                 <span>Aktueller Schritt</span>
                 <strong>Level {progress.currentLevelIdx + 1}</strong>
               </div>
+              <div className="campaign-summary-card">
+                <span>Schwierigkeitspunkte</span>
+                <strong>{progress.spentPoints}</strong>
+              </div>
+              <div className="campaign-summary-card">
+                <span>Investiert</span>
+                <strong>
+                  Noten {progress.noteUpgradePoints} · Hilfen {progress.aidReductionPoints}
+                </strong>
+              </div>
             </section>
+
+            {pendingPoints > 0 && (
+              <section className="campaign-panel" aria-label="Punkte verteilen">
+                <div className="campaign-panel-header">
+                  <h2>Punkte verteilen</h2>
+                  <p>
+                    Du hast {pendingPoints} neuen Punkt{pendingPoints > 1 ? 'e' : ''}.
+                    Wähle vor der nächsten Runde, ob du mehr Noten freischaltest oder
+                    Hilfsmittel reduzierst.
+                  </p>
+                </div>
+                <div className="campaign-upgrade-actions">
+                  <button className="campaign-primary-button" onClick={() => allocatePoint('notes')}>
+                    Mehr Noten freischalten
+                  </button>
+                  <button
+                    className="campaign-reset-button"
+                    onClick={() => allocatePoint('aids')}
+                    disabled={aidReductionAtMax}
+                  >
+                    Hilfsmittel reduzieren
+                  </button>
+                </div>
+              </section>
+            )}
 
             <section className="campaign-panel" aria-label="Kampagnenpfad">
               <div className="campaign-panel-header">
@@ -155,9 +193,17 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
               <div className="campaign-footnote">
                 <div>
                   <p>Spielbar ist jetzt der erste Start-Lagen-Abschnitt mit den ersten {CAMPAIGN_PLAYABLE_LEVEL_COUNT} Schritten.</p>
+                  <p>
+                    Jeder neu freigeschaltete Schritt erhöht den aktuellen Kampagnenstand.
+                    Die Upgrade-Auswahl folgt im nächsten Schritt.
+                  </p>
                 </div>
                 <div className="campaign-footnote-actions">
-                  <button className="campaign-primary-button" onClick={onOpenTrainer}>
+                  <button
+                    className="campaign-primary-button"
+                    onClick={onOpenTrainer}
+                    disabled={pendingPoints > 0}
+                  >
                     Aktuellen Schritt spielen
                   </button>
                   <button className="campaign-reset-button" onClick={resetProfile}>

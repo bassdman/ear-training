@@ -112,6 +112,8 @@ type EarTrainerProps = {
   setPlaybackVolume: React.Dispatch<React.SetStateAction<number>>
   onBackToCourse: () => void
   backButtonLabel?: string
+  autoStartNextOnLevelUp?: boolean
+  onLevelCompleted?: () => void
 }
 
 export default function EarTrainer({
@@ -132,6 +134,8 @@ export default function EarTrainer({
   setPlaybackVolume,
   onBackToCourse,
   backButtonLabel = 'Zur Kursseite',
+  autoStartNextOnLevelUp = true,
+  onLevelCompleted,
 }: EarTrainerProps) {
   const {
     toneSet,
@@ -584,7 +588,8 @@ export default function EarTrainer({
                 <button
                   className="ear-button ear-button-primary"
                   onClick={() => {
-                    const shouldAutoStartNextExercise = Boolean(completionNotice.nextExerciseLabel)
+                    const shouldAutoStartNextExercise =
+                      autoStartNextOnLevelUp && Boolean(completionNotice.nextExerciseLabel)
                     setIsCompletionModalOpen(false)
                     dismissCompletionNotice()
 
@@ -595,6 +600,8 @@ export default function EarTrainer({
                           void playTone(trialButton)
                         }, 0)
                       }
+                    } else if (completionNotice.nextExerciseLabel) {
+                      onLevelCompleted?.()
                     }
                   }}
                 >

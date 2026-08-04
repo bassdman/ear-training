@@ -4,6 +4,7 @@ import EarTrainer from '../../components/EarTrainer'
 import {
   CAMPAIGN_RANGES,
   createCampaignSessionConfig,
+  resolveCampaignAidSettings,
 } from './config'
 import { useCampaignProgress } from './hooks/useCampaignProgress'
 
@@ -19,7 +20,16 @@ export function CampaignTrainerPage() {
     return null
   }
 
+  const allocatedPoints =
+    progress.progress.noteUpgradePoints + progress.progress.aidReductionPoints
+  const pendingPoints = Math.max(0, progress.progress.spentPoints - allocatedPoints)
+
+  if (pendingPoints > 0) {
+    return <Navigate to="/campaign" replace />
+  }
+
   const range = CAMPAIGN_RANGES[progress.progress.startRangeId]
+  const aidSettings = resolveCampaignAidSettings(progress.progress.aidReductionPoints)
 
   return (
     <EarTrainer
@@ -36,13 +46,17 @@ export function CampaignTrainerPage() {
       sessionConfig={createCampaignSessionConfig(
         progress.progress.startRangeId,
         progress.progress.currentLevelIdx,
+        progress.progress.noteUpgradePoints,
+        progress.progress.aidReductionPoints,
       )}
-      toneSplashMode="persistent"
+      toneSplashMode={aidSettings.toneSplashMode}
       selectedInstrumentId="piano"
       playbackVolume={100}
       setPlaybackVolume={() => {}}
       onBackToCourse={() => navigate('/campaign')}
       backButtonLabel="Zur Kampagne"
+      autoStartNextOnLevelUp={false}
+      onLevelCompleted={() => navigate('/campaign')}
     />
   )
 }
