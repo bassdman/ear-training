@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import EarTrainer from './components/EarTrainer'
 import { CampaignPage } from './features/campaign/CampaignPage'
+import { CampaignTrainerPage } from './features/campaign/CampaignTrainerPage'
 import { CoursePage } from './features/course/CoursePage'
 import { HomePage } from './features/home/HomePage'
 import {
@@ -72,9 +73,11 @@ function App() {
           <CampaignPage
             onBackHome={() => navigate('/')}
             onOpenExercises={() => navigate('/course')}
+            onOpenTrainer={() => navigate('/campaign/trainer')}
           />
         }
       />
+      <Route path="/campaign/trainer" element={<CampaignTrainerPage />} />
       <Route
         path="/trainer"
         element={

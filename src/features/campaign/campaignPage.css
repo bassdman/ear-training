@@ -188,6 +188,12 @@
   gap: 12px;
 }
 
+.campaign-footnote-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .campaign-footnote p,
 .campaign-loading {
   color: #9fb0c3;

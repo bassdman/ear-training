@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import {
   CAMPAIGN_LEVEL_COUNT,
+  CAMPAIGN_PLAYABLE_LEVEL_COUNT,
   CAMPAIGN_RANGES,
   CAMPAIGN_VOICE_TYPES,
   CAMPAIGN_VOICE_TYPE_IDS,
@@ -13,9 +14,10 @@ import type { CampaignRangeId, CampaignVoiceType } from './types'
 type CampaignPageProps = {
   onBackHome: () => void
   onOpenExercises: () => void
+  onOpenTrainer: () => void
 }
 
-export function CampaignPage({ onBackHome, onOpenExercises }: CampaignPageProps) {
+export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: CampaignPageProps) {
   const { loaded, progress, hasProfile, setProfile, resetProfile } = useCampaignProgress()
   const [selectedVoiceType, setSelectedVoiceType] = useState<CampaignVoiceType>('bass')
 
@@ -123,8 +125,8 @@ export function CampaignPage({ onBackHome, onOpenExercises }: CampaignPageProps)
               <div className="campaign-panel-header">
                 <h2>Sichtbarer Pfad</h2>
                 <p>
-                  Die Wegstruktur ist jetzt bereits persistent. Der Trainer-Start und die
-                  Upgrade-Entscheidungen kommen im nächsten Schnitt.
+                  In diesem Schnitt ist der erste spielbare Abschnitt der Start-Lage
+                  angeschlossen. Der Rest des Pfads bleibt vorerst Platzhalter.
                 </p>
               </div>
 
@@ -151,10 +153,17 @@ export function CampaignPage({ onBackHome, onOpenExercises }: CampaignPageProps)
               </div>
 
               <div className="campaign-footnote">
-                <p>Gameplay ist in diesem Schritt noch absichtlich nicht angeschlossen.</p>
-                <button className="campaign-reset-button" onClick={resetProfile}>
-                  Stimmtyp neu wählen
-                </button>
+                <div>
+                  <p>Spielbar ist jetzt der erste Start-Lagen-Abschnitt mit den ersten {CAMPAIGN_PLAYABLE_LEVEL_COUNT} Schritten.</p>
+                </div>
+                <div className="campaign-footnote-actions">
+                  <button className="campaign-primary-button" onClick={onOpenTrainer}>
+                    Aktuellen Schritt spielen
+                  </button>
+                  <button className="campaign-reset-button" onClick={resetProfile}>
+                    Stimmtyp neu wählen
+                  </button>
+                </div>
               </div>
             </section>
           </>

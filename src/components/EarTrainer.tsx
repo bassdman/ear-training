@@ -111,6 +111,7 @@ type EarTrainerProps = {
   playbackVolume: number
   setPlaybackVolume: React.Dispatch<React.SetStateAction<number>>
   onBackToCourse: () => void
+  backButtonLabel?: string
 }
 
 export default function EarTrainer({
@@ -130,6 +131,7 @@ export default function EarTrainer({
   playbackVolume,
   setPlaybackVolume,
   onBackToCourse,
+  backButtonLabel = 'Zur Kursseite',
 }: EarTrainerProps) {
   const {
     toneSet,
@@ -442,7 +444,7 @@ export default function EarTrainer({
         <div className="ear-shell">
           <div className="ear-topbar">
             <button className="ear-back-button" onClick={onBackToCourse}>
-              Zur Kursseite
+              {backButtonLabel}
             </button>
 
             <div className="ear-settings-wrap" ref={settingsMenuRef}>

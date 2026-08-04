@@ -6,6 +6,8 @@ export type CampaignProgressState = {
   voiceType: CampaignVoiceType | null
   startRangeId: CampaignRangeId | null
   currentLevelIdx: number
+  sectionIdx: number
+  bestStreak: number
   unlockedLevelIdx: number
   spentPoints: number
 }

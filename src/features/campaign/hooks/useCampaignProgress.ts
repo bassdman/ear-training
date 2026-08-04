@@ -12,11 +12,14 @@ import type {
 } from '../types'
 
 const clampLevel = (value: number) => Math.max(0, Math.min(79, Math.round(value)))
+const clampSection = (value: number) => Math.max(0, Math.min(3, Math.round(value)))
 
 const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgressState => ({
   voiceType: raw?.voiceType ?? DEFAULT_CAMPAIGN_PROGRESS.voiceType,
   startRangeId: raw?.startRangeId ?? DEFAULT_CAMPAIGN_PROGRESS.startRangeId,
   currentLevelIdx: clampLevel(raw?.currentLevelIdx ?? 0),
+  sectionIdx: clampSection(raw?.sectionIdx ?? 0),
+  bestStreak: Math.max(0, Math.round(raw?.bestStreak ?? 0)),
   unlockedLevelIdx: clampLevel(
     Math.max(raw?.unlockedLevelIdx ?? 0, raw?.currentLevelIdx ?? 0),
   ),
@@ -60,8 +63,60 @@ export function useCampaignProgress() {
       voiceType,
       startRangeId,
       currentLevelIdx: 0,
+      sectionIdx: 0,
+      bestStreak: 0,
       unlockedLevelIdx: 0,
       spentPoints: 0,
+    })
+  }
+
+  const setCurrentLevelIdx = (nextValue: React.SetStateAction<number>) => {
+    setProgress((prev) => {
+      const resolved =
+        typeof nextValue === 'function' ? nextValue(prev.currentLevelIdx) : nextValue
+      const currentLevelIdx = clampLevel(resolved)
+
+      return {
+        ...prev,
+        currentLevelIdx,
+        unlockedLevelIdx: Math.max(prev.unlockedLevelIdx, currentLevelIdx),
+      }
+    })
+  }
+
+  const setSectionIdx = (nextValue: React.SetStateAction<number>) => {
+    setProgress((prev) => {
+      const resolved =
+        typeof nextValue === 'function' ? nextValue(prev.sectionIdx) : nextValue
+
+      return {
+        ...prev,
+        sectionIdx: clampSection(resolved),
+      }
+    })
+  }
+
+  const setBestStreak = (nextValue: React.SetStateAction<number>) => {
+    setProgress((prev) => {
+      const resolved =
+        typeof nextValue === 'function' ? nextValue(prev.bestStreak) : nextValue
+
+      return {
+        ...prev,
+        bestStreak: Math.max(0, Math.round(resolved)),
+      }
+    })
+  }
+
+  const setUnlockedLevelIdx = (nextValue: React.SetStateAction<number>) => {
+    setProgress((prev) => {
+      const resolved =
+        typeof nextValue === 'function' ? nextValue(prev.unlockedLevelIdx) : nextValue
+
+      return {
+        ...prev,
+        unlockedLevelIdx: Math.max(prev.currentLevelIdx, clampLevel(resolved)),
+      }
     })
   }
 
@@ -74,6 +129,10 @@ export function useCampaignProgress() {
     progress,
     hasProfile,
     setProfile,
+    setCurrentLevelIdx,
+    setSectionIdx,
+    setBestStreak,
+    setUnlockedLevelIdx,
     resetProfile,
   }
 }
