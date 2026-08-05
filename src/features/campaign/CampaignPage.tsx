@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import {
+  CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
+  CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  CAMPAIGN_FALLBACK_BREAK_OPTIONS,
+  CAMPAIGN_INTERVAL_TONE_OPTIONS,
   CAMPAIGN_LEVEL_COUNT,
   CAMPAIGN_NOTE_COUNT_MAX,
   CAMPAIGN_NOTE_COUNT_MIN,
@@ -10,6 +14,7 @@ import {
   CAMPAIGN_VOICE_TYPES,
   resolveCampaignAidSettings,
   resolveCampaignExerciseLevelIdx,
+  resolveCampaignSectionSteps,
   resolveCampaignTotalDifficulty,
   resolveRequiredDifficultyForLevel,
 } from './config'
@@ -36,6 +41,12 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
   const [selectedLevelIdx, setSelectedLevelIdx] = useState(0)
   const [modalLevelIdx, setModalLevelIdx] = useState<number | null>(null)
   const [modalStartRangeId, setModalStartRangeId] = useState<CampaignRangeId>('male-low')
+  const [modalFallbackBreakCount, setModalFallbackBreakCount] = useState(
+    CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
+  )
+  const [modalIntervalToneCount, setModalIntervalToneCount] = useState(
+    CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  )
   const [modalNoteLevel, setModalNoteLevel] = useState(CAMPAIGN_NOTE_COUNT_MIN)
   const [modalToneStyleLevel, setModalToneStyleLevel] = useState(0)
   const [modalToneSplashLevel, setModalToneSplashLevel] = useState(0)
@@ -74,6 +85,11 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     modalToneStyleLevel,
     modalToneSplashLevel,
   )
+  const modalSectionSteps = resolveCampaignSectionSteps(
+    modalFallbackBreakCount,
+    modalIntervalToneCount,
+  )
+  const modalFinalIntervalTones = modalIntervalToneCount * 2
 
   const getToneSplashDescription = (level: number) => {
     switch (level) {
@@ -125,6 +141,8 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
 
     setModalLevelIdx(selectedLevelIdx)
     setModalStartRangeId(progress.startRangeId ?? 'male-low')
+    setModalFallbackBreakCount(progress.fallbackBreakCount)
+    setModalIntervalToneCount(progress.intervalToneCount)
     setModalNoteLevel(
       Math.min(
         CAMPAIGN_NOTE_COUNT_MAX,
@@ -139,6 +157,8 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     setCurrentLevelIdx(levelIdx)
     setSelectedLevelIdx(levelIdx)
     setModalStartRangeId(progress.startRangeId ?? 'male-low')
+    setModalFallbackBreakCount(progress.fallbackBreakCount)
+    setModalIntervalToneCount(progress.intervalToneCount)
     setModalNoteLevel(
       Math.min(
         CAMPAIGN_NOTE_COUNT_MAX,
@@ -161,6 +181,8 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
       notes: modalNoteLevel,
       toneStyle: modalToneStyleLevel,
       toneSplash: modalToneSplashLevel,
+      fallbackBreakCount: modalFallbackBreakCount,
+      intervalToneCount: modalIntervalToneCount,
     })
     setModalLevelIdx(null)
     onOpenTrainer(targetLevelIdx)
@@ -235,6 +257,12 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
               <div className="campaign-summary-card">
                 <span>Anzahl an Noten</span>
                 <strong>{noteCount} / {CAMPAIGN_NOTE_COUNT_MAX}</strong>
+              </div>
+              <div className="campaign-summary-card">
+                <span>Fallbacks / Intervalltöne</span>
+                <strong>
+                  {progress.fallbackBreakCount} / {progress.intervalToneCount} ({progress.intervalToneCount * 2})
+                </strong>
               </div>
             </section>
 
@@ -316,6 +344,41 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                   ) : (
                     <p>Als Nächstes kannst du direkt ein freigeschaltetes Level starten.</p>
                   )}
+
+                  <label className="campaign-select-row">
+                    <span>Anzahl an Fallbacks (Ear-Scale-Break)</span>
+                    <select
+                      value={modalFallbackBreakCount}
+                      onChange={(event) => setModalFallbackBreakCount(Number(event.target.value))}
+                    >
+                      {CAMPAIGN_FALLBACK_BREAK_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="campaign-slider-description">
+                    Anzahl sichtbarer Ear-Scale-Breaks im Fortschritt: {modalFallbackBreakCount}
+                  </p>
+
+                  <label className="campaign-select-row">
+                    <span>Anzahl an Töne pro Intervall</span>
+                    <select
+                      value={modalIntervalToneCount}
+                      onChange={(event) => setModalIntervalToneCount(Number(event.target.value))}
+                    >
+                      {CAMPAIGN_INTERVAL_TONE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option} ({option * 2})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="campaign-slider-description">
+                    Klammerwert gilt immer fuer den letzten Abschnitt. Aktuell: {modalIntervalToneCount} ({modalFinalIntervalTones})
+                    · Abschnittsverteilung: {modalSectionSteps.join(' / ')}
+                  </p>
 
                   <label className="campaign-select-row">
                     <span>Startlage</span>

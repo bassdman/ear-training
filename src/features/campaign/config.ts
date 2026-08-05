@@ -1,5 +1,4 @@
 import {
-  SECTION_STEPS,
   type NoteName,
   type SessionPitch,
   type ToneSplashMode,
@@ -12,6 +11,10 @@ export const CAMPAIGN_PLAYABLE_LEVEL_COUNT = CAMPAIGN_LEVEL_COUNT
 export const CAMPAIGN_PROGRESS_STORAGE_KEY = 'earTrainer-campaign-v1'
 export const CAMPAIGN_NOTE_COUNT_MIN = 3
 export const CAMPAIGN_NOTE_COUNT_MAX = 72
+export const CAMPAIGN_FALLBACK_BREAK_OPTIONS = [3, 2, 1, 0] as const
+export const CAMPAIGN_INTERVAL_TONE_OPTIONS = [4, 5, 6, 8] as const
+export const CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT = 3
+export const CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT = 5
 
 export const CAMPAIGN_RANGES: Record<
   CampaignRangeId,
@@ -88,6 +91,8 @@ export const DEFAULT_CAMPAIGN_PROGRESS = {
   noteDifficultyPoints: CAMPAIGN_NOTE_COUNT_MIN,
   toneStyleDifficultyPoints: 0,
   toneSplashDifficultyPoints: 0,
+  fallbackBreakCount: CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
+  intervalToneCount: CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
 } as const
 
 export type CampaignAidSettings = {
@@ -142,6 +147,25 @@ export function resolveRequiredDifficultyForLevel(levelIdx: number) {
   return Math.max(0, Math.round(levelIdx)) + 3
 }
 
+export function resolveCampaignSectionSteps(
+  fallbackBreakCount: number,
+  intervalToneCount: number,
+): number[] {
+  const safeFallbackBreakCount = Math.max(0, Math.min(3, Math.round(fallbackBreakCount)))
+  const safeIntervalToneCount = CAMPAIGN_INTERVAL_TONE_OPTIONS.includes(
+    Math.round(intervalToneCount) as (typeof CAMPAIGN_INTERVAL_TONE_OPTIONS)[number],
+  )
+    ? Math.round(intervalToneCount)
+    : CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT
+
+  const baseIntervals = Array.from(
+    { length: safeFallbackBreakCount },
+    () => safeIntervalToneCount,
+  )
+
+  return [...baseIntervals, safeIntervalToneCount * 2]
+}
+
 const NOTE_ORDER_FROM_A: NoteName[] = [
   'A',
   'Ais',
@@ -159,16 +183,37 @@ const NOTE_ORDER_FROM_A: NoteName[] = [
 
 const OCTAVE_MULTIPLIERS = [0.125, 0.25, 0.5, 1, 2, 4]
 
-const ALL_CAMPAIGN_PITCHES: SessionPitch[] = OCTAVE_MULTIPLIERS.flatMap(
-  (frequencyMultiplier) =>
+const resolveOrderedMultipliersFromStartRange = (
+  startRangeId: CampaignRangeId,
+): number[] => {
+  const startMultiplier = CAMPAIGN_RANGES[startRangeId].frequencyMultipliers[0] ?? 1
+  const startIdx = OCTAVE_MULTIPLIERS.findIndex(
+    (multiplier) => multiplier === startMultiplier,
+  )
+
+  if (startIdx === -1) {
+    return [...OCTAVE_MULTIPLIERS]
+  }
+
+  const higherOrEqual = OCTAVE_MULTIPLIERS.slice(startIdx)
+  const lower = OCTAVE_MULTIPLIERS.slice(0, startIdx).reverse()
+  return [...higherOrEqual, ...lower]
+}
+
+const createCampaignPitchPool = (
+  startRangeId: CampaignRangeId,
+  noteCount: number,
+): SessionPitch[] => {
+  const orderedMultipliers = resolveOrderedMultipliersFromStartRange(startRangeId)
+  const orderedPitches = orderedMultipliers.flatMap((frequencyMultiplier) =>
     NOTE_ORDER_FROM_A.map((note) => ({
       note,
       frequencyMultiplier,
     })),
-)
+  )
 
-const createCampaignPitchPool = (noteCount: number): SessionPitch[] =>
-  ALL_CAMPAIGN_PITCHES.slice(0, noteCount)
+  return orderedPitches.slice(0, noteCount)
+}
 
 const createUniqueNoteSet = (pitchPool: SessionPitch[]): NoteName[] =>
   [...new Set(pitchPool.map((pitch) => pitch.note))] as NoteName[]
@@ -179,17 +224,23 @@ const createUniqueMultipliers = (pitchPool: SessionPitch[]): number[] =>
   )
 
 export function createCampaignSessionConfig(
-  _startRangeId: CampaignRangeId,
+  startRangeId: CampaignRangeId,
   _currentLevelIdx: number,
   noteDifficultyPoints: number,
   toneStyleDifficultyPoints: number,
   toneSplashDifficultyPoints: number,
+  fallbackBreakCount: number,
+  intervalToneCount: number,
 ): EarTrainerSessionConfig {
   const noteCount = resolveCampaignExerciseLevelIdx(noteDifficultyPoints)
-  const pitchPool = createCampaignPitchPool(noteCount)
+  const pitchPool = createCampaignPitchPool(startRangeId, noteCount)
   const aidSettings = resolveCampaignAidSettings(
     toneStyleDifficultyPoints,
     toneSplashDifficultyPoints,
+  )
+  const sectionSteps = resolveCampaignSectionSteps(
+    fallbackBreakCount,
+    intervalToneCount,
   )
 
   return {
@@ -197,7 +248,7 @@ export function createCampaignSessionConfig(
     frequencyMultipliers: createUniqueMultipliers(pitchPool),
     pitchPool,
     toneStyleCount: aidSettings.toneStyleCount,
-    sectionSteps: SECTION_STEPS,
+    sectionSteps,
     levelCount: CAMPAIGN_LEVEL_COUNT,
   }
 }

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import {
+  CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
+  CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  CAMPAIGN_FALLBACK_BREAK_OPTIONS,
+  CAMPAIGN_INTERVAL_TONE_OPTIONS,
   CAMPAIGN_NOTE_COUNT_MAX,
   CAMPAIGN_NOTE_COUNT_MIN,
   CAMPAIGN_PLAYABLE_LEVEL_COUNT,
@@ -14,22 +18,41 @@ import type {
   CampaignVoiceType,
 } from '../types'
 
-const clampSection = (value: number) => Math.max(0, Math.min(3, Math.round(value)))
+const clampSection = (value: number, fallbackBreakCount: number) =>
+  Math.max(0, Math.min(fallbackBreakCount, Math.round(value)))
 const clampPlayableLevel = (value: number) =>
   Math.max(0, Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, Math.round(value)))
 const clampNonNegative = (value: number) => Math.max(0, Math.round(value))
 const clampAidSlider = (value: number) => Math.max(0, Math.min(4, Math.round(value)))
 const clampNoteCount = (value: number) =>
   Math.max(CAMPAIGN_NOTE_COUNT_MIN, Math.min(CAMPAIGN_NOTE_COUNT_MAX, Math.round(value)))
+const clampFallbackBreakCount = (value: number) =>
+  CAMPAIGN_FALLBACK_BREAK_OPTIONS.includes(
+    Math.round(value) as (typeof CAMPAIGN_FALLBACK_BREAK_OPTIONS)[number],
+  )
+    ? Math.round(value)
+    : CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT
+const clampIntervalToneCount = (value: number) =>
+  CAMPAIGN_INTERVAL_TONE_OPTIONS.includes(
+    Math.round(value) as (typeof CAMPAIGN_INTERVAL_TONE_OPTIONS)[number],
+  )
+    ? Math.round(value)
+    : CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT
 
 const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgressState => {
   const currentLevelIdx = clampPlayableLevel(raw?.currentLevelIdx ?? 0)
   const spentPoints = clampNonNegative(raw?.spentPoints ?? 0)
+  const fallbackBreakCount = clampFallbackBreakCount(
+    raw?.fallbackBreakCount ?? CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
+  )
+  const intervalToneCount = clampIntervalToneCount(
+    raw?.intervalToneCount ?? CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  )
   return {
     voiceType: raw?.voiceType ?? DEFAULT_CAMPAIGN_PROGRESS.voiceType,
     startRangeId: raw?.startRangeId ?? DEFAULT_CAMPAIGN_PROGRESS.startRangeId,
     currentLevelIdx,
-    sectionIdx: clampSection(raw?.sectionIdx ?? 0),
+    sectionIdx: clampSection(raw?.sectionIdx ?? 0, fallbackBreakCount),
     bestStreak: Math.max(0, Math.round(raw?.bestStreak ?? 0)),
     unlockedLevelIdx: clampPlayableLevel(
       Math.max(raw?.unlockedLevelIdx ?? 0, currentLevelIdx),
@@ -38,6 +61,8 @@ const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgre
     noteDifficultyPoints: clampNoteCount(raw?.noteDifficultyPoints ?? CAMPAIGN_NOTE_COUNT_MIN),
     toneStyleDifficultyPoints: clampAidSlider(raw?.toneStyleDifficultyPoints ?? 0),
     toneSplashDifficultyPoints: clampAidSlider(raw?.toneSplashDifficultyPoints ?? 0),
+    fallbackBreakCount,
+    intervalToneCount,
   }
 }
 
@@ -99,6 +124,8 @@ export function useCampaignProgress() {
       noteDifficultyPoints: CAMPAIGN_NOTE_COUNT_MIN,
       toneStyleDifficultyPoints: 0,
       toneSplashDifficultyPoints: 0,
+      fallbackBreakCount: CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
+      intervalToneCount: CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
     })
   }
 
@@ -133,7 +160,7 @@ export function useCampaignProgress() {
 
       return {
         ...prev,
-        sectionIdx: clampSection(resolved),
+        sectionIdx: clampSection(resolved, prev.fallbackBreakCount),
       }
     })
   }
@@ -171,6 +198,8 @@ export function useCampaignProgress() {
     notes: number
     toneStyle: number
     toneSplash: number
+    fallbackBreakCount: number
+    intervalToneCount: number
   }) => {
     setProgress((prev) => {
       return normalizeProgress({
@@ -178,6 +207,8 @@ export function useCampaignProgress() {
         noteDifficultyPoints: next.notes,
         toneStyleDifficultyPoints: next.toneStyle,
         toneSplashDifficultyPoints: next.toneSplash,
+        fallbackBreakCount: next.fallbackBreakCount,
+        intervalToneCount: next.intervalToneCount,
       })
     })
   }

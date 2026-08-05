@@ -78,6 +78,8 @@ export function CampaignTrainerPage() {
         progress.progress.noteDifficultyPoints,
         progress.progress.toneStyleDifficultyPoints,
         progress.progress.toneSplashDifficultyPoints,
+        progress.progress.fallbackBreakCount,
+        progress.progress.intervalToneCount,
       )}
       toneSplashMode={aidSettings.toneSplashMode}
       selectedInstrumentId="piano"
