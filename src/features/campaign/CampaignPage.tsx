@@ -3,16 +3,19 @@ import { useSearchParams } from 'react-router-dom'
 
 import {
   CAMPAIGN_LEVEL_COUNT,
+  CAMPAIGN_NOTE_COUNT_MAX,
+  CAMPAIGN_NOTE_COUNT_MIN,
   CAMPAIGN_PLAYABLE_LEVEL_COUNT,
   CAMPAIGN_RANGES,
   CAMPAIGN_VOICE_TYPES,
-  CAMPAIGN_VOICE_TYPE_IDS,
   resolveCampaignAidSettings,
   resolveCampaignExerciseLevelIdx,
+  resolveCampaignTotalDifficulty,
+  resolveRequiredDifficultyForLevel,
 } from './config'
 import './campaignPage.css'
 import { useCampaignProgress } from './hooks/useCampaignProgress'
-import type { CampaignRangeId, CampaignVoiceType } from './types'
+import type { CampaignRangeId } from './types'
 
 type CampaignPageProps = {
   onBackHome: () => void
@@ -21,17 +24,28 @@ type CampaignPageProps = {
 }
 
 export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: CampaignPageProps) {
-  const { loaded, progress, hasProfile, setProfile, setCampaignDifficulty, resetProfile } = useCampaignProgress()
-  const [selectedVoiceType, setSelectedVoiceType] = useState<CampaignVoiceType>('bass')
+  const {
+    loaded,
+    progress,
+    setCurrentLevelIdx,
+    setStartRangeId,
+    setCampaignDifficulty,
+    resetProfile,
+  } = useCampaignProgress()
   const [searchParams] = useSearchParams()
   const [selectedLevelIdx, setSelectedLevelIdx] = useState(0)
   const [modalLevelIdx, setModalLevelIdx] = useState<number | null>(null)
-  const [modalNoteLevel, setModalNoteLevel] = useState(1)
-  const [modalToneStyleLevel, setModalToneStyleLevel] = useState(1)
-  const [modalToneSplashLevel, setModalToneSplashLevel] = useState(1)
+  const [modalStartRangeId, setModalStartRangeId] = useState<CampaignRangeId>('male-low')
+  const [modalNoteLevel, setModalNoteLevel] = useState(CAMPAIGN_NOTE_COUNT_MIN)
+  const [modalToneStyleLevel, setModalToneStyleLevel] = useState(0)
+  const [modalToneSplashLevel, setModalToneSplashLevel] = useState(0)
 
-  const selectedVoice = CAMPAIGN_VOICE_TYPES[selectedVoiceType]
-  const selectedRangeId = (selectedVoice.startRangeOptions[0] ?? 'male-low') as CampaignRangeId
+  const startRangeOptions: Array<{ id: CampaignRangeId; label: string }> = [
+    { id: 'male-low', label: 'Männerstimme tief' },
+    { id: 'low', label: 'Männerstimme hoch' },
+    { id: 'mid', label: 'Frauenstimme tief' },
+    { id: 'high', label: 'Frauenstimme hoch' },
+  ]
 
   const pathLevels = useMemo(
     () => Array.from({ length: CAMPAIGN_LEVEL_COUNT }, (_, levelIdx) => levelIdx),
@@ -39,22 +53,21 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
   )
   const shouldEmphasizeUpgradeChoice = searchParams.get('upgrade') === '1'
   const isUpgradeModalOpen = modalLevelIdx !== null || shouldEmphasizeUpgradeChoice
-  const aidSettings = resolveCampaignAidSettings(
+  const noteCount = resolveCampaignExerciseLevelIdx(progress.noteDifficultyPoints)
+  const totalDifficulty = resolveCampaignTotalDifficulty(
+    progress.noteDifficultyPoints,
     progress.toneStyleDifficultyPoints,
     progress.toneSplashDifficultyPoints,
   )
-  const effectiveExerciseLevelIdx = resolveCampaignExerciseLevelIdx(
-    progress.currentLevelIdx,
-    progress.noteDifficultyPoints,
+  const requiredDifficulty = resolveRequiredDifficultyForLevel(selectedLevelIdx)
+  const modalTotalDifficulty = resolveCampaignTotalDifficulty(
+    modalNoteLevel,
+    modalToneStyleLevel,
+    modalToneSplashLevel,
   )
-  const totalDifficulty =
-    progress.noteDifficultyPoints +
-    progress.toneStyleDifficultyPoints +
-    progress.toneSplashDifficultyPoints
-  const requiredDifficulty = selectedLevelIdx + 3
-  const modalTotalDifficulty =
-    modalNoteLevel + modalToneStyleLevel + modalToneSplashLevel
-  const modalRequiredDifficulty = (modalLevelIdx ?? selectedLevelIdx) + 3
+  const modalRequiredDifficulty = resolveRequiredDifficultyForLevel(
+    modalLevelIdx ?? selectedLevelIdx,
+  )
   const modalCanStartLevel = modalTotalDifficulty >= modalRequiredDifficulty
   const maxSliderLevel = 4
   const modalAidSettings = resolveCampaignAidSettings(
@@ -93,18 +106,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
   }
 
   const getNoteDescription = (level: number) => {
-    switch (level) {
-      case 0:
-        return 'Keine Zusatznote gegenüber dem Basislevel.'
-      case 1:
-        return 'Eine zusätzliche Note wird einbezogen.'
-      case 2:
-        return 'Zwei zusätzliche Noten werden einbezogen.'
-      case 3:
-        return 'Drei zusätzliche Noten werden einbezogen.'
-      default:
-        return 'Vier zusätzliche Noten werden einbezogen.'
-    }
+    return `${level} Noten aktiv (A1 bis H6 im Gesamtbereich).`
   }
 
   useEffect(() => {
@@ -122,14 +124,27 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     if (modalLevelIdx !== null) return
 
     setModalLevelIdx(selectedLevelIdx)
-    setModalNoteLevel(Math.min(progress.noteDifficultyPoints, maxSliderLevel))
+    setModalStartRangeId(progress.startRangeId ?? 'male-low')
+    setModalNoteLevel(
+      Math.min(
+        CAMPAIGN_NOTE_COUNT_MAX,
+        Math.max(CAMPAIGN_NOTE_COUNT_MIN, progress.noteDifficultyPoints),
+      ),
+    )
     setModalToneStyleLevel(Math.min(progress.toneStyleDifficultyPoints, maxSliderLevel))
     setModalToneSplashLevel(Math.min(progress.toneSplashDifficultyPoints, maxSliderLevel))
   }, [maxSliderLevel, modalLevelIdx, progress.noteDifficultyPoints, progress.toneSplashDifficultyPoints, progress.toneStyleDifficultyPoints, selectedLevelIdx, shouldEmphasizeUpgradeChoice])
 
   const requestLevelStart = (levelIdx: number) => {
+    setCurrentLevelIdx(levelIdx)
     setSelectedLevelIdx(levelIdx)
-    setModalNoteLevel(Math.min(progress.noteDifficultyPoints, maxSliderLevel))
+    setModalStartRangeId(progress.startRangeId ?? 'male-low')
+    setModalNoteLevel(
+      Math.min(
+        CAMPAIGN_NOTE_COUNT_MAX,
+        Math.max(CAMPAIGN_NOTE_COUNT_MIN, progress.noteDifficultyPoints),
+      ),
+    )
     setModalToneStyleLevel(Math.min(progress.toneStyleDifficultyPoints, maxSliderLevel))
     setModalToneSplashLevel(Math.min(progress.toneSplashDifficultyPoints, maxSliderLevel))
     setModalLevelIdx(levelIdx)
@@ -141,6 +156,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
 
   const continueToTrainer = () => {
     const targetLevelIdx = modalLevelIdx ?? selectedLevelIdx
+    setStartRangeId(modalStartRangeId)
     setCampaignDifficulty({
       notes: modalNoteLevel,
       toneStyle: modalToneStyleLevel,
@@ -172,8 +188,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
           <h1>Dein Trainingspfad</h1>
           <p className="campaign-subtitle">
             Dieser Modus baut eine zusammenhängende Progression über 80 Schritte auf.
-            In diesem ersten Schnitt legen wir nur Einstieg, Profil und die sichtbare
-            Wegstruktur an.
+            Startlage und Schwierigkeit stellst du direkt beim Levelstart im Auswahlfenster ein.
           </p>
           <div className="campaign-actions">
             <button className="campaign-link-button" onClick={onBackHome}>
@@ -185,48 +200,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
           </div>
         </header>
 
-        {!hasProfile ? (
-          <section className="campaign-panel" aria-label="Kampagnenprofil wählen">
-            <div className="campaign-panel-header">
-              <h2>Welcher Stimmtyp bist du?</h2>
-              <p>
-                Der Stimmtyp definiert den relativen Einstiegspunkt der Kampagne.
-                In diesem Schritt bleibt die Auswahl bewusst einfach.
-              </p>
-            </div>
-
-            <label className="campaign-select-row">
-              <span>Stimmtyp</span>
-              <select
-                value={selectedVoiceType}
-                onChange={(event) =>
-                  setSelectedVoiceType(event.target.value as CampaignVoiceType)
-                }
-              >
-                {CAMPAIGN_VOICE_TYPE_IDS.map((voiceType) => (
-                  <option key={voiceType} value={voiceType}>
-                    {CAMPAIGN_VOICE_TYPES[voiceType].label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <p className="campaign-select-description">{selectedVoice.description}</p>
-
-            <p className="campaign-auto-range-note">
-              Start-Lage: {CAMPAIGN_RANGES[selectedRangeId].label} ·{' '}
-              {CAMPAIGN_RANGES[selectedRangeId].subtitle}
-            </p>
-
-            <button
-              className="campaign-primary-button"
-              onClick={() => setProfile(selectedVoiceType, selectedRangeId)}
-            >
-              Kampagne anlegen
-            </button>
-          </section>
-        ) : (
-          <>
+        <>
             <section className="campaign-summary" aria-label="Kampagnenstatus">
               <div className="campaign-summary-card">
                 <span>Stimmtyp</span>
@@ -258,47 +232,9 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                   Level {totalDifficulty} · benötigt: {requiredDifficulty}
                 </strong>
               </div>
-            </section>
-
-            <section className="campaign-panel" aria-label="Upgrade-Pfade">
-              <div className="campaign-panel-header">
-                <h2>Upgrade-Pfade</h2>
-                <p>
-                  Die Kampagne teilt sich in Notenpfad und Hilfsmittelpfad. Jeder
-                  investierte Punkt verändert sofort die nächste Session.
-                </p>
-              </div>
-
-              <div className="campaign-track-grid">
-                <article className="campaign-track-card">
-                  <span>Notenpfad</span>
-                  <strong>
-                    Effektive Übung {effectiveExerciseLevelIdx + 1} / {CAMPAIGN_PLAYABLE_LEVEL_COUNT}
-                  </strong>
-                  <p>
-                    Zusatznoten-Slider: {progress.noteDifficultyPoints}
-                  </p>
-                </article>
-
-                <article className="campaign-track-card">
-                  <span>Klangstil-Hilfe</span>
-                  <strong>
-                    Slider: {progress.toneStyleDifficultyPoints}
-                  </strong>
-                  <p>
-                    Tonstile aktiv: {aidSettings.toneStyleCount}
-                  </p>
-                </article>
-
-                <article className="campaign-track-card">
-                  <span>Farbhilfe</span>
-                  <strong>
-                    Slider: {progress.toneSplashDifficultyPoints}
-                  </strong>
-                  <p>
-                    Farbhinweis-Modus: {aidSettings.toneSplashMode}
-                  </p>
-                </article>
+              <div className="campaign-summary-card">
+                <span>Anzahl an Noten</span>
+                <strong>{noteCount} / {CAMPAIGN_NOTE_COUNT_MAX}</strong>
               </div>
             </section>
 
@@ -357,7 +293,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                     Gewähltes Level spielen
                   </button>
                   <button className="campaign-reset-button" onClick={resetProfile}>
-                    Stimmtyp neu wählen
+                    Einstellungen zurücksetzen
                   </button>
                 </div>
               </div>
@@ -381,12 +317,32 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                     <p>Als Nächstes kannst du direkt ein freigeschaltetes Level starten.</p>
                   )}
 
+                  <label className="campaign-select-row">
+                    <span>Startlage</span>
+                    <select
+                      value={modalStartRangeId}
+                      onChange={(event) =>
+                        setModalStartRangeId(event.target.value as CampaignRangeId)
+                      }
+                    >
+                      {startRangeOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="campaign-slider-description">
+                    Aktiv bei diesem Wert: {CAMPAIGN_RANGES[modalStartRangeId].label} ·{' '}
+                    {CAMPAIGN_RANGES[modalStartRangeId].subtitle}
+                  </p>
+
                   <label className="campaign-slider-row">
-                    <span>Zusatznoten: {modalNoteLevel}</span>
+                    <span>Anzahl an Noten: {modalNoteLevel}</span>
                     <input
                       type="range"
-                      min={0}
-                      max={maxSliderLevel}
+                      min={CAMPAIGN_NOTE_COUNT_MIN}
+                      max={CAMPAIGN_NOTE_COUNT_MAX}
                       step={1}
                       value={modalNoteLevel}
                       onChange={(event) => setModalNoteLevel(Number(event.target.value))}
@@ -448,8 +404,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                 </section>
               </div>
             )}
-          </>
-        )}
+        </>
       </div>
     </main>
   )

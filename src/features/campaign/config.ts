@@ -1,14 +1,17 @@
 import {
-  EXERCISES,
   SECTION_STEPS,
+  type NoteName,
+  type SessionPitch,
   type ToneSplashMode,
   type EarTrainerSessionConfig,
 } from '../earTrainer/config'
 import type { CampaignRangeId, CampaignVoiceType } from './types'
 
 export const CAMPAIGN_LEVEL_COUNT = 80
-export const CAMPAIGN_PLAYABLE_LEVEL_COUNT = EXERCISES.length
+export const CAMPAIGN_PLAYABLE_LEVEL_COUNT = CAMPAIGN_LEVEL_COUNT
 export const CAMPAIGN_PROGRESS_STORAGE_KEY = 'earTrainer-campaign-v1'
+export const CAMPAIGN_NOTE_COUNT_MIN = 3
+export const CAMPAIGN_NOTE_COUNT_MAX = 72
 
 export const CAMPAIGN_RANGES: Record<
   CampaignRangeId,
@@ -82,9 +85,9 @@ export const DEFAULT_CAMPAIGN_PROGRESS = {
   bestStreak: 0,
   unlockedLevelIdx: 0,
   spentPoints: 0,
-  noteDifficultyPoints: 1,
-  toneStyleDifficultyPoints: 1,
-  toneSplashDifficultyPoints: 1,
+  noteDifficultyPoints: CAMPAIGN_NOTE_COUNT_MIN,
+  toneStyleDifficultyPoints: 0,
+  toneSplashDifficultyPoints: 0,
 } as const
 
 export type CampaignAidSettings = {
@@ -93,13 +96,12 @@ export type CampaignAidSettings = {
 }
 
 export function resolveCampaignExerciseLevelIdx(
-  currentLevelIdx: number,
   noteDifficultyPoints: number,
 ) {
-  const effectiveLevelIdx =
-    Math.round(currentLevelIdx) + Math.max(0, Math.round(noteDifficultyPoints - 1))
-
-  return Math.max(0, Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, effectiveLevelIdx))
+  return Math.max(
+    CAMPAIGN_NOTE_COUNT_MIN,
+    Math.min(CAMPAIGN_NOTE_COUNT_MAX, Math.round(noteDifficultyPoints)),
+  )
 }
 
 export function resolveCampaignAidSettings(
@@ -140,27 +142,62 @@ export function resolveRequiredDifficultyForLevel(levelIdx: number) {
   return Math.max(0, Math.round(levelIdx)) + 3
 }
 
+const NOTE_ORDER_FROM_A: NoteName[] = [
+  'A',
+  'Ais',
+  'H',
+  'C',
+  'Cis',
+  'D',
+  'Dis',
+  'E',
+  'F',
+  'Fis',
+  'G',
+  'Gis',
+]
+
+const OCTAVE_MULTIPLIERS = [0.125, 0.25, 0.5, 1, 2, 4]
+
+const ALL_CAMPAIGN_PITCHES: SessionPitch[] = OCTAVE_MULTIPLIERS.flatMap(
+  (frequencyMultiplier) =>
+    NOTE_ORDER_FROM_A.map((note) => ({
+      note,
+      frequencyMultiplier,
+    })),
+)
+
+const createCampaignPitchPool = (noteCount: number): SessionPitch[] =>
+  ALL_CAMPAIGN_PITCHES.slice(0, noteCount)
+
+const createUniqueNoteSet = (pitchPool: SessionPitch[]): NoteName[] =>
+  [...new Set(pitchPool.map((pitch) => pitch.note))] as NoteName[]
+
+const createUniqueMultipliers = (pitchPool: SessionPitch[]): number[] =>
+  [...new Set(pitchPool.map((pitch) => pitch.frequencyMultiplier))].sort(
+    (a, b) => a - b,
+  )
+
 export function createCampaignSessionConfig(
-  startRangeId: CampaignRangeId,
-  currentLevelIdx: number,
+  _startRangeId: CampaignRangeId,
+  _currentLevelIdx: number,
   noteDifficultyPoints: number,
   toneStyleDifficultyPoints: number,
   toneSplashDifficultyPoints: number,
 ): EarTrainerSessionConfig {
-  const safeLevelIdx = resolveCampaignExerciseLevelIdx(
-    currentLevelIdx,
-    noteDifficultyPoints,
-  )
+  const noteCount = resolveCampaignExerciseLevelIdx(noteDifficultyPoints)
+  const pitchPool = createCampaignPitchPool(noteCount)
   const aidSettings = resolveCampaignAidSettings(
     toneStyleDifficultyPoints,
     toneSplashDifficultyPoints,
   )
 
   return {
-    toneSet: EXERCISES[safeLevelIdx] ?? EXERCISES[0],
-    frequencyMultipliers: CAMPAIGN_RANGES[startRangeId].frequencyMultipliers,
+    toneSet: createUniqueNoteSet(pitchPool),
+    frequencyMultipliers: createUniqueMultipliers(pitchPool),
+    pitchPool,
     toneStyleCount: aidSettings.toneStyleCount,
     sectionSteps: SECTION_STEPS,
-    levelCount: CAMPAIGN_PLAYABLE_LEVEL_COUNT,
+    levelCount: CAMPAIGN_LEVEL_COUNT,
   }
 }

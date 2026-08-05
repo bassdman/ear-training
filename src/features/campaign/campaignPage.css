@@ -28,14 +28,16 @@
 
 .campaign-header h1 {
   margin: 8px 0;
-  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  line-height: 1.08;
   color: #fbfcfe;
 }
 
 .campaign-subtitle {
   margin: 0;
   max-width: 64ch;
-  line-height: 1.6;
+  font-size: 0.92rem;
+  line-height: 1.5;
   color: #a6b3c3;
 }
 
@@ -85,10 +87,17 @@
   margin: 0;
 }
 
+.campaign-panel-header h2 {
+  font-size: clamp(1.7rem, 3.1vw, 2.3rem);
+  line-height: 1.15;
+  color: #f6f9fe;
+}
+
 .campaign-panel-header p {
   margin-top: 6px;
+  font-size: 0.88rem;
   color: #9fb0c3;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .campaign-select-row {
@@ -117,7 +126,8 @@
 .campaign-select-description,
 .campaign-auto-range-note {
   max-width: 420px;
-  line-height: 1.55;
+  font-size: 0.88rem;
+  line-height: 1.45;
   color: #9fb0c3;
 }
 
@@ -199,6 +209,10 @@
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 14px;
+  position: sticky;
+  bottom: 0;
+  padding-top: 10px;
+  background: linear-gradient(to top, rgba(16, 22, 32, 0.98), rgba(16, 22, 32, 0.72));
 }
 
 .campaign-upgrade-backdrop {
@@ -213,21 +227,28 @@
 
 .campaign-upgrade-modal {
   width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
   border: 1px solid #364356;
   border-radius: 18px;
   background: rgba(16, 22, 32, 0.98);
   padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .campaign-upgrade-modal h2 {
   margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.15;
   color: #f5f8fd;
 }
 
 .campaign-upgrade-modal p {
   margin: 10px 0 0;
+  font-size: 0.88rem;
   color: #a9b7c8;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .campaign-slider-row {
@@ -247,6 +268,8 @@
 
 .campaign-slider-description {
   margin-top: 8px;
+  font-size: 0.84rem;
+  line-height: 1.4;
   color: #a9b7c8;
 }
 
@@ -315,6 +338,8 @@
 
 .campaign-footnote p,
 .campaign-loading {
+  font-size: 0.88rem;
+  line-height: 1.45;
   color: #9fb0c3;
 }
 

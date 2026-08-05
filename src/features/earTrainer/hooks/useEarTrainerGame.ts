@@ -10,10 +10,10 @@ import {
 import {
   formatPitchLabel,
   type GuessOption,
+  type SessionPitch,
   TONE_STYLE_IDS,
   type EarTrainerSessionConfig,
   type Feedback,
-  type NoteName,
   type ToneStyleId,
   type Trial,
 } from '../config'
@@ -60,7 +60,7 @@ export function useEarTrainerGame({
   const [completionNotice, setCompletionNotice] = useState<CompletionNotice | null>(null)
   const [sessionGuesses, setSessionGuesses] = useState(0)
   const [sessionCorrect, setSessionCorrect] = useState(0)
-  const lastRandomNoteRef = useRef<NoteName | null>(null)
+  const lastRandomPitchRef = useRef<string | null>(null)
   const randomNoteStreakRef = useRef(0)
 
   const { toneSet, frequencyMultipliers, toneStyleCount, sectionSteps, levelCount } = sessionConfig
@@ -73,17 +73,28 @@ export function useEarTrainerGame({
     [frequencyMultipliers],
   )
 
+  const availablePitches = useMemo<SessionPitch[]>(() => {
+    if (sessionConfig.pitchPool && sessionConfig.pitchPool.length > 0) {
+      return [...sessionConfig.pitchPool]
+    }
+
+    return toneSet.flatMap((note) =>
+      activeMultipliers.map((frequencyMultiplier) => ({
+        note,
+        frequencyMultiplier,
+      })),
+    ) as SessionPitch[]
+  }, [activeMultipliers, sessionConfig.pitchPool, toneSet])
+
   const guessOptions = useMemo(
     () =>
-      toneSet.flatMap((note) =>
-        activeMultipliers.map((frequencyMultiplier) => ({
-          id: `${note}|${frequencyMultiplier}`,
-          note,
-          frequencyMultiplier,
-          label: formatPitchLabel(note as NoteName, frequencyMultiplier),
-        })),
-      ) as GuessOption[],
-    [activeMultipliers, toneSet],
+      availablePitches.map((pitch) => ({
+        id: `${pitch.note}|${pitch.frequencyMultiplier}`,
+        note: pitch.note,
+        frequencyMultiplier: pitch.frequencyMultiplier,
+        label: formatPitchLabel(pitch.note, pitch.frequencyMultiplier),
+      })) as GuessOption[],
+    [availablePitches],
   )
 
   const unlockedToneStyles = useMemo(
@@ -96,13 +107,15 @@ export function useEarTrainerGame({
   }, [levelIdx, sectionIdx])
 
   useEffect(() => {
-    const availableNotes = toneSet as readonly NoteName[]
-    if (!lastRandomNoteRef.current) return
-    if (availableNotes.includes(lastRandomNoteRef.current)) return
+    const availablePitchIds = new Set(
+      availablePitches.map((pitch) => `${pitch.note}|${pitch.frequencyMultiplier}`),
+    )
+    if (!lastRandomPitchRef.current) return
+    if (availablePitchIds.has(lastRandomPitchRef.current)) return
 
-    lastRandomNoteRef.current = null
+    lastRandomPitchRef.current = null
     randomNoteStreakRef.current = 0
-  }, [toneSet])
+  }, [availablePitches])
 
   const sectionStart = useMemo(
     () => sectionSteps.slice(0, sectionIdx).reduce((sum, steps) => sum + steps, 0),
@@ -112,39 +125,43 @@ export function useEarTrainerGame({
   const levelProgress = Math.min(levelProgressTotal, sectionStart + sectionProgress)
 
   const startTrial = () => {
-    const pickRandomNote = (): NoteName => {
-      const availableNotes = toneSet as readonly NoteName[]
-      const streakBlockedNote =
-        randomNoteStreakRef.current >= 2 ? lastRandomNoteRef.current : null
+    const pickRandomPitch = (): SessionPitch => {
+      const streakBlockedPitchId =
+        randomNoteStreakRef.current >= 2 ? lastRandomPitchRef.current : null
 
-      const pickableNotes =
-        streakBlockedNote && availableNotes.length > 1
-          ? availableNotes.filter((note) => note !== streakBlockedNote)
-          : availableNotes
+      const pickablePitches =
+        streakBlockedPitchId && availablePitches.length > 1
+          ? availablePitches.filter(
+              (pitch) => `${pitch.note}|${pitch.frequencyMultiplier}` !== streakBlockedPitchId,
+            )
+          : availablePitches
 
-      const selectedNote =
-        pickableNotes[Math.floor(Math.random() * pickableNotes.length)] ?? availableNotes[0]
+      const selectedPitch =
+        pickablePitches[Math.floor(Math.random() * pickablePitches.length)] ??
+        availablePitches[0] ?? { note: 'C', frequencyMultiplier: 1 }
+      const selectedPitchId = `${selectedPitch.note}|${selectedPitch.frequencyMultiplier}`
 
-      if (selectedNote === lastRandomNoteRef.current) {
+      if (selectedPitchId === lastRandomPitchRef.current) {
         randomNoteStreakRef.current += 1
       } else {
-        lastRandomNoteRef.current = selectedNote
+        lastRandomPitchRef.current = selectedPitchId
         randomNoteStreakRef.current = 1
       }
 
-      return selectedNote
+      return selectedPitch
     }
+
+    const nextPitch = pickRandomPitch()
 
     const nextTrial =
       forcedTrial ??
       ({
-        note: pickRandomNote(),
+        note: nextPitch.note,
         toneStyle:
           unlockedToneStyles[
             Math.floor(Math.random() * unlockedToneStyles.length)
           ] as ToneStyleId,
-        frequencyMultiplier:
-          activeMultipliers[Math.floor(Math.random() * activeMultipliers.length)] ?? 1,
+        frequencyMultiplier: nextPitch.frequencyMultiplier,
       } as Trial)
 
     logGame('trial:start', {

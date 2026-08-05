@@ -102,9 +102,15 @@ export type Trial = {
   frequencyMultiplier: number
 }
 
+export type SessionPitch = {
+  note: NoteName
+  frequencyMultiplier: number
+}
+
 export type EarTrainerSessionConfig = {
   toneSet: readonly NoteName[]
   frequencyMultipliers: number[]
+  pitchPool?: readonly SessionPitch[]
   toneStyleCount: number
   sectionSteps: readonly number[]
   levelCount: number

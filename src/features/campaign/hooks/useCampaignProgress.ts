@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import {
+  CAMPAIGN_NOTE_COUNT_MAX,
+  CAMPAIGN_NOTE_COUNT_MIN,
   CAMPAIGN_PLAYABLE_LEVEL_COUNT,
   CAMPAIGN_PROGRESS_STORAGE_KEY,
   DEFAULT_CAMPAIGN_PROGRESS,
@@ -16,7 +18,9 @@ const clampSection = (value: number) => Math.max(0, Math.min(3, Math.round(value
 const clampPlayableLevel = (value: number) =>
   Math.max(0, Math.min(CAMPAIGN_PLAYABLE_LEVEL_COUNT - 1, Math.round(value)))
 const clampNonNegative = (value: number) => Math.max(0, Math.round(value))
-const clampDifficultySlider = (value: number) => Math.max(0, Math.min(4, Math.round(value)))
+const clampAidSlider = (value: number) => Math.max(0, Math.min(4, Math.round(value)))
+const clampNoteCount = (value: number) =>
+  Math.max(CAMPAIGN_NOTE_COUNT_MIN, Math.min(CAMPAIGN_NOTE_COUNT_MAX, Math.round(value)))
 
 const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgressState => {
   const currentLevelIdx = clampPlayableLevel(raw?.currentLevelIdx ?? 0)
@@ -31,9 +35,9 @@ const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgre
       Math.max(raw?.unlockedLevelIdx ?? 0, currentLevelIdx),
     ),
     spentPoints,
-    noteDifficultyPoints: clampDifficultySlider(raw?.noteDifficultyPoints ?? 1),
-    toneStyleDifficultyPoints: clampDifficultySlider(raw?.toneStyleDifficultyPoints ?? 1),
-    toneSplashDifficultyPoints: clampDifficultySlider(raw?.toneSplashDifficultyPoints ?? 1),
+    noteDifficultyPoints: clampNoteCount(raw?.noteDifficultyPoints ?? CAMPAIGN_NOTE_COUNT_MIN),
+    toneStyleDifficultyPoints: clampAidSlider(raw?.toneStyleDifficultyPoints ?? 0),
+    toneSplashDifficultyPoints: clampAidSlider(raw?.toneSplashDifficultyPoints ?? 0),
   }
 }
 
@@ -65,9 +69,23 @@ export function useCampaignProgress() {
   }, [loaded, progress])
 
   const hasProfile = useMemo(
-    () => Boolean(progress.voiceType && progress.startRangeId),
-    [progress.startRangeId, progress.voiceType],
+    () => Boolean(progress.startRangeId),
+    [progress.startRangeId],
   )
+
+  const resolveVoiceTypeForRange = (startRangeId: CampaignRangeId): CampaignVoiceType => {
+    switch (startRangeId) {
+      case 'male-low':
+        return 'bass'
+      case 'low':
+        return 'tenor'
+      case 'mid':
+        return 'alto'
+      case 'high':
+      default:
+        return 'soprano'
+    }
+  }
 
   const setProfile = (voiceType: CampaignVoiceType, startRangeId: CampaignRangeId) => {
     setProgress({
@@ -78,9 +96,9 @@ export function useCampaignProgress() {
       bestStreak: 0,
       unlockedLevelIdx: 0,
       spentPoints: 0,
-      noteDifficultyPoints: 1,
-      toneStyleDifficultyPoints: 1,
-      toneSplashDifficultyPoints: 1,
+      noteDifficultyPoints: CAMPAIGN_NOTE_COUNT_MIN,
+      toneStyleDifficultyPoints: 0,
+      toneSplashDifficultyPoints: 0,
     })
   }
 
@@ -96,6 +114,16 @@ export function useCampaignProgress() {
         unlockedLevelIdx: Math.max(prev.unlockedLevelIdx, currentLevelIdx),
       })
     })
+  }
+
+  const setStartRangeId = (startRangeId: CampaignRangeId) => {
+    setProgress((prev) =>
+      normalizeProgress({
+        ...prev,
+        startRangeId,
+        voiceType: resolveVoiceTypeForRange(startRangeId),
+      }),
+    )
   }
 
   const setSectionIdx = (nextValue: React.SetStateAction<number>) => {
@@ -167,6 +195,7 @@ export function useCampaignProgress() {
     setSectionIdx,
     setBestStreak,
     setUnlockedLevelIdx,
+    setStartRangeId,
     setCampaignDifficulty,
     resetProfile,
   }
