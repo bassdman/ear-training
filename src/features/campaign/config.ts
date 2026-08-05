@@ -6,15 +6,16 @@ import {
 } from '../earTrainer/config'
 import type { CampaignRangeId, CampaignVoiceType } from './types'
 
-export const CAMPAIGN_LEVEL_COUNT = 80
-export const CAMPAIGN_PLAYABLE_LEVEL_COUNT = CAMPAIGN_LEVEL_COUNT
 export const CAMPAIGN_PROGRESS_STORAGE_KEY = 'earTrainer-campaign-v1'
 export const CAMPAIGN_NOTE_COUNT_MIN = 3
 export const CAMPAIGN_NOTE_COUNT_MAX = 72
 export const CAMPAIGN_FALLBACK_BREAK_OPTIONS = [3, 2, 1, 0] as const
-export const CAMPAIGN_INTERVAL_TONE_OPTIONS = [4, 5, 6, 8] as const
+export const CAMPAIGN_TOTAL_NOTES_MIN = 30
+export const CAMPAIGN_TOTAL_NOTES_MAX = 100
 export const CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT = 3
-export const CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT = 5
+export const CAMPAIGN_DEFAULT_TOTAL_NOTES = 50
+const CAMPAIGN_TONE_STYLE_DIFFICULTY_MAX = 4
+const CAMPAIGN_TONE_SPLASH_DIFFICULTY_MAX = 4
 
 export const CAMPAIGN_RANGES: Record<
   CampaignRangeId,
@@ -92,7 +93,7 @@ export const DEFAULT_CAMPAIGN_PROGRESS = {
   toneStyleDifficultyPoints: 0,
   toneSplashDifficultyPoints: 0,
   fallbackBreakCount: CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
-  intervalToneCount: CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  totalNotes: CAMPAIGN_DEFAULT_TOTAL_NOTES,
 } as const
 
 export type CampaignAidSettings = {
@@ -135,11 +136,18 @@ export function resolveCampaignTotalDifficulty(
   noteDifficultyPoints: number,
   toneStyleDifficultyPoints: number,
   toneSplashDifficultyPoints: number,
+  fallbackBreakCount: number,
+  totalNotes: number,
 ) {
+  const fallbackDifficultyPoints = resolveFallbackBreakDifficultyPoints(fallbackBreakCount)
+  const totalNotesDifficultyPoints = resolveTotalNotesDifficultyPoints(totalNotes)
+
   return (
     Math.max(0, Math.round(noteDifficultyPoints)) +
     Math.max(0, Math.round(toneStyleDifficultyPoints)) +
-    Math.max(0, Math.round(toneSplashDifficultyPoints))
+    Math.max(0, Math.round(toneSplashDifficultyPoints)) +
+    fallbackDifficultyPoints +
+    totalNotesDifficultyPoints
   )
 }
 
@@ -149,22 +157,57 @@ export function resolveRequiredDifficultyForLevel(levelIdx: number) {
 
 export function resolveCampaignSectionSteps(
   fallbackBreakCount: number,
-  intervalToneCount: number,
+  totalNotes: number,
 ): number[] {
   const safeFallbackBreakCount = Math.max(0, Math.min(3, Math.round(fallbackBreakCount)))
-  const safeIntervalToneCount = CAMPAIGN_INTERVAL_TONE_OPTIONS.includes(
-    Math.round(intervalToneCount) as (typeof CAMPAIGN_INTERVAL_TONE_OPTIONS)[number],
+  const safeTotalNotes = Math.max(
+    CAMPAIGN_TOTAL_NOTES_MIN,
+    Math.min(CAMPAIGN_TOTAL_NOTES_MAX, Math.round(totalNotes)),
   )
-    ? Math.round(intervalToneCount)
-    : CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT
+  const fullIntervalCount = 4
+  const activeIntervalCount = safeFallbackBreakCount + 1
+  const intervalWeights = [1, 1, 1, 2]
+  const weightSum = intervalWeights.reduce((sum, weight) => sum + weight, 0)
 
-  const baseIntervals = Array.from(
-    { length: safeFallbackBreakCount },
-    () => safeIntervalToneCount,
+  const fullSteps = intervalWeights.map((weight) =>
+    Math.floor((safeTotalNotes * weight) / weightSum),
   )
+  let remainingNotes = safeTotalNotes - fullSteps.reduce((sum, step) => sum + step, 0)
+  let fillIdx = fullIntervalCount - 1
+  while (remainingNotes > 0) {
+    fullSteps[fillIdx] += 1
+    fillIdx = fillIdx === 0 ? fullIntervalCount - 1 : fillIdx - 1
+    remainingNotes -= 1
+  }
 
-  return [...baseIntervals, safeIntervalToneCount * 2]
+  // Wenn Intervalle reduziert werden, entfernen wir immer den letzten Abschnitt.
+  return fullSteps.slice(0, activeIntervalCount)
 }
+
+export function resolveFallbackBreakDifficultyPoints(fallbackBreakCount: number) {
+  const safeFallbackBreakCount = Math.max(0, Math.min(3, Math.round(fallbackBreakCount)))
+  return 3 - safeFallbackBreakCount
+}
+
+export function resolveTotalNotesDifficultyPoints(totalNotes: number) {
+  const safeTotalNotes = Math.max(
+    CAMPAIGN_TOTAL_NOTES_MIN,
+    Math.min(CAMPAIGN_TOTAL_NOTES_MAX, Math.round(totalNotes)),
+  )
+
+  return Math.round(((safeTotalNotes - CAMPAIGN_TOTAL_NOTES_MIN) * 3) / (CAMPAIGN_TOTAL_NOTES_MAX - CAMPAIGN_TOTAL_NOTES_MIN))
+}
+
+const CAMPAIGN_MAX_TOTAL_DIFFICULTY = resolveCampaignTotalDifficulty(
+  CAMPAIGN_NOTE_COUNT_MAX,
+  CAMPAIGN_TONE_STYLE_DIFFICULTY_MAX,
+  CAMPAIGN_TONE_SPLASH_DIFFICULTY_MAX,
+  0,
+  CAMPAIGN_TOTAL_NOTES_MAX,
+)
+
+export const CAMPAIGN_LEVEL_COUNT = CAMPAIGN_MAX_TOTAL_DIFFICULTY - 2
+export const CAMPAIGN_PLAYABLE_LEVEL_COUNT = CAMPAIGN_LEVEL_COUNT
 
 const NOTE_ORDER_FROM_A: NoteName[] = [
   'A',
@@ -230,7 +273,7 @@ export function createCampaignSessionConfig(
   toneStyleDifficultyPoints: number,
   toneSplashDifficultyPoints: number,
   fallbackBreakCount: number,
-  intervalToneCount: number,
+  totalNotes: number,
 ): EarTrainerSessionConfig {
   const noteCount = resolveCampaignExerciseLevelIdx(noteDifficultyPoints)
   const pitchPool = createCampaignPitchPool(startRangeId, noteCount)
@@ -240,7 +283,7 @@ export function createCampaignSessionConfig(
   )
   const sectionSteps = resolveCampaignSectionSteps(
     fallbackBreakCount,
-    intervalToneCount,
+    totalNotes,
   )
 
   return {

@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
-  CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  CAMPAIGN_DEFAULT_TOTAL_NOTES,
   CAMPAIGN_FALLBACK_BREAK_OPTIONS,
-  CAMPAIGN_INTERVAL_TONE_OPTIONS,
   CAMPAIGN_NOTE_COUNT_MAX,
   CAMPAIGN_NOTE_COUNT_MIN,
   CAMPAIGN_PLAYABLE_LEVEL_COUNT,
   CAMPAIGN_PROGRESS_STORAGE_KEY,
+  CAMPAIGN_TOTAL_NOTES_MAX,
+  CAMPAIGN_TOTAL_NOTES_MIN,
   DEFAULT_CAMPAIGN_PROGRESS,
 } from '../config'
 import { readCampaignProgress, writeCampaignProgress } from '../storage'
@@ -32,12 +33,8 @@ const clampFallbackBreakCount = (value: number) =>
   )
     ? Math.round(value)
     : CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT
-const clampIntervalToneCount = (value: number) =>
-  CAMPAIGN_INTERVAL_TONE_OPTIONS.includes(
-    Math.round(value) as (typeof CAMPAIGN_INTERVAL_TONE_OPTIONS)[number],
-  )
-    ? Math.round(value)
-    : CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT
+const clampTotalNotes = (value: number) =>
+  Math.max(CAMPAIGN_TOTAL_NOTES_MIN, Math.min(CAMPAIGN_TOTAL_NOTES_MAX, Math.round(value)))
 
 const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgressState => {
   const currentLevelIdx = clampPlayableLevel(raw?.currentLevelIdx ?? 0)
@@ -45,8 +42,10 @@ const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgre
   const fallbackBreakCount = clampFallbackBreakCount(
     raw?.fallbackBreakCount ?? CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
   )
-  const intervalToneCount = clampIntervalToneCount(
-    raw?.intervalToneCount ?? CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  const totalNotes = clampTotalNotes(
+    (raw?.totalNotes ??
+      (raw as { intervalToneCount?: number } | undefined)?.intervalToneCount ??
+      CAMPAIGN_DEFAULT_TOTAL_NOTES),
   )
   return {
     voiceType: raw?.voiceType ?? DEFAULT_CAMPAIGN_PROGRESS.voiceType,
@@ -62,7 +61,7 @@ const normalizeProgress = (raw?: Partial<CampaignProgressState>): CampaignProgre
     toneStyleDifficultyPoints: clampAidSlider(raw?.toneStyleDifficultyPoints ?? 0),
     toneSplashDifficultyPoints: clampAidSlider(raw?.toneSplashDifficultyPoints ?? 0),
     fallbackBreakCount,
-    intervalToneCount,
+    totalNotes,
   }
 }
 
@@ -125,7 +124,7 @@ export function useCampaignProgress() {
       toneStyleDifficultyPoints: 0,
       toneSplashDifficultyPoints: 0,
       fallbackBreakCount: CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
-      intervalToneCount: CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+      totalNotes: CAMPAIGN_DEFAULT_TOTAL_NOTES,
     })
   }
 
@@ -199,7 +198,7 @@ export function useCampaignProgress() {
     toneStyle: number
     toneSplash: number
     fallbackBreakCount: number
-    intervalToneCount: number
+    totalNotes: number
   }) => {
     setProgress((prev) => {
       return normalizeProgress({
@@ -208,7 +207,7 @@ export function useCampaignProgress() {
         toneStyleDifficultyPoints: next.toneStyle,
         toneSplashDifficultyPoints: next.toneSplash,
         fallbackBreakCount: next.fallbackBreakCount,
-        intervalToneCount: next.intervalToneCount,
+        totalNotes: next.totalNotes,
       })
     })
   }

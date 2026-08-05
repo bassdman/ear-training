@@ -3,14 +3,15 @@ import { useSearchParams } from 'react-router-dom'
 
 import {
   CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
-  CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  CAMPAIGN_DEFAULT_TOTAL_NOTES,
   CAMPAIGN_FALLBACK_BREAK_OPTIONS,
-  CAMPAIGN_INTERVAL_TONE_OPTIONS,
   CAMPAIGN_LEVEL_COUNT,
   CAMPAIGN_NOTE_COUNT_MAX,
   CAMPAIGN_NOTE_COUNT_MIN,
   CAMPAIGN_PLAYABLE_LEVEL_COUNT,
   CAMPAIGN_RANGES,
+  CAMPAIGN_TOTAL_NOTES_MAX,
+  CAMPAIGN_TOTAL_NOTES_MIN,
   CAMPAIGN_VOICE_TYPES,
   resolveCampaignAidSettings,
   resolveCampaignExerciseLevelIdx,
@@ -44,8 +45,8 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
   const [modalFallbackBreakCount, setModalFallbackBreakCount] = useState(
     CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
   )
-  const [modalIntervalToneCount, setModalIntervalToneCount] = useState(
-    CAMPAIGN_DEFAULT_INTERVAL_TONE_COUNT,
+  const [modalTotalNotes, setModalTotalNotes] = useState(
+    CAMPAIGN_DEFAULT_TOTAL_NOTES,
   )
   const [modalNoteLevel, setModalNoteLevel] = useState(CAMPAIGN_NOTE_COUNT_MIN)
   const [modalToneStyleLevel, setModalToneStyleLevel] = useState(0)
@@ -69,12 +70,16 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     progress.noteDifficultyPoints,
     progress.toneStyleDifficultyPoints,
     progress.toneSplashDifficultyPoints,
+    progress.fallbackBreakCount,
+    progress.totalNotes,
   )
   const requiredDifficulty = resolveRequiredDifficultyForLevel(selectedLevelIdx)
   const modalTotalDifficulty = resolveCampaignTotalDifficulty(
     modalNoteLevel,
     modalToneStyleLevel,
     modalToneSplashLevel,
+    modalFallbackBreakCount,
+    modalTotalNotes,
   )
   const modalRequiredDifficulty = resolveRequiredDifficultyForLevel(
     modalLevelIdx ?? selectedLevelIdx,
@@ -87,9 +92,9 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
   )
   const modalSectionSteps = resolveCampaignSectionSteps(
     modalFallbackBreakCount,
-    modalIntervalToneCount,
+    modalTotalNotes,
   )
-  const modalFinalIntervalTones = modalIntervalToneCount * 2
+  const modalVisibleTotalNotes = modalSectionSteps.reduce((sum, steps) => sum + steps, 0)
 
   const getToneSplashDescription = (level: number) => {
     switch (level) {
@@ -142,7 +147,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     setModalLevelIdx(selectedLevelIdx)
     setModalStartRangeId(progress.startRangeId ?? 'male-low')
     setModalFallbackBreakCount(progress.fallbackBreakCount)
-    setModalIntervalToneCount(progress.intervalToneCount)
+    setModalTotalNotes(progress.totalNotes)
     setModalNoteLevel(
       Math.min(
         CAMPAIGN_NOTE_COUNT_MAX,
@@ -158,7 +163,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
     setSelectedLevelIdx(levelIdx)
     setModalStartRangeId(progress.startRangeId ?? 'male-low')
     setModalFallbackBreakCount(progress.fallbackBreakCount)
-    setModalIntervalToneCount(progress.intervalToneCount)
+    setModalTotalNotes(progress.totalNotes)
     setModalNoteLevel(
       Math.min(
         CAMPAIGN_NOTE_COUNT_MAX,
@@ -182,7 +187,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
       toneStyle: modalToneStyleLevel,
       toneSplash: modalToneSplashLevel,
       fallbackBreakCount: modalFallbackBreakCount,
-      intervalToneCount: modalIntervalToneCount,
+      totalNotes: modalTotalNotes,
     })
     setModalLevelIdx(null)
     onOpenTrainer(targetLevelIdx)
@@ -209,7 +214,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
           <p className="campaign-kicker">Kampagnenmodus</p>
           <h1>Dein Trainingspfad</h1>
           <p className="campaign-subtitle">
-            Dieser Modus baut eine zusammenhängende Progression über 80 Schritte auf.
+            Dieser Modus baut eine zusammenhängende Progression über {CAMPAIGN_LEVEL_COUNT} Schritte auf.
             Startlage und Schwierigkeit stellst du direkt beim Levelstart im Auswahlfenster ein.
           </p>
           <div className="campaign-actions">
@@ -259,9 +264,9 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                 <strong>{noteCount} / {CAMPAIGN_NOTE_COUNT_MAX}</strong>
               </div>
               <div className="campaign-summary-card">
-                <span>Fallbacks / Intervalltöne</span>
+                <span>Fallbacks / Gesamtanzahl</span>
                 <strong>
-                  {progress.fallbackBreakCount} / {progress.intervalToneCount} ({progress.intervalToneCount * 2})
+                  {progress.fallbackBreakCount} / {progress.totalNotes}
                 </strong>
               </div>
             </section>
@@ -363,21 +368,19 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
                   </p>
 
                   <label className="campaign-select-row">
-                    <span>Anzahl an Töne pro Intervall</span>
-                    <select
-                      value={modalIntervalToneCount}
-                      onChange={(event) => setModalIntervalToneCount(Number(event.target.value))}
-                    >
-                      {CAMPAIGN_INTERVAL_TONE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option} ({option * 2})
-                        </option>
-                      ))}
-                    </select>
+                    <span>Gesamtanzahl an Noten: {modalTotalNotes}</span>
+                    <input
+                      type="range"
+                      min={CAMPAIGN_TOTAL_NOTES_MIN}
+                      max={CAMPAIGN_TOTAL_NOTES_MAX}
+                      step={1}
+                      value={modalTotalNotes}
+                      onChange={(event) => setModalTotalNotes(Number(event.target.value))}
+                    />
                   </label>
                   <p className="campaign-slider-description">
-                    Klammerwert gilt immer fuer den letzten Abschnitt. Aktuell: {modalIntervalToneCount} ({modalFinalIntervalTones})
-                    · Abschnittsverteilung: {modalSectionSteps.join(' / ')}
+                    Bereich {CAMPAIGN_TOTAL_NOTES_MIN} bis {CAMPAIGN_TOTAL_NOTES_MAX} · aktiv: {modalVisibleTotalNotes}
+                    Noten · Abschnittsverteilung: {modalSectionSteps.join(' / ')}
                   </p>
 
                   <label className="campaign-select-row">

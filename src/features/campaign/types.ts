@@ -14,5 +14,5 @@ export type CampaignProgressState = {
   toneStyleDifficultyPoints: number
   toneSplashDifficultyPoints: number
   fallbackBreakCount: number
-  intervalToneCount: number
+  totalNotes: number
 }
