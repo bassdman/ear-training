@@ -1,7 +1,7 @@
 import {
   type NoteName,
   type ToneSplashMode,
-} from '../earTrainer/config'
+} from '../../features/earTrainer/config'
 import { resolveCampaignTotalDifficulty } from './helpers'
 import type { CampaignRangeId, CampaignVoiceType } from './types'
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-
+import './styles.css';
 import {
   CAMPAIGN_DEFAULT_FALLBACK_BREAK_COUNT,
   CAMPAIGN_DEFAULT_TOTAL_NOTES,
@@ -12,19 +12,19 @@ import {
   CAMPAIGN_RANGES,
   CAMPAIGN_TOTAL_NOTES_MAX,
   CAMPAIGN_TOTAL_NOTES_MIN,
-} from './config'
-import './campaignPage.css'
-import { useCampaignProgress } from './hooks/useCampaignProgress'
+} from './config';
+import './styles.css'
+import { useCampaignProgress } from './useCampaignProgress'
 import type { CampaignRangeId } from './types'
 import { resolveCampaignAidSettings, resolveCampaignSectionSteps, resolveCampaignTotalDifficulty, resolveRequiredDifficultyForLevel } from './helpers'
 
-type CampaignPageProps = {
+type ExerciseSettingsProps = {
   onBackHome: () => void
   onOpenExercises: () => void
   onOpenTrainer: (levelIdx: number) => void
 }
 
-export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: CampaignPageProps) {
+export function ExerciseSettings({ onBackHome, onOpenExercises, onOpenTrainer }: ExerciseSettingsProps) {
   const {
     loaded,
     progress,

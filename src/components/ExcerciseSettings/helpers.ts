@@ -1,4 +1,4 @@
-import type { ToneSplashMode } from "../earTrainer/config"
+import type { ToneSplashMode } from "../../features/earTrainer/config"
 import { CAMPAIGN_NOTE_COUNT_MAX, CAMPAIGN_NOTE_COUNT_MIN, CAMPAIGN_RANGES, CAMPAIGN_TOTAL_NOTES_MAX, CAMPAIGN_TOTAL_NOTES_MIN, OCTAVE_MULTIPLIERS, type CampaignAidSettings } from "./config"
 import type { CampaignRangeId } from "./types"
 

@@ -1,7 +1,7 @@
 import type { EarTrainerSessionConfig, NoteName, SessionPitch } from "../../earTrainer/config"
-import { CAMPAIGN_LEVEL_COUNT, NOTE_ORDER_FROM_A } from "../config"
-import { resolveCampaignAidSettings, resolveCampaignExerciseLevelIdx, resolveCampaignSectionSteps, resolveOrderedMultipliersFromStartRange } from "../helpers"
-import type { CampaignRangeId } from "../types"
+import { CAMPAIGN_LEVEL_COUNT, NOTE_ORDER_FROM_A } from "../../../components/ExcerciseSettings/config"
+import { resolveCampaignAidSettings, resolveCampaignExerciseLevelIdx, resolveCampaignSectionSteps, resolveOrderedMultipliersFromStartRange } from "../../../components/ExcerciseSettings/helpers"
+import type { CampaignRangeId } from "../../../components/ExcerciseSettings/types"
 
 
 
@@ -28,7 +28,7 @@ const createUniqueMultipliers = (pitchPool: SessionPitch[]): number[] =>
     (a, b) => a - b,
   )
 
-export function createCampaignSessionConfig(
+export function useCampaignSessionConfig(
   startRangeId: CampaignRangeId,
   _currentLevelIdx: number,
   noteDifficultyPoints: number,

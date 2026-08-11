@@ -11,13 +11,13 @@ import {
   CAMPAIGN_TOTAL_NOTES_MAX,
   CAMPAIGN_TOTAL_NOTES_MIN,
   DEFAULT_CAMPAIGN_PROGRESS,
-} from '../config'
-import { readCampaignProgress, writeCampaignProgress } from '../storage'
+} from './config'
+import { readCampaignProgress, writeCampaignProgress } from '../../features/campaign/storage'
 import type {
   CampaignProgressState,
   CampaignRangeId,
   CampaignVoiceType,
-} from '../types'
+} from './types'
 
 const clampSection = (value: number, fallbackBreakCount: number) =>
   Math.max(0, Math.min(fallbackBreakCount, Math.round(value)))

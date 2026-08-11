@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import EarTrainer from './EarTrainer'
-import { createExerciseSessionConfig } from '../features/earTrainer/config'
+import EarTrainer from '.'
+import { createExerciseSessionConfig } from '../../features/earTrainer/config'
 
 const { soundfontMock, startMock, disposeMock } = vi.hoisted(() => {
   const start = vi.fn(() => vi.fn())

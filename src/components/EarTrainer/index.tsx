@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Soundfont } from 'smplr'
 
-import { ActiveSession } from '../features/earTrainer/components/ActiveSession'
-import { ProgressPanel } from '../features/earTrainer/components/ProgressPanel'
-import { TrainerHeader } from '../features/earTrainer/components/TrainerHeader'
+import { ActiveSession } from '../../features/earTrainer/components/ActiveSession'
+import { ProgressPanel } from '../../features/earTrainer/components/ProgressPanel'
+import { TrainerHeader } from '../../features/earTrainer/components/TrainerHeader'
 import {
   INSTRUMENTS,
   getOctaveFromMultiplier,
@@ -12,11 +12,10 @@ import {
   type InstrumentId,
   type ToneStyleId,
   type ToneSplashMode,
-} from '../features/earTrainer/config'
-import { useEarTrainerGame } from '../features/earTrainer/hooks/useEarTrainerGame'
-import { getToneColor } from '../features/earTrainer/noteColor'
-import '../features/earTrainer/earTrainer.css'
-
+} from '../../features/earTrainer/config'
+import { useEarTrainerGame } from '../../features/earTrainer/hooks/useEarTrainerGame'
+import { getToneColor } from '../../features/earTrainer/noteColor'
+import './styles.css';
 type ToneButtonConfig = {
   id: string
   label: string

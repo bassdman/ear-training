@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
-import { CampaignPage } from './features/campaign/CampaignPage'
 import { CampaignTrainerPage } from './features/campaign/CampaignTrainerPage'
 import { CoursePage } from './pages/course/CoursePage'
 import { HomePage } from './pages/home/HomePage'
@@ -11,6 +10,7 @@ import {
 } from './features/earTrainer/config'
 import { useTrainerProgress } from './features/earTrainer/hooks/useTrainerProgress'
 import { TrainerPage } from './pages/TrainerPage'
+import { ExerciseSettings } from './components/ExcerciseSettings'
 
 function App() {
   const navigate = useNavigate()
@@ -61,7 +61,7 @@ function App() {
       <Route
         path="/campaign"
         element={
-          <CampaignPage
+          <ExerciseSettings
             onBackHome={() => navigate('/')}
             onOpenExercises={() => navigate('/course')}
             onOpenTrainer={(levelIdx) => navigate(`/campaign/trainer?level=${levelIdx}`)}
