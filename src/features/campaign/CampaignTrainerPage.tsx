@@ -3,11 +3,43 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 
 import EarTrainer from '../../components/EarTrainer'
 import {
+  CAMPAIGN_LEVEL_COUNT,
   CAMPAIGN_RANGES,
-  createCampaignSessionConfig,
-  resolveCampaignAidSettings,
 } from './config'
 import { useCampaignProgress } from './hooks/useCampaignProgress'
+import type { CampaignRangeId } from './types'
+import type { EarTrainerSessionConfig } from '../earTrainer/config'
+import { resolveCampaignAidSettings, resolveCampaignExerciseLevelIdx, resolveCampaignSectionSteps } from './helpers'
+
+export function createCampaignSessionConfig(
+  startRangeId: CampaignRangeId,
+  _currentLevelIdx: number,
+  noteDifficultyPoints: number,
+  toneStyleDifficultyPoints: number,
+  toneSplashDifficultyPoints: number,
+  fallbackBreakCount: number,
+  totalNotes: number,
+): EarTrainerSessionConfig {
+  const noteCount = resolveCampaignExerciseLevelIdx(noteDifficultyPoints)
+  const pitchPool = createCampaignPitchPool(startRangeId, noteCount)
+  const aidSettings = resolveCampaignAidSettings(
+    toneStyleDifficultyPoints,
+    toneSplashDifficultyPoints,
+  )
+  const sectionSteps = resolveCampaignSectionSteps(
+    fallbackBreakCount,
+    totalNotes,
+  )
+
+  return {
+    toneSet: createUniqueNoteSet(pitchPool),
+    frequencyMultipliers: createUniqueMultipliers(pitchPool),
+    pitchPool,
+    toneStyleCount: aidSettings.toneStyleCount,
+    sectionSteps,
+    levelCount: CAMPAIGN_LEVEL_COUNT,
+  }
+}
 
 export function CampaignTrainerPage() {
   const navigate = useNavigate()
@@ -92,3 +124,15 @@ export function CampaignTrainerPage() {
     />
   )
 }
+
+function createCampaignPitchPool(startRangeId: string, noteCount: number) {
+  throw new Error('Function not implemented.')
+}
+function createUniqueNoteSet(pitchPool: void): readonly import("../earTrainer/config").NoteName[] {
+  throw new Error('Function not implemented.')
+}
+
+function createUniqueMultipliers(pitchPool: void): number[] {
+  throw new Error('Function not implemented.')
+}
+

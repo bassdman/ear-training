@@ -12,16 +12,11 @@ import {
   CAMPAIGN_RANGES,
   CAMPAIGN_TOTAL_NOTES_MAX,
   CAMPAIGN_TOTAL_NOTES_MIN,
-  CAMPAIGN_VOICE_TYPES,
-  resolveCampaignAidSettings,
-  resolveCampaignExerciseLevelIdx,
-  resolveCampaignSectionSteps,
-  resolveCampaignTotalDifficulty,
-  resolveRequiredDifficultyForLevel,
 } from './config'
 import './campaignPage.css'
 import { useCampaignProgress } from './hooks/useCampaignProgress'
 import type { CampaignRangeId } from './types'
+import { resolveCampaignAidSettings, resolveCampaignSectionSteps, resolveCampaignTotalDifficulty, resolveRequiredDifficultyForLevel } from './helpers'
 
 type CampaignPageProps = {
   onBackHome: () => void
@@ -65,15 +60,7 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
   )
   const shouldEmphasizeUpgradeChoice = searchParams.get('upgrade') === '1'
   const isUpgradeModalOpen = modalLevelIdx !== null || shouldEmphasizeUpgradeChoice
-  const noteCount = resolveCampaignExerciseLevelIdx(progress.noteDifficultyPoints)
-  const totalDifficulty = resolveCampaignTotalDifficulty(
-    progress.noteDifficultyPoints,
-    progress.toneStyleDifficultyPoints,
-    progress.toneSplashDifficultyPoints,
-    progress.fallbackBreakCount,
-    progress.totalNotes,
-  )
-  const requiredDifficulty = resolveRequiredDifficultyForLevel(selectedLevelIdx)
+ 
   const modalTotalDifficulty = resolveCampaignTotalDifficulty(
     modalNoteLevel,
     modalToneStyleLevel,
@@ -228,49 +215,6 @@ export function CampaignPage({ onBackHome, onOpenExercises, onOpenTrainer }: Cam
         </header>
 
         <>
-            <section className="campaign-summary" aria-label="Kampagnenstatus">
-              <div className="campaign-summary-card">
-                <span>Stimmtyp</span>
-                <strong>{progress.voiceType ? CAMPAIGN_VOICE_TYPES[progress.voiceType].label : 'Offen'}</strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Start-Lage</span>
-                <strong>
-                  {progress.startRangeId
-                    ? `${CAMPAIGN_RANGES[progress.startRangeId].label} · ${CAMPAIGN_RANGES[progress.startRangeId].subtitle}`
-                    : 'Offen'}
-                </strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Aktueller Schritt</span>
-                <strong>Level {progress.currentLevelIdx + 1}</strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Gewähltes Level</span>
-                <strong>Level {selectedLevelIdx + 1}</strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Schwierigkeitspunkte</span>
-                <strong>{progress.spentPoints}</strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Aktive Schwierigkeit</span>
-                <strong>
-                  Level {totalDifficulty} · benötigt: {requiredDifficulty}
-                </strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Anzahl an Noten</span>
-                <strong>{noteCount} / {CAMPAIGN_NOTE_COUNT_MAX}</strong>
-              </div>
-              <div className="campaign-summary-card">
-                <span>Fallbacks / Gesamtanzahl</span>
-                <strong>
-                  {progress.fallbackBreakCount} / {progress.totalNotes}
-                </strong>
-              </div>
-            </section>
-
             <section className="campaign-panel" aria-label="Kampagnenpfad">
               <div className="campaign-panel-header">
                 <h2>Sichtbarer Pfad</h2>

@@ -71,14 +71,10 @@
   border: 1px solid #304156;
 }
 
-.campaign-panel,
-.campaign-summary-card {
+.campaign-panel {
   border: 1px solid #2d3948;
   border-radius: 18px;
   background: rgba(15, 21, 30, 0.82);
-}
-
-.campaign-panel {
   padding: 20px;
 }
 
@@ -107,8 +103,7 @@
   max-width: 420px;
 }
 
-.campaign-select-row span,
-.campaign-summary-card span {
+.campaign-select-row span {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -141,19 +136,6 @@
 
 .campaign-primary-button {
   margin-top: 18px;
-}
-
-.campaign-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.campaign-summary-card {
-  padding: 16px;
-  display: grid;
-  gap: 6px;
 }
 
 .campaign-track-grid {
