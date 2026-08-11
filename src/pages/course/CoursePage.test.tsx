@@ -7,7 +7,7 @@ import {
   INSTRUMENTS,
   TRAINING_CATEGORIES,
   TRAINING_DIFFICULTIES,
-} from '../earTrainer/config'
+} from '../../features/earTrainer/config'
 
 const buildDifficultyProgress = () => ({
   easy: [{ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 }],

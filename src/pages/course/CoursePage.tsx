@@ -8,7 +8,7 @@ import {
   type DifficultyId,
   type InstrumentId,
   type TrainingCategory,
-} from '../earTrainer/config'
+} from '../../features/earTrainer/config'
 import './coursePage.css'
 
 type CoursePageProps = {
