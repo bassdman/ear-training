@@ -1,77 +1,55 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import {
-  TRAINING_DIFFICULTIES,
-  type CategoryDifficultyProgressState,
   EXERCISES,
   type CategoryProgressState,
   type DifficultyId,
-  type InstrumentId,
-  type TrainingCategory,
+  INSTRUMENTS,
+  TRAINING_CATEGORIES,
 } from '../../features/earTrainer/config'
 import './coursePage.css'
+import { useTrainerProgress } from '../../features/earTrainer/hooks/useTrainerProgress'
 
-type CoursePageProps = {
-  loaded: boolean
-  categories: TrainingCategory[]
-  instruments: Record<
-    InstrumentId,
-    {
-      label: string
-    }
-  >
-  activeCategoryIdx: number
-  activeDifficultyId: DifficultyId
-  difficultyIds: DifficultyId[]
-  difficultyConfig: typeof TRAINING_DIFFICULTIES
-  categoryDifficultyProgress: CategoryDifficultyProgressState
-  selectedInstrumentId: InstrumentId
-  playbackVolume: number
-  onSelectedInstrumentChange: (value: InstrumentId) => void
-  onPlaybackVolumeChange: (value: number) => void
-  onActiveDifficultyChange: (difficultyId: DifficultyId) => void
-  onOpenLevel: (categoryIdx: number, difficultyId: DifficultyId, levelIdx: number) => void
-  onContinue: (categoryIdx: number, difficultyId: DifficultyId) => void
-  onOpenCampaign: () => void
-}
+type InstrumentId = keyof typeof INSTRUMENTS
 
-export function CoursePage({
-  loaded,
-  categories,
-  instruments,
-  activeCategoryIdx,
-  activeDifficultyId,
-  difficultyIds,
-  difficultyConfig,
-  categoryDifficultyProgress,
-  selectedInstrumentId,
-  playbackVolume,
-  onSelectedInstrumentChange,
-  onPlaybackVolumeChange,
-  onActiveDifficultyChange,
-  onOpenLevel,
-  onContinue,
-  onOpenCampaign,
-}: CoursePageProps) {
+export function CoursePage() {
+  const navigate = useNavigate()
   const [selectedDifficultyByCategory, setSelectedDifficultyByCategory] = useState<
     Record<string, DifficultyId>
   >({})
 
-  const activeCategory = categories[activeCategoryIdx] ?? categories[0]
+  const progress = useTrainerProgress()
+
+  const activeCategory = TRAINING_CATEGORIES[progress.activeCategoryIdx] ?? TRAINING_CATEGORIES[0]
   const activeCategoryDifficulty =
-    selectedDifficultyByCategory[activeCategory.id] ?? activeDifficultyId
+    selectedDifficultyByCategory[activeCategory.id] ?? progress.activeDifficultyId
   const activeProgress =
-    categoryDifficultyProgress[activeCategoryDifficulty]?.[activeCategoryIdx] ??
+    progress.categoryDifficultyProgress[activeCategoryDifficulty]?.[progress.activeCategoryIdx] ??
     ({ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 } as CategoryProgressState)
 
-  const resolveDifficultyForCategory = useMemo(
-    () =>
-      (categoryId: string): DifficultyId =>
-        selectedDifficultyByCategory[categoryId] ?? 'easy',
-    [selectedDifficultyByCategory],
-  )
+  const continueTraining = () => {
+    progress.setActiveCategoryIdx(progress.activeCategoryIdx)
+    progress.setActiveDifficultyId(activeCategoryDifficulty)
+    navigate('/trainer')
+  }
 
-  if (!loaded) {
+  const openLevel = (
+    categoryIdx: number,
+    difficultyId: DifficultyId,
+    selectedLevelIdx: number,
+  ) => {
+    progress.setActiveCategoryIdx(categoryIdx)
+    progress.setActiveDifficultyId(difficultyId)
+    progress.setCategoryLevelIdx(categoryIdx, difficultyId, selectedLevelIdx)
+    progress.setCategorySectionIdx(categoryIdx, difficultyId, 0)
+    navigate('/trainer')
+  }
+
+  const resolveDifficultyForCategory = (categoryId: string) =>
+    selectedDifficultyByCategory[categoryId] ?? 'easy'
+
+  if (!progress.loaded) {
     return (
       <main className="course-page">
         <div className="course-shell">
@@ -95,14 +73,14 @@ export function CoursePage({
             <label className="course-audio-row">
               <span>Instrument</span>
               <select
-                value={selectedInstrumentId}
+                value={progress.selectedInstrumentId}
                 onChange={(event) =>
-                  onSelectedInstrumentChange(event.target.value as InstrumentId)
+                  progress.setSelectedInstrumentId(event.target.value as InstrumentId)
                 }
               >
-                {(Object.keys(instruments) as InstrumentId[]).map((styleId) => (
+                {(Object.keys(INSTRUMENTS) as InstrumentId[]).map((styleId) => (
                   <option key={styleId} value={styleId}>
-                    {instruments[styleId].label}
+                    {INSTRUMENTS[styleId].label}
                   </option>
                 ))}
               </select>
@@ -116,33 +94,34 @@ export function CoursePage({
                   min={0}
                   max={127}
                   step={1}
-                  value={playbackVolume}
+                  value={progress.playbackVolume}
                   onChange={(event) =>
-                    onPlaybackVolumeChange(Number(event.target.value))
+                    progress.setPlaybackVolume(Number(event.target.value))
                   }
                 />
-                <strong>{playbackVolume}</strong>
+                <strong>{progress.playbackVolume}</strong>
               </div>
             </label>
           </div>
           <div className="course-header-actions">
             <button
               className="course-continue"
-              onClick={() => onContinue(activeCategoryIdx, activeCategoryDifficulty)}
+              onClick={continueTraining}
             >
-              Weiter in {activeCategory.label}: {difficultyConfig[activeCategoryDifficulty].label} · Übung {activeProgress.levelIdx + 1}
+              Weiter in {activeCategory.label}: {progress.difficultyConfig[activeCategoryDifficulty].label} · Übung{' '}
+              {activeProgress.levelIdx + 1}
             </button>
-            <button className="course-campaign-link" onClick={onOpenCampaign}>
+            <button className="course-campaign-link" onClick={() => navigate('/campaign')}>
               Kampagnenmodus öffnen
             </button>
           </div>
         </header>
 
         <section className="course-groups" aria-label="Kategorien">
-          {categories.map((category, categoryIdx) => {
+          {TRAINING_CATEGORIES.map((category, categoryIdx) => {
             const selectedDifficulty = resolveDifficultyForCategory(category.id)
-            const progress =
-              categoryDifficultyProgress[selectedDifficulty]?.[categoryIdx] ??
+            const categoryProgress =
+              progress.categoryDifficultyProgress[selectedDifficulty]?.[categoryIdx] ??
               ({ levelIdx: 0, sectionIdx: 0, unlockedLevelIdx: 0 } as CategoryProgressState)
 
             return (
@@ -153,12 +132,16 @@ export function CoursePage({
                     <p>{category.subtitle}</p>
                   </div>
                   <div className="course-group-status">
-                    {difficultyConfig[selectedDifficulty].label}: Übung {progress.levelIdx + 1}
+                    {progress.difficultyConfig[selectedDifficulty].label}: Übung {categoryProgress.levelIdx + 1}
                   </div>
                 </div>
 
-                <div className="course-difficulty-tabs" role="tablist" aria-label={`${category.label} Schwierigkeitsgrad`}>
-                  {difficultyIds.map((difficultyId) => {
+                <div
+                  className="course-difficulty-tabs"
+                  role="tablist"
+                  aria-label={`${category.label} Schwierigkeitsgrad`}
+                >
+                  {progress.difficultyIds.map((difficultyId) => {
                     const isSelected = difficultyId === selectedDifficulty
                     return (
                       <button
@@ -171,12 +154,12 @@ export function CoursePage({
                             ...prev,
                             [category.id]: difficultyId,
                           }))
-                          if (categoryIdx === activeCategoryIdx) {
-                            onActiveDifficultyChange(difficultyId)
+                          if (categoryIdx === progress.activeCategoryIdx) {
+                            progress.setActiveDifficultyId(difficultyId)
                           }
                         }}
                       >
-                        {difficultyConfig[difficultyId].label}
+                        {progress.difficultyConfig[difficultyId].label}
                       </button>
                     )
                   })}
@@ -184,17 +167,17 @@ export function CoursePage({
 
                 <div className="course-grid" aria-label={`${category.label} Übungen`}>
                   {EXERCISES.map((tones, levelIdx) => {
-                    const isLocked = levelIdx > progress.unlockedLevelIdx
+                    const isLocked = levelIdx > categoryProgress.unlockedLevelIdx
                     const isActive =
-                      categoryIdx === activeCategoryIdx &&
-                      selectedDifficulty === activeDifficultyId &&
+                      categoryIdx === progress.activeCategoryIdx &&
+                      selectedDifficulty === progress.activeDifficultyId &&
                       levelIdx === progress.levelIdx
 
                     return (
                       <button
                         key={`${category.id}-${levelIdx}`}
                         className={`course-card ${isLocked ? 'is-locked' : ''} ${isActive ? 'is-active' : ''}`}
-                        onClick={() => onOpenLevel(categoryIdx, selectedDifficulty, levelIdx)}
+                        onClick={() => openLevel(categoryIdx, selectedDifficulty, levelIdx)}
                         disabled={isLocked}
                       >
                         <div className="course-card-top">
