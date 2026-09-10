@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { CampaignTrainerPage } from './features/campaign/CampaignTrainerPage'
 import { CoursePage } from './pages/course/CoursePage'
 import { HomePage } from './pages/home/HomePage'
+import { IntonationTrainingPage } from './pages/intonation/IntonationTrainingPage'
 import { TrainerPage } from './pages/TrainerPage'
 import { ExerciseSettings } from './components/ExcerciseSettings'
 
@@ -13,6 +14,7 @@ function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/course" element={<CoursePage />} />
+      <Route path="/intonation-training" element={<IntonationTrainingPage />} />
       <Route
         path="/campaign"
         element={

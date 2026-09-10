@@ -32,6 +32,16 @@ export function HomePage() {
               Zu den Übungen
             </Link>
           </article>
+
+          <article className="home-card">
+            <h2>Intonationstraining</h2>
+            <p>
+              Spiele einzelne Töne in vier Oktaven und trainiere deine Intonation direkt.
+            </p>
+            <Link className="home-link is-secondary" to="/intonation-training">
+              Töne spielen
+            </Link>
+          </article>
         </section>
       </div>
     </main>

@@ -1,0 +1,134 @@
+.intonation-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 32px 16px 48px;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(201, 162, 39, 0.16), transparent 32%),
+    linear-gradient(180deg, #11141d 0%, #171b26 100%);
+  color: #f2ece1;
+}
+
+.intonation-shell {
+  width: min(980px, 100%);
+  margin: 0 auto;
+}
+
+.intonation-header {
+  position: relative;
+  text-align: center;
+}
+
+.intonation-back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1px solid #354058;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(20, 25, 37, 0.94);
+  color: #e2e7f2;
+  cursor: pointer;
+}
+
+.intonation-kicker {
+  margin: 0;
+  color: #bca86e;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.intonation-header h1 {
+  margin: 8px 0;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+}
+
+.intonation-subtitle {
+  max-width: 56ch;
+  margin: 12px auto 0;
+  color: #a4acbf;
+}
+
+.intonation-audio-error {
+  max-width: 60ch;
+  margin: 16px auto 0;
+  border: 1px solid #874747;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(96, 38, 38, 0.3);
+  color: #f3b4a9;
+}
+
+.intonation-octaves {
+  display: grid;
+  gap: 18px;
+  margin-top: 32px;
+}
+
+.intonation-octave {
+  border: 1px solid #2f3547;
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(20, 24, 36, 0.75);
+}
+
+.intonation-octave h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+.intonation-notes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.intonation-note {
+  min-height: 48px;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 6px;
+  background: #3a3a3a;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.intonation-note:hover,
+.intonation-note:focus-visible {
+  background: #555;
+}
+
+.intonation-note:active,
+.intonation-note.is-active {
+  background: #4caf50;
+  transform: translateY(1px);
+}
+
+.intonation-note.is-black {
+  background: #222;
+}
+
+.intonation-note.is-black:hover,
+.intonation-note.is-black:focus-visible {
+  background: #444;
+}
+
+@media (max-width: 640px) {
+  .intonation-page {
+    padding: 22px 12px 28px;
+  }
+
+  .intonation-header {
+    padding-top: 48px;
+  }
+
+  .intonation-back {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .intonation-octave {
+    padding: 12px;
+  }
+}
