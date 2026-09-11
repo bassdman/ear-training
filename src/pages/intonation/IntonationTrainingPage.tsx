@@ -188,6 +188,9 @@ export function IntonationTrainingPage() {
     const noteIndex = noteNames.indexOf(noteConfig.note)
     const audioPath = `${ASSETS_URL}/sounds/${noteConfig.octave}${noteConfig.note}.mp3`
     const audio = new Audio(audioPath)
+    const microphoneRequest = microphoneEnabled && window.isSecureContext && navigator.mediaDevices?.getUserMedia
+      ? navigator.mediaDevices.getUserMedia({ audio: true })
+      : undefined
     currentAudioRef.current = audio
     audio.preload = 'auto'
     audio.addEventListener('error', () => {
@@ -249,7 +252,10 @@ export function IntonationTrainingPage() {
       : REFERENCE_TONE_DURATION_MS
     activeTimerRef.current = window.setTimeout(() => setActiveNote(null), totalReferenceDuration)
     if (microphoneEnabled) {
-      microphoneTimerRef.current = window.setTimeout(() => void startListening(noteId), totalReferenceDuration)
+      microphoneTimerRef.current = window.setTimeout(
+        () => void startListening(noteId, microphoneRequest),
+        totalReferenceDuration,
+      )
     }
   }
 
@@ -263,7 +269,7 @@ export function IntonationTrainingPage() {
     setListeningNote(null)
   }
 
-  const startListening = async (noteId: string) => {
+  const startListening = async (noteId: string, microphoneRequest?: Promise<MediaStream>) => {
     stopListening()
     setPitchResult(null)
 
@@ -273,7 +279,9 @@ export function IntonationTrainingPage() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = microphoneRequest
+        ? await microphoneRequest
+        : await navigator.mediaDevices.getUserMedia({ audio: true })
       const audioContext = new AudioContext()
       const analyser = audioContext.createAnalyser()
       analyser.fftSize = 2048
