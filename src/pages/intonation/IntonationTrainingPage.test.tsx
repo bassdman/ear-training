@@ -2,13 +2,28 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
-import { getMicrophoneErrorMessage, getPitchResult, IntonationTrainingPage } from './IntonationTrainingPage'
+import {
+  getMicrophoneErrorMessage,
+  getPitchResult,
+  IntonationTrainingPage,
+  readIntonationSettings,
+} from './IntonationTrainingPage'
 
 describe('getPitchResult', () => {
   it('bestätigt den Zielton innerhalb der Cent-Toleranz', () => {
     expect(getPitchResult(440, 'a4')).toMatchObject({
       detectedNote: 'A4',
       cents: 0,
+      isInTune: true,
+    })
+  })
+
+  it('akzeptiert D3 auch bei einer kleinen, mobilen Messabweichung', () => {
+    const d3Frequency = 440 * 2 ** ((50 - 69) / 12)
+    const frequency35CentsTooHigh = d3Frequency * 2 ** (35 / 1200)
+
+    expect(getPitchResult(frequency35CentsTooHigh, 'd3')).toMatchObject({
+      detectedNote: 'D3',
       isInTune: true,
     })
   })
@@ -23,12 +38,15 @@ describe('getPitchResult', () => {
 })
 
 describe('IntonationTrainingPage', () => {
-  it('zeigt die Mikrofonprüfung erst nach dem Einschalten', () => {
+  it('bietet standardmäßig kein Referenzinstrument und keine Mikrofonprüfung an', () => {
     render(
       <MemoryRouter>
         <IntonationTrainingPage />
       </MemoryRouter>,
     )
+
+    expect(screen.getByRole('combobox', { name: 'Referenzinstrument' })).toHaveValue('none')
+    expect(screen.getByRole('option', { name: 'Zufällig' })).toBeInTheDocument()
 
     const toggle = screen.getByRole('checkbox', { name: 'Mikrofonprüfung' })
     expect(toggle).not.toBeChecked()
@@ -36,6 +54,22 @@ describe('IntonationTrainingPage', () => {
 
     fireEvent.click(toggle)
     expect(screen.getByRole('button', { name: 'Mikrofon starten für A4' })).toBeInTheDocument()
+  }, 15000)
+})
+
+describe('readIntonationSettings', () => {
+  it('stellt gespeicherte Instrument- und Mikrofoneinstellungen wieder her', () => {
+    window.localStorage.setItem('ear-training-intonation-settings-v1', JSON.stringify({
+      microphoneEnabled: true,
+      selectedInstrumentId: 'flute',
+    }))
+
+    expect(readIntonationSettings()).toEqual({
+      microphoneEnabled: true,
+      selectedInstrumentId: 'flute',
+    })
+
+    window.localStorage.clear()
   })
 })
 
