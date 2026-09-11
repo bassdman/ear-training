@@ -156,6 +156,27 @@
   margin-top: 32px;
 }
 
+.intonation-chill {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.intonation-chill-button {
+  min-width: 140px;
+  border: 1px solid #bca86e;
+  border-radius: 6px;
+  padding: 11px 18px;
+  background: #34301f;
+  color: #f8e8aa;
+  cursor: pointer;
+}
+
+.intonation-chill-button:hover,
+.intonation-chill-button:focus-visible {
+  background: #4b4329;
+}
+
 .intonation-octave {
   border: 1px solid #2f3547;
   border-radius: 16px;

@@ -47,6 +47,7 @@ describe('IntonationTrainingPage', () => {
 
     expect(screen.getByRole('combobox', { name: 'Referenzinstrument' })).toHaveValue('none')
     expect(screen.getByRole('option', { name: 'Zufällig' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chillen' })).toBeInTheDocument()
 
     const toggle = screen.getByRole('checkbox', { name: 'Mikrofonprüfung' })
     expect(toggle).not.toBeChecked()
