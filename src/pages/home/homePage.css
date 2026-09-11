@@ -93,6 +93,28 @@
   border: 1px solid #314155;
 }
 
+.home-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 42px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(46, 57, 72, 0.72);
+  color: #778698;
+  font-size: 0.88rem;
+}
+
+.home-footer a {
+  color: #a7b9c8;
+  text-decoration: none;
+}
+
+.home-footer a:hover,
+.home-footer a:focus-visible {
+  color: #dfb568;
+  text-decoration: underline;
+}
+
 @media (max-width: 720px) {
   .home-page {
     padding: 24px 12px 36px;

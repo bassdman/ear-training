@@ -42,7 +42,13 @@ export function HomePage() {
               Töne spielen
             </Link>
           </article>
+
         </section>
+
+        <footer className="home-footer">
+          <span>Hilfsmittel</span>
+          <Link to="/converter">MOV-Konverter</Link>
+        </footer>
       </div>
     </main>
   )

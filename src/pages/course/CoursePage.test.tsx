@@ -22,7 +22,6 @@ vi.mock('../../features/earTrainer/hooks/useTrainerProgress', () => ({
 import { CoursePage } from './CoursePage'
 import {
   DIFFICULTY_IDS,
-  INSTRUMENTS,
   TRAINING_CATEGORIES,
   TRAINING_DIFFICULTIES,
 } from '../../features/earTrainer/config'

@@ -114,6 +114,14 @@
   background: #444;
 }
 
+.intonation-note:disabled,
+.intonation-note.is-black:disabled {
+  background: #171717;
+  color: #686868;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 @media (max-width: 640px) {
   .intonation-page {
     padding: 22px 12px 28px;
