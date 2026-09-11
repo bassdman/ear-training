@@ -49,6 +49,67 @@
   color: #a4acbf;
 }
 
+.intonation-microphone-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 18px;
+  padding-right: 52px;
+  color: #e2e7f2;
+  cursor: pointer;
+}
+
+.intonation-microphone-toggle input {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 1;
+  width: 42px;
+  height: 24px;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.intonation-toggle-track {
+  position: relative;
+  right: -52px;
+  width: 42px;
+  height: 24px;
+  border: 1px solid #56617b;
+  border-radius: 12px;
+  background: #252c3c;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.intonation-toggle-track::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #c9d1e0;
+  content: '';
+  transition: transform 0.15s;
+}
+
+.intonation-microphone-toggle input:checked + .intonation-toggle-track {
+  border-color: #64b477;
+  background: #28613b;
+}
+
+.intonation-microphone-toggle input:checked + .intonation-toggle-track::after {
+  transform: translateX(18px);
+  background: #f2fff4;
+}
+
+.intonation-microphone-toggle input:focus-visible + .intonation-toggle-track {
+  outline: 2px solid #e4c169;
+  outline-offset: 3px;
+}
+
 .intonation-audio-error {
   max-width: 60ch;
   margin: 16px auto 0;
@@ -79,8 +140,14 @@
 
 .intonation-notes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 8px;
+}
+
+.intonation-note-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .intonation-note {
@@ -107,6 +174,54 @@
 
 .intonation-note.is-black {
   background: #222;
+}
+
+.intonation-microphone {
+  border: 1px solid #49526a;
+  border-radius: 6px;
+  padding: 7px 4px;
+  background: #232a3a;
+  color: #e2e7f2;
+  cursor: pointer;
+}
+
+.intonation-microphone:hover,
+.intonation-microphone:focus-visible {
+  background: #35415b;
+}
+
+.intonation-microphone.is-listening {
+  border-color: #d7a848;
+  background: #6d4f16;
+  color: #fff0bd;
+}
+
+.intonation-listening,
+.intonation-pitch-result {
+  min-height: 2.5em;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.intonation-listening {
+  color: #e4c169;
+}
+
+.intonation-pitch-result {
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.intonation-pitch-result.is-in-tune {
+  background: #245c39;
+  color: #dcf8df;
+}
+
+.intonation-pitch-result.is-out-of-tune {
+  background: #713736;
+  color: #ffd7ce;
 }
 
 .intonation-note.is-black:hover,
