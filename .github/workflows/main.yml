@@ -11,7 +11,7 @@ jobs:
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
-      name: ionos-server
+      name: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,9 +26,9 @@ jobs:
         
       - name: Deploy with SFTP
         env:
-          SFTP_HOST: ${{ vars.HOST }}
+          SFTP_HOST: ${{ vars.SFTP_HOST }}
           SFTP_PORT: ${{ vars.SFTP_PORT || '22' }}
-          SFTP_USER: ${{ secrets.USERNAME }}
-          SFTP_PASSWORD: ${{ secrets.PASSWORD }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_TARGET: ${{ vars.SFTP_TARGET }}
         run: npm run deploy
