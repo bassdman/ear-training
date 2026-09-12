@@ -228,12 +228,17 @@
 }
 
 .intonation-microphone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #49526a;
-  border-radius: 6px;
-  padding: 7px 4px;
+  border-radius: 8px;
+  padding: 6px 8px;
   background: #232a3a;
   color: #e2e7f2;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
 .intonation-microphone:hover,
@@ -242,9 +247,170 @@
 }
 
 .intonation-microphone.is-listening {
-  border-color: #d7a848;
-  background: #6d4f16;
+  border-color: #f59e0b;
+  background: #2d2417;
   color: #fff0bd;
+}
+
+.intonation-mic-btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.intonation-mic-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.intonation-ring-wrapper {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.intonation-hold-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.intonation-hold-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 3.5;
+}
+
+.intonation-hold-ring-progress {
+  fill: none;
+  stroke: #4caf50;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+.intonation-hold-ring-progress.is-active {
+  stroke: #22c55e;
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));
+}
+
+.intonation-stop-icon {
+  width: 11px;
+  height: 11px;
+  color: #f87171;
+  position: relative;
+  z-index: 1;
+}
+
+/* Mini Tuner Widget */
+.intonation-live-tuner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(14, 18, 28, 0.9);
+  border: 1px solid #3b4255;
+  border-radius: 6px;
+  min-height: 2.5em;
+}
+
+.intonation-tuner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 1;
+}
+
+.intonation-tuner-note {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e2e7f2;
+}
+
+.intonation-tuner-note.is-in-tune {
+  color: #4ade80;
+}
+
+.intonation-tuner-cents {
+  font-size: 0.72rem;
+  font-family: monospace;
+}
+
+.intonation-tuner-cents.is-in-tune {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.intonation-tuner-cents.is-out {
+  color: #fb923c;
+}
+
+.intonation-tuner-gauge {
+  width: 100%;
+  padding-top: 2px;
+}
+
+.intonation-tuner-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: #1e2433;
+  border-radius: 3px;
+  overflow: visible;
+}
+
+.intonation-tuner-target-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 25%;
+  right: 25%;
+  background: rgba(74, 222, 128, 0.15);
+  border-radius: 2px;
+}
+
+.intonation-tuner-center-line {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #64748b;
+  border-radius: 1px;
+}
+
+.intonation-tuner-needle {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  background: #f97316;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+  transition: left 0.1s ease-out, background 0.15s, box-shadow 0.15s;
+}
+
+.intonation-tuner-needle.is-in-tune {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
+}
+
+.intonation-tuner-needle.is-silent {
+  background: #64748b;
+  box-shadow: none;
+  opacity: 0.5;
 }
 
 .intonation-listening,
@@ -261,8 +427,11 @@
 }
 
 .intonation-pitch-result {
-  padding: 4px;
-  border-radius: 4px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .intonation-pitch-result.is-in-tune {

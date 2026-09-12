@@ -1,13 +1,13 @@
 import { possibleNotes } from '../config'
 import { getNoteConfig } from '../helpers/pitchUtils'
-import type { PitchResult } from '../types'
+import type { ListeningPitchState, PitchResult } from '../types'
 import { NoteGroup } from './NoteGroup'
 
 type OctaveSectionProps = {
   octave: number
   activeNote: string | null
   listeningNote: string | null
-  listeningPitch?: string | null
+  listeningPitchState?: ListeningPitchState | null
   microphoneEnabled: boolean
   pitchResult: { noteId: string, result: PitchResult } | null
   onPlayNote: (noteId: string) => void
@@ -19,7 +19,7 @@ export function OctaveSection({
   octave,
   activeNote,
   listeningNote,
-  listeningPitch,
+  listeningPitchState,
   microphoneEnabled,
   pitchResult,
   onPlayNote,
@@ -43,7 +43,7 @@ export function OctaveSection({
               noteId={noteId}
               isActive={isActive}
               isListening={isListening}
-              listeningPitch={isListening ? listeningPitch : null}
+              listeningPitchState={isListening ? listeningPitchState : null}
               microphoneEnabled={microphoneEnabled}
               pitchResult={result}
               onPlayNote={onPlayNote}

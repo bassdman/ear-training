@@ -15,6 +15,13 @@ export type PitchResult = {
   isInTune: boolean
 }
 
+export type ListeningPitchState = {
+  note: string | null
+  cents: number | null
+  isInTune: boolean
+  holdProgress: number
+}
+
 export type ActiveNote = string | null
 
 export type NoteConfig = {

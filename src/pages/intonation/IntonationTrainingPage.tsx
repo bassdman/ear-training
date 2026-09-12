@@ -20,7 +20,7 @@ export function IntonationTrainingPage() {
 
   const {
     listeningNote,
-    listeningPitch,
+    listeningPitchState,
     pitchResult,
     pitchError,
     setPitchError,
@@ -71,7 +71,7 @@ export function IntonationTrainingPage() {
               octave={octave}
               activeNote={activeNote}
               listeningNote={listeningNote}
-              listeningPitch={listeningPitch}
+              listeningPitchState={listeningPitchState}
               microphoneEnabled={microphoneEnabled}
               pitchResult={pitchResult}
               onPlayNote={(noteId) => void playNote(noteId)}

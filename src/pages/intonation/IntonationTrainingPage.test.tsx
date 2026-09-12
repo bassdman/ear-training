@@ -105,13 +105,18 @@ describe('getMicrophoneErrorMessage', () => {
 })
 
 describe('NoteGroup', () => {
-  it('zeigt Zwischenfeedback während der Aufnahme an', () => {
-    const { rerender } = render(
+  it('zeigt Mini-Tuner und Zwischenfeedback während der Aufnahme an', () => {
+    const { rerender, container } = render(
       <NoteGroup
         noteId="a4"
         isActive={false}
         isListening={true}
-        listeningPitch="---"
+        listeningPitchState={{
+          note: '---',
+          cents: null,
+          isInTune: false,
+          holdProgress: 0,
+        }}
         microphoneEnabled={true}
         pitchResult={null}
         onPlayNote={() => {}}
@@ -121,13 +126,19 @@ describe('NoteGroup', () => {
     )
 
     expect(screen.getByText('---')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mikrofon stoppen für A4' })).toBeInTheDocument()
 
     rerender(
       <NoteGroup
         noteId="a4"
         isActive={false}
         isListening={true}
-        listeningPitch="Cis4"
+        listeningPitchState={{
+          note: 'A4',
+          cents: 5,
+          isInTune: true,
+          holdProgress: 0.6,
+        }}
         microphoneEnabled={true}
         pitchResult={null}
         onPlayNote={() => {}}
@@ -136,7 +147,10 @@ describe('NoteGroup', () => {
       />,
     )
 
-    expect(screen.getByText('Cis4')).toBeInTheDocument()
+    expect(container.querySelector('.intonation-tuner-note')).toHaveTextContent('A4')
+    expect(screen.getByText('+5 ct')).toBeInTheDocument()
+    expect(container.querySelector('.intonation-hold-ring-progress.is-active')).toBeInTheDocument()
+    expect(container.querySelector('.intonation-tuner-needle.is-in-tune')).toBeInTheDocument()
   })
 
   it('zeigt "Kein Ton erkannt.", wenn die Aufnahme ohne erkannten Ton endet', () => {

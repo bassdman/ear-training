@@ -7,11 +7,11 @@ import {
   REQUIRED_STABLE_SAMPLES,
 } from '../config'
 import { detectPitch, getMicrophoneErrorMessage, getPitchResult } from '../helpers/pitchUtils'
-import type { ActiveNote, PitchResult } from '../types'
+import type { ActiveNote, ListeningPitchState, PitchResult } from '../types'
 
 export function usePitchDetection() {
   const [listeningNote, setListeningNote] = useState<ActiveNote>(null)
-  const [listeningPitch, setListeningPitch] = useState<string | null>(null)
+  const [listeningPitchState, setListeningPitchState] = useState<ListeningPitchState | null>(null)
   const [pitchResult, setPitchResult] = useState<{ noteId: string, result: PitchResult } | null>(null)
   const [pitchError, setPitchError] = useState<string | null>(null)
 
@@ -29,7 +29,7 @@ export function usePitchDetection() {
     audioContextRef.current = null
     animationFrameRef.current = null
     setListeningNote(null)
-    setListeningPitch(null)
+    setListeningPitchState(null)
   }, [])
 
   const clearPitchResult = useCallback(() => {
@@ -39,7 +39,12 @@ export function usePitchDetection() {
   const startListening = useCallback(async (noteId: string) => {
     stopListening()
     setPitchResult(null)
-    setListeningPitch('---')
+    setListeningPitchState({
+      note: '---',
+      cents: null,
+      isInTune: false,
+      holdProgress: 0,
+    })
 
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setPitchError(getMicrophoneErrorMessage(null))
@@ -82,25 +87,46 @@ export function usePitchDetection() {
             const result = getPitchResult(averageFrequency, noteId)
             if (result) {
               lastDetectedResult = result
-              setListeningPitch(result.detectedNote)
 
               if (result.isInTune) {
                 if (inTuneStartTime === null) {
                   inTuneStartTime = now
-                } else if (now - inTuneStartTime >= PITCH_HOLD_DURATION_MS) {
+                }
+                const elapsed = now - inTuneStartTime
+                const progress = Math.min(1, elapsed / PITCH_HOLD_DURATION_MS)
+
+                setListeningPitchState({
+                  note: result.detectedNote,
+                  cents: result.cents,
+                  isInTune: true,
+                  holdProgress: progress,
+                })
+
+                if (elapsed >= PITCH_HOLD_DURATION_MS) {
                   setPitchResult({ noteId, result })
                   stopListening()
                   return
                 }
               } else {
                 inTuneStartTime = null
+                setListeningPitchState({
+                  note: result.detectedNote,
+                  cents: result.cents,
+                  isInTune: false,
+                  holdProgress: 0,
+                })
               }
             }
           }
         } else {
           stableFrequencies.length = 0
           inTuneStartTime = null
-          setListeningPitch('---')
+          setListeningPitchState({
+            note: '---',
+            cents: null,
+            isInTune: false,
+            holdProgress: 0,
+          })
 
           if (now - lastAudibleTime >= PITCH_SILENCE_TIMEOUT_MS) {
             const result = lastDetectedResult ?? {
@@ -141,7 +167,7 @@ export function usePitchDetection() {
 
   return {
     listeningNote,
-    listeningPitch,
+    listeningPitchState,
     pitchResult,
     pitchError,
     setPitchError,

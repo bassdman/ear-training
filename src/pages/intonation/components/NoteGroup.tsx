@@ -1,12 +1,14 @@
 import { blackKeys, noteLabels, noteNames } from '../config'
 import { getNoteConfig } from '../helpers/pitchUtils'
-import type { PitchResult } from '../types'
+import type { ListeningPitchState, PitchResult } from '../types'
+import { LiveTuner } from './LiveTuner'
+import { MicrophoneButton } from './MicrophoneButton'
 
 type NoteGroupProps = {
   noteId: string
   isActive: boolean
   isListening: boolean
-  listeningPitch?: string | null
+  listeningPitchState?: ListeningPitchState | null
   microphoneEnabled: boolean
   pitchResult: PitchResult | null
   onPlayNote: (noteId: string) => void
@@ -18,7 +20,7 @@ export function NoteGroup({
   noteId,
   isActive,
   isListening,
-  listeningPitch,
+  listeningPitchState,
   microphoneEnabled,
   pitchResult,
   onPlayNote,
@@ -27,6 +29,8 @@ export function NoteGroup({
 }: NoteGroupProps) {
   const noteConfig = getNoteConfig(noteId)
   const noteIndex = noteNames.indexOf(noteConfig.note)
+
+  const holdProgress = listeningPitchState?.holdProgress ?? 0
 
   return (
     <div className="intonation-note-group">
@@ -37,17 +41,21 @@ export function NoteGroup({
       >
         {noteLabels[noteIndex]}{noteConfig.octave}
       </button>
+
       {microphoneEnabled && !noteConfig.disabled && (
-        <button
-          className={`intonation-microphone ${isListening ? 'is-listening' : ''}`}
-          onClick={() => isListening ? onStopListening() : onStartListening(noteId)}
-          aria-label={`${isListening ? 'Mikrofon stoppen für' : 'Mikrofon starten für'} ${noteLabels[noteIndex]}${noteConfig.octave}`}
-        >
-          {isListening ? 'Stopp' : 'Mikrofon'}
-        </button>
+        <MicrophoneButton
+          isListening={isListening}
+          holdProgress={holdProgress}
+          noteLabel={noteLabels[noteIndex]}
+          octave={noteConfig.octave}
+          onStartListening={() => onStartListening(noteId)}
+          onStopListening={onStopListening}
+        />
       )}
-      {isListening && <p className="intonation-listening">{listeningPitch || '---'}</p>}
-      {microphoneEnabled && pitchResult && (
+
+      {isListening && <LiveTuner listeningPitchState={listeningPitchState} />}
+
+      {microphoneEnabled && !isListening && pitchResult && (
         <p className={`intonation-pitch-result ${pitchResult.isInTune ? 'is-in-tune' : 'is-out-of-tune'}`} role="status">
           {pitchResult.isInTune
             ? `Richtig (${pitchResult.cents > 0 ? '+' : ''}${pitchResult.cents} Cent)`
