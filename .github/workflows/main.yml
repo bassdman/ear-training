@@ -1,0 +1,32 @@
+name: Validate Cards
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+      - run: npm run build
+        
+      - name: Deploy with SFTP
+        env:
+          SFTP_HOST: ${{ vars.HOST }}
+          SFTP_PORT: ${{ vars.SFTP_PORT || '22' }}
+          SFTP_USER: ${{ secrets.USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.PASSWORD }}
+          SFTP_TARGET: ${{ vars.SFTP_TARGET }}
+        run: npm run deploy

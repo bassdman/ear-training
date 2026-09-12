@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "deploy": "tsx build/deploy.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
@@ -19,7 +20,9 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "smplr": "^1.0.0"
+    "smplr": "^1.0.0",
+    "ssh2-sftp-client": "^12.1.1",
+    "tsx": "^4.20.6"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.0",
@@ -29,6 +32,7 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/ssh2-sftp-client": "^9.0.6",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^28.1.0",
     "oxlint": "^1.75.0",
