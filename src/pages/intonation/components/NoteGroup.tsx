@@ -45,7 +45,7 @@ export function NoteGroup({
         </button>
       )}
       {isListening && <p className="intonation-listening">Höre zu ...</p>}
-      {pitchResult && (
+      {microphoneEnabled && pitchResult && (
         <p className={`intonation-pitch-result ${pitchResult.isInTune ? 'is-in-tune' : 'is-out-of-tune'}`} role="status">
           {pitchResult.isInTune
             ? `Richtig (${pitchResult.cents > 0 ? '+' : ''}${pitchResult.cents} Cent)`

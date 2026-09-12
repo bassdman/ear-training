@@ -25,6 +25,10 @@ export function usePitchDetection() {
     setListeningNote(null)
   }, [])
 
+  const clearPitchResult = useCallback(() => {
+    setPitchResult(null)
+  }, [])
+
   const startListening = useCallback(async (noteId: string) => {
     stopListening()
     setPitchResult(null)
@@ -86,6 +90,7 @@ export function usePitchDetection() {
     pitchResult,
     pitchError,
     setPitchError,
+    clearPitchResult,
     startListening,
     stopListening,
   }

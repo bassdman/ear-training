@@ -23,6 +23,7 @@ export function IntonationTrainingPage() {
     pitchResult,
     pitchError,
     setPitchError,
+    clearPitchResult,
     startListening,
     stopListening,
   } = usePitchDetection()
@@ -45,7 +46,10 @@ export function IntonationTrainingPage() {
   const octaves = [...new Set(possibleNotes.map((noteId) => getNoteConfig(noteId).octave))].sort((a, b) => a - b)
 
   const handleToggleMicrophone = () => {
-    toggleMicrophone(stopListening)
+    toggleMicrophone(() => {
+      stopListening()
+      clearPitchResult()
+    })
   }
 
   return (

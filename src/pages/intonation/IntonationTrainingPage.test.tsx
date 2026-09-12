@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
   getMicrophoneErrorMessage,
@@ -8,6 +8,11 @@ import {
   IntonationTrainingPage,
   readIntonationSettings,
 } from './IntonationTrainingPage'
+import { NoteGroup } from './components/NoteGroup'
+
+beforeEach(() => {
+  window.localStorage.clear()
+})
 
 describe('getPitchResult', () => {
   it('bestätigt den Zielton innerhalb der Cent-Toleranz', () => {
@@ -96,5 +101,45 @@ describe('getMicrophoneErrorMessage', () => {
     const error = new DOMException('', 'NotAllowedError')
 
     expect(getMicrophoneErrorMessage(error)).toContain('blockiert')
+  })
+})
+
+describe('NoteGroup', () => {
+  it('zeigt das Pitch-Ergebnis nur bei aktivierter Mikrofonprüfung an', () => {
+    const pitchResult = {
+      detectedNote: 'A4',
+      cents: 3,
+      isInTune: true,
+    }
+
+    const { rerender } = render(
+      <NoteGroup
+        noteId="a4"
+        isActive={false}
+        isListening={false}
+        microphoneEnabled={true}
+        pitchResult={pitchResult}
+        onPlayNote={() => {}}
+        onStartListening={() => {}}
+        onStopListening={() => {}}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Richtig (+3 Cent)')
+
+    rerender(
+      <NoteGroup
+        noteId="a4"
+        isActive={false}
+        isListening={false}
+        microphoneEnabled={false}
+        pitchResult={pitchResult}
+        onPlayNote={() => {}}
+        onStartListening={() => {}}
+        onStopListening={() => {}}
+      />,
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
