@@ -56,6 +56,23 @@ describe('IntonationTrainingPage', () => {
     fireEvent.click(toggle)
     expect(screen.getByRole('button', { name: 'Mikrofon starten für A4' })).toBeInTheDocument()
   }, 15000)
+
+  it('trennt das Abspielen des Tons und das Starten des Mikrofons', () => {
+    render(
+      <MemoryRouter>
+        <IntonationTrainingPage />
+      </MemoryRouter>,
+    )
+
+    const toggle = screen.getByRole('checkbox', { name: 'Mikrofonprüfung' })
+    fireEvent.click(toggle)
+
+    const noteButtons = screen.getAllByRole('button', { name: 'A4' })
+
+    fireEvent.click(noteButtons[0])
+    expect(screen.queryByText('Höre zu ...')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mikrofon starten für A4' })).toBeInTheDocument()
+  }, 15000)
 })
 
 describe('readIntonationSettings', () => {

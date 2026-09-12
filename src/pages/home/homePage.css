@@ -18,6 +18,12 @@
   max-width: 64ch;
 }
 
+.home-logo {
+  height: 48px;
+  width: auto;
+  margin-bottom: 12px;
+}
+
 .home-kicker {
   margin: 0;
   font-size: 0.78rem;

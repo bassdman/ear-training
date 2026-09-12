@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 
+import logo from '../../assets/logo.png'
 import './homePage.css'
 
 export function HomePage() {
@@ -7,6 +8,7 @@ export function HomePage() {
     <main className="home-page">
       <div className="home-shell">
         <header className="home-hero">
+          <img src={logo} alt="Ear Training Logo" className="home-logo" />
           <p className="home-kicker">Ear Training</p>
           <h1>Wie willst du dein Gehör trainieren?</h1>
         </header>

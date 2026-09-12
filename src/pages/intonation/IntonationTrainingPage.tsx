@@ -33,7 +33,7 @@ export function IntonationTrainingPage() {
     setAudioError,
     playNote,
     playChillTrack,
-  } = useIntonationAudio(selectedInstrumentId, microphoneEnabled, startListening)
+  } = useIntonationAudio(selectedInstrumentId)
 
   useEffect(() => {
     if (pitchError) {

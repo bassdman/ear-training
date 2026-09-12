@@ -25,7 +25,7 @@ export function usePitchDetection() {
     setListeningNote(null)
   }, [])
 
-  const startListening = useCallback(async (noteId: string, microphoneRequest?: Promise<MediaStream>) => {
+  const startListening = useCallback(async (noteId: string) => {
     stopListening()
     setPitchResult(null)
 
@@ -35,9 +35,7 @@ export function usePitchDetection() {
     }
 
     try {
-      const stream = microphoneRequest
-        ? await microphoneRequest
-        : await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const audioContext = new AudioContext()
       const analyser = audioContext.createAnalyser()
       analyser.fftSize = 2048

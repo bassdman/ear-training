@@ -9,15 +9,12 @@ import { useAudioPlayer } from './useAudioPlayer'
 
 export function useIntonationAudio(
   selectedInstrumentId: IntonationInstrumentId,
-  microphoneEnabled: boolean,
-  startListening: (noteId: string, microphoneRequest?: Promise<MediaStream>) => void,
 ) {
   const [activeNote, setActiveNote] = useState<ActiveNote>(null)
   const [audioError, setAudioError] = useState<string | null>(null)
 
   const activeTimerRef = useRef<number | null>(null)
   const referenceAudioTimerRef = useRef<number | null>(null)
-  const microphoneTimerRef = useRef<number | null>(null)
   const instrumentAudioContextRef = useRef<AudioContext | null>(null)
   const instrumentsRef = useRef<Partial<Record<InstrumentId, ReturnType<typeof Soundfont>>>>({})
   const activeInstrumentStopRef = useRef<(() => void) | null>(null)
@@ -41,7 +38,6 @@ export function useIntonationAudio(
     activeInstrumentStopRef.current?.()
     if (activeTimerRef.current !== null) window.clearTimeout(activeTimerRef.current)
     if (referenceAudioTimerRef.current !== null) window.clearTimeout(referenceAudioTimerRef.current)
-    if (microphoneTimerRef.current !== null) window.clearTimeout(microphoneTimerRef.current)
 
     const referenceInstrumentId = getReferenceInstrumentId()
     const noteIndex = noteNames.indexOf(noteConfig.note)
@@ -52,10 +48,6 @@ export function useIntonationAudio(
         setActiveNote(null)
       },
     })
-
-    const microphoneRequest = microphoneEnabled && window.isSecureContext && navigator.mediaDevices?.getUserMedia
-      ? navigator.mediaDevices.getUserMedia({ audio: true })
-      : undefined
 
     setAudioError(null)
     setActiveNote(noteId)
@@ -107,13 +99,7 @@ export function useIntonationAudio(
       ? REFERENCE_TONE_DURATION_MS * 2
       : REFERENCE_TONE_DURATION_MS
     activeTimerRef.current = window.setTimeout(() => setActiveNote(null), totalReferenceDuration)
-    if (microphoneEnabled) {
-      microphoneTimerRef.current = window.setTimeout(
-        () => void startListening(noteId, microphoneRequest),
-        totalReferenceDuration,
-      )
-    }
-  }, [getReferenceInstrumentId, microphoneEnabled, referenceAudioPlayer, startListening])
+  }, [getReferenceInstrumentId, referenceAudioPlayer])
 
   const playChillTrack = useCallback(() => {
     const audio = chillAudioPlayer.prepare(`${ASSETS_URL}/sounds/chillen.mp3`, {
@@ -138,7 +124,6 @@ export function useIntonationAudio(
     void instrumentAudioContextRef.current?.close()
     if (activeTimerRef.current !== null) window.clearTimeout(activeTimerRef.current)
     if (referenceAudioTimerRef.current !== null) window.clearTimeout(referenceAudioTimerRef.current)
-    if (microphoneTimerRef.current !== null) window.clearTimeout(microphoneTimerRef.current)
   }, [])
 
   return {
