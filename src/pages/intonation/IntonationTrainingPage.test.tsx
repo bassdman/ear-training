@@ -75,7 +75,7 @@ describe('IntonationTrainingPage', () => {
     const noteButtons = screen.getAllByRole('button', { name: 'A4' })
 
     fireEvent.click(noteButtons[0])
-    expect(screen.queryByText('Höre zu ...')).not.toBeInTheDocument()
+    expect(screen.queryByText('---')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mikrofon starten für A4' })).toBeInTheDocument()
   }, 15000)
 })
@@ -105,6 +105,61 @@ describe('getMicrophoneErrorMessage', () => {
 })
 
 describe('NoteGroup', () => {
+  it('zeigt Zwischenfeedback während der Aufnahme an', () => {
+    const { rerender } = render(
+      <NoteGroup
+        noteId="a4"
+        isActive={false}
+        isListening={true}
+        listeningPitch="---"
+        microphoneEnabled={true}
+        pitchResult={null}
+        onPlayNote={() => {}}
+        onStartListening={() => {}}
+        onStopListening={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('---')).toBeInTheDocument()
+
+    rerender(
+      <NoteGroup
+        noteId="a4"
+        isActive={false}
+        isListening={true}
+        listeningPitch="Cis4"
+        microphoneEnabled={true}
+        pitchResult={null}
+        onPlayNote={() => {}}
+        onStartListening={() => {}}
+        onStopListening={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('Cis4')).toBeInTheDocument()
+  })
+
+  it('zeigt "Kein Ton erkannt.", wenn die Aufnahme ohne erkannten Ton endet', () => {
+    render(
+      <NoteGroup
+        noteId="a4"
+        isActive={false}
+        isListening={false}
+        microphoneEnabled={true}
+        pitchResult={{
+          detectedNote: '---',
+          cents: 0,
+          isInTune: false,
+        }}
+        onPlayNote={() => {}}
+        onStartListening={() => {}}
+        onStopListening={() => {}}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Kein Ton erkannt.')
+  })
+
   it('zeigt das Pitch-Ergebnis nur bei aktivierter Mikrofonprüfung an', () => {
     const pitchResult = {
       detectedNote: 'A4',

@@ -6,6 +6,7 @@ type NoteGroupProps = {
   noteId: string
   isActive: boolean
   isListening: boolean
+  listeningPitch?: string | null
   microphoneEnabled: boolean
   pitchResult: PitchResult | null
   onPlayNote: (noteId: string) => void
@@ -17,6 +18,7 @@ export function NoteGroup({
   noteId,
   isActive,
   isListening,
+  listeningPitch,
   microphoneEnabled,
   pitchResult,
   onPlayNote,
@@ -44,12 +46,14 @@ export function NoteGroup({
           {isListening ? 'Stopp' : 'Mikrofon'}
         </button>
       )}
-      {isListening && <p className="intonation-listening">Höre zu ...</p>}
+      {isListening && <p className="intonation-listening">{listeningPitch || '---'}</p>}
       {microphoneEnabled && pitchResult && (
         <p className={`intonation-pitch-result ${pitchResult.isInTune ? 'is-in-tune' : 'is-out-of-tune'}`} role="status">
           {pitchResult.isInTune
             ? `Richtig (${pitchResult.cents > 0 ? '+' : ''}${pitchResult.cents} Cent)`
-            : `Daneben. Das war ${pitchResult.detectedNote}.`}
+            : pitchResult.detectedNote && pitchResult.detectedNote !== '---'
+              ? `Daneben. Das war ${pitchResult.detectedNote}.`
+              : 'Kein Ton erkannt.'}
         </p>
       )}
     </div>

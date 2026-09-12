@@ -7,6 +7,7 @@ type OctaveSectionProps = {
   octave: number
   activeNote: string | null
   listeningNote: string | null
+  listeningPitch?: string | null
   microphoneEnabled: boolean
   pitchResult: { noteId: string, result: PitchResult } | null
   onPlayNote: (noteId: string) => void
@@ -18,6 +19,7 @@ export function OctaveSection({
   octave,
   activeNote,
   listeningNote,
+  listeningPitch,
   microphoneEnabled,
   pitchResult,
   onPlayNote,
@@ -41,6 +43,7 @@ export function OctaveSection({
               noteId={noteId}
               isActive={isActive}
               isListening={isListening}
+              listeningPitch={isListening ? listeningPitch : null}
               microphoneEnabled={microphoneEnabled}
               pitchResult={result}
               onPlayNote={onPlayNote}

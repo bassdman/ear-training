@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { REQUIRED_STABLE_SAMPLES } from '../config'
+import {
+  PITCH_HOLD_DURATION_MS,
+  PITCH_MAX_RECORDING_DURATION_MS,
+  PITCH_SILENCE_TIMEOUT_MS,
+  REQUIRED_STABLE_SAMPLES,
+} from '../config'
 import { detectPitch, getMicrophoneErrorMessage, getPitchResult } from '../helpers/pitchUtils'
 import type { ActiveNote, PitchResult } from '../types'
 
 export function usePitchDetection() {
   const [listeningNote, setListeningNote] = useState<ActiveNote>(null)
+  const [listeningPitch, setListeningPitch] = useState<string | null>(null)
   const [pitchResult, setPitchResult] = useState<{ noteId: string, result: PitchResult } | null>(null)
   const [pitchError, setPitchError] = useState<string | null>(null)
 
@@ -23,6 +29,7 @@ export function usePitchDetection() {
     audioContextRef.current = null
     animationFrameRef.current = null
     setListeningNote(null)
+    setListeningPitch(null)
   }, [])
 
   const clearPitchResult = useCallback(() => {
@@ -32,6 +39,7 @@ export function usePitchDetection() {
   const startListening = useCallback(async (noteId: string) => {
     stopListening()
     setPitchResult(null)
+    setListeningPitch('---')
 
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setPitchError(getMicrophoneErrorMessage(null))
@@ -51,26 +59,72 @@ export function usePitchDetection() {
       audioContextRef.current = audioContext
       setListeningNote(noteId)
 
+      const startTime = performance.now()
+      let lastAudibleTime = startTime
+      let inTuneStartTime: number | null = null
+      let lastDetectedResult: PitchResult | null = null
+
       const analyse = () => {
+        const now = performance.now()
         analyser.getFloatTimeDomainData(samples)
         const frequency = detectPitch(samples, audioContext.sampleRate)
+
         if (frequency !== null) {
+          lastAudibleTime = now
           stableFrequencies.push(frequency)
           if (stableFrequencies.length > REQUIRED_STABLE_SAMPLES) stableFrequencies.shift()
           const lowestFrequency = Math.min(...stableFrequencies)
           const highestFrequency = Math.max(...stableFrequencies)
           const spreadInCents = 1200 * Math.log2(highestFrequency / lowestFrequency)
 
-          if (stableFrequencies.length === REQUIRED_STABLE_SAMPLES && spreadInCents < 15) {
+          if (stableFrequencies.length >= 2 && spreadInCents < 50) {
             const averageFrequency = stableFrequencies.reduce((sum, value) => sum + value, 0) / stableFrequencies.length
             const result = getPitchResult(averageFrequency, noteId)
-            if (result) setPitchResult({ noteId, result })
-            stopListening()
-            return
+            if (result) {
+              lastDetectedResult = result
+              setListeningPitch(result.detectedNote)
+
+              if (result.isInTune) {
+                if (inTuneStartTime === null) {
+                  inTuneStartTime = now
+                } else if (now - inTuneStartTime >= PITCH_HOLD_DURATION_MS) {
+                  setPitchResult({ noteId, result })
+                  stopListening()
+                  return
+                }
+              } else {
+                inTuneStartTime = null
+              }
+            }
           }
         } else {
           stableFrequencies.length = 0
+          inTuneStartTime = null
+          setListeningPitch('---')
+
+          if (now - lastAudibleTime >= PITCH_SILENCE_TIMEOUT_MS) {
+            const result = lastDetectedResult ?? {
+              detectedNote: '---',
+              cents: 0,
+              isInTune: false,
+            }
+            setPitchResult({ noteId, result })
+            stopListening()
+            return
+          }
         }
+
+        if (now - startTime >= PITCH_MAX_RECORDING_DURATION_MS) {
+          const result = lastDetectedResult ?? {
+            detectedNote: '---',
+            cents: 0,
+            isInTune: false,
+          }
+          setPitchResult({ noteId, result })
+          stopListening()
+          return
+        }
+
         animationFrameRef.current = window.requestAnimationFrame(analyse)
       }
 
@@ -87,6 +141,7 @@ export function usePitchDetection() {
 
   return {
     listeningNote,
+    listeningPitch,
     pitchResult,
     pitchError,
     setPitchError,

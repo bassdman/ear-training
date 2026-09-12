@@ -16,6 +16,9 @@ export const blackKeys = [false, true, false, true, false, false, true, false, t
 export const PITCH_TOLERANCE_CENTS = 50
 export const REQUIRED_STABLE_SAMPLES = 8
 export const REFERENCE_TONE_DURATION_MS = 900
+export const PITCH_HOLD_DURATION_MS = 3000
+export const PITCH_SILENCE_TIMEOUT_MS = 5000
+export const PITCH_MAX_RECORDING_DURATION_MS = 15000
 export const INTONATION_SETTINGS_STORAGE_KEY = 'ear-training-intonation-settings-v1'
 
 export const INTONATION_INSTRUMENT_OPTIONS: { id: IntonationInstrumentId, label: string }[] = [
