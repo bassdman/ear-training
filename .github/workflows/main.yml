@@ -10,6 +10,8 @@ permissions:
 jobs:
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: ionos-server
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
