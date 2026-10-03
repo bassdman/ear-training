@@ -97,8 +97,7 @@
 }
 
 .ie-list,
-.ie-sections,
-.ie-variants {
+.ie-sections {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -134,8 +133,7 @@
   color: #acbbc6;
 }
 
-.ie-sections li,
-.ie-variants li {
+.ie-sections li {
   display: flex;
   gap: 12px;
   padding: 4px 0;
@@ -146,7 +144,21 @@
   color: #e0b56c;
 }
 
-.ie-variants {
-  margin-top: 12px;
-  font-size: 0.85rem;
+.ie-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ie-step {
+  padding: 2px 8px;
+  border: 1px solid #3b4a52;
+  border-radius: 5px;
+  color: #edf3fb;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ie-step:hover {
+  border-color: #e0b56c;
 }

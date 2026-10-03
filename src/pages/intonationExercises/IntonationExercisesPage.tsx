@@ -5,21 +5,39 @@ import { formatNote, parseNoteSequence } from '../../features/intonationPractice
 import {
   generateSections,
   getPlayableNotes,
+  resolveTransposition,
   TRANSPOSITION_OPTIONS,
 } from '../../features/intonationPractice/sections'
 import { loadExercises, saveExercises } from '../../features/intonationPractice/storage'
 import type { Exercise, Transposition } from '../../features/intonationPractice/types'
+import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 import './intonationExercisesPage.css'
-
-const formatSteps = (steps: number[][]) =>
-  steps.map((step) => step.map(formatNote).join('–')).join(' | ')
 
 const formatTranspose = (transpose: Transposition) =>
   transpose === 'random' ? 'Zufall' : `${transpose > 0 ? '+' : ''}${transpose}`
 
-function ExerciseItem({ exercise, onDelete }: { exercise: Exercise; onDelete: () => void }) {
+type ExerciseItemProps = {
+  exercise: Exercise
+  onDelete: () => void
+  onPlay: (notes: number[]) => void
+}
+
+function ExerciseItem({ exercise, onDelete, onPlay }: ExerciseItemProps) {
   const [transpose, setTranspose] = useState<Transposition>(0)
-  const sections = useMemo(() => generateSections(exercise.notes), [exercise.notes])
+  const [shuffleCount, setShuffleCount] = useState(0)
+  // Bei Zufall wird die Anzeige im Original belassen und erst beim Abspielen verschoben.
+  const displayNotes = useMemo(
+    () => (transpose === 'random' ? exercise.notes : getPlayableNotes(exercise.notes, transpose)),
+    [exercise.notes, transpose],
+  )
+  // shuffleCount erzwingt eine neue Zufallsreihenfolge.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sections = useMemo(() => generateSections(displayNotes), [displayNotes, shuffleCount])
+
+  const playStep = (step: number[]) => {
+    const shift = transpose === 'random' ? resolveTransposition('random') : 0
+    onPlay(step.map((note) => note + shift))
+  }
 
   return (
     <li className="ie-item">
@@ -39,7 +57,30 @@ function ExerciseItem({ exercise, onDelete }: { exercise: Exercise; onDelete: ()
           {sections.map((section) => (
             <li key={section.kind}>
               <span className="ie-section-title">{section.title}</span>
-              <span>{formatSteps(section.steps)}</span>
+              <span className="ie-steps">
+                {section.steps.map((step, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="ie-step"
+                    aria-label={`${section.title} abspielen: ${step.map(formatNote).join(' ')}`}
+                    onClick={() => playStep(step)}
+                  >
+                    {step.map(formatNote).join('–')}
+                  </button>
+                ))}
+                {section.kind === 'random' && (
+                  <button
+                    type="button"
+                    className="ie-step ie-shuffle"
+                    aria-label="Zufällige Töne neu mischen"
+                    title="Neu mischen"
+                    onClick={() => setShuffleCount((count) => count + 1)}
+                  >
+                    ↻
+                  </button>
+                )}
+              </span>
             </li>
           ))}
         </ol>
@@ -74,6 +115,7 @@ export function IntonationExercisesPage() {
   const [name, setName] = useState('')
   const [sequence, setSequence] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const { play, error: playError } = usePlayNotes()
 
   const update = (next: Exercise[]) => {
     setExercises(next)
@@ -134,6 +176,12 @@ export function IntonationExercisesPage() {
           <button type="submit">Übung hinzufügen</button>
         </form>
 
+        {playError && (
+          <p className="ie-error" role="alert">
+            {playError}
+          </p>
+        )}
+
         {exercises.length === 0 ? (
           <p className="ie-hint">Noch keine Übungen.</p>
         ) : (
@@ -142,6 +190,7 @@ export function IntonationExercisesPage() {
               <ExerciseItem
                 key={exercise.id}
                 exercise={exercise}
+                onPlay={(notes) => void play(notes)}
                 onDelete={() => update(exercises.filter((entry) => entry.id !== exercise.id))}
               />
             ))}

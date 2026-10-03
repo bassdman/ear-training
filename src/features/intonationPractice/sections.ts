@@ -28,10 +28,10 @@ export function generateSections(
     { kind: 'single', title: 'Einzeltöne', steps: uniqueNotes.map((note) => [note]) },
   ]
   if (pairs.length > 0) sections.push({ kind: 'pairs', title: 'Tonwechsel', steps: pairs })
+  sections.push({ kind: 'original', title: 'Tonfolge', steps: [[...notes]] })
   if (uniqueNotes.length > 1) {
     sections.push({ kind: 'random', title: `${randomLength} zufällige Töne`, steps: [randomSteps] })
   }
-  sections.push({ kind: 'original', title: 'Tonfolge', steps: [[...notes]] })
   return sections
 }
 

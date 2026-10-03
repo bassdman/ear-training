@@ -40,11 +40,11 @@ describe('generateSections', () => {
   it('erzeugt Einzeltöne, Tonwechsel, Zufall und Tonfolge', () => {
     const sections = generateSections([60, 64, 62, 60], { randomLength: 5, random: () => 0 })
 
-    expect(sections.map((section) => section.kind)).toEqual(['single', 'pairs', 'random', 'original'])
+    expect(sections.map((section) => section.kind)).toEqual(['single', 'pairs', 'original', 'random'])
     expect(sections[0].steps).toEqual([[60], [64], [62]])
     expect(sections[1].steps).toEqual([[60, 64], [64, 62], [62, 60]])
-    expect(sections[2].steps).toEqual([[60, 60, 60, 60, 60]])
-    expect(sections[3].steps).toEqual([[60, 64, 62, 60]])
+    expect(sections[2].steps).toEqual([[60, 64, 62, 60]])
+    expect(sections[3].steps).toEqual([[60, 60, 60, 60, 60]])
   })
 
   it('lässt Tonwechsel und Zufall bei einem einzelnen Ton weg', () => {
