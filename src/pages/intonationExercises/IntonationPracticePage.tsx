@@ -8,7 +8,7 @@ import {
   transposeNotes,
 } from '../../features/intonationPractice/notes'
 import { generateSections, resolveTransposition } from '../../features/intonationPractice/sections'
-import { loadExercises } from '../../features/intonationPractice/storage'
+import { loadAllExercises } from '../../features/intonationPractice/storage'
 import type { Exercise } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 
@@ -101,7 +101,7 @@ function ExerciseItem({ exercise, transpose, onPlay }: ExerciseItemProps) {
 type RandomPick = { id: number; exercise: Exercise; transpose: number }
 
 export function IntonationPracticePage() {
-  const [exercises] = useState<Exercise[]>(loadExercises)
+  const [exercises] = useState<Exercise[]>(loadAllExercises)
   const [randomPick, setRandomPick] = useState<RandomPick | null>(null)
   const [openPitch, setOpenPitch] = useState<number | null>(null)
   const { play, error: playError } = usePlayNotes()

@@ -1,3 +1,4 @@
+import { DEFAULT_EXERCISES } from './defaultExercises'
 import type { Exercise } from './types'
 
 export const INTONATION_PRACTICE_STORAGE_KEY = 'ear-training-intonation-practice-v1'
@@ -22,6 +23,10 @@ export function loadExercises(): Exercise[] {
   } catch {
     return []
   }
+}
+
+export function loadAllExercises(): Exercise[] {
+  return [...DEFAULT_EXERCISES, ...loadExercises()]
 }
 
 export function saveExercises(exercises: Exercise[]): void {

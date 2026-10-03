@@ -8,7 +8,8 @@ import {
   transposeNotes,
 } from './notes'
 import { generateSections, getPlayableNotes, resolveTransposition } from './sections'
-import { loadExercises, saveExercises } from './storage'
+import { loadAllExercises, loadExercises, saveExercises } from './storage'
+import { DEFAULT_EXERCISES } from './defaultExercises'
 
 describe('notes', () => {
   it('parst Töne mit und ohne Oktave', () => {
@@ -83,6 +84,21 @@ describe('Transposition', () => {
 
 describe('storage', () => {
   beforeEach(() => window.localStorage.clear())
+
+  it('enthält Standardübungen mit je drei Tönen', () => {
+    expect(DEFAULT_EXERCISES.map((entry) => [entry.name, entry.notes])).toEqual([
+      ['Dur-Dreiklang', [60, 64, 67]],
+      ['Moll-Dreiklang', [60, 63, 67]],
+      ['Halbtonschritte', [60, 61, 62]],
+    ])
+  })
+
+  it('liefert Standardübungen vor den eigenen Übungen', () => {
+    const own = { id: 'own', name: 'Eigene', notes: [60, 62] }
+    saveExercises([own])
+    expect(loadAllExercises()).toEqual([...DEFAULT_EXERCISES, own])
+    expect(loadExercises()).toEqual([own])
+  })
 
   it('speichert und lädt Übungen und ignoriert kaputte Daten', () => {
     const exercise = { id: '1', name: 'Intro', notes: [60, 64] }
