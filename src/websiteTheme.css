@@ -1,0 +1,340 @@
+@font-face {
+  font-family: 'Website Sans';
+  src: url('/fonts/Montserrat-VariableFont.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Website Display';
+  src: url('/fonts/DMSerifDisplay-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --theme-ink: #222222;
+  --theme-muted: #626262;
+  --theme-background: #ffffff;
+  --theme-surface: #ffffff;
+  --theme-soft: #f9eecc;
+  --theme-border: #e4e4e4;
+  --theme-primary: #283da9;
+  --theme-primary-hover: #1f318e;
+  --theme-secondary: #48aaac;
+  --theme-positive: #52ac1d;
+  --theme-danger: #a52e1e;
+
+  color-scheme: light;
+  color: var(--theme-ink);
+  background: var(--theme-background);
+  font-family: 'Website Sans', Montserrat, sans-serif;
+}
+
+body {
+  background: var(--theme-background);
+}
+
+:is(.home-page, .campaign-page, .course-page, .intonation-page, .converter-page, .ear-page) {
+  background: var(--theme-background);
+  color: var(--theme-ink);
+  font-family: 'Website Sans', Montserrat, sans-serif;
+}
+
+:is(.home-page, .campaign-page, .course-page, .intonation-page, .converter-page, .ear-page) h1,
+:is(.home-page, .campaign-page, .course-page, .intonation-page, .converter-page, .ear-page) h2,
+:is(.home-page, .campaign-page, .course-page, .intonation-page, .converter-page, .ear-page) h3,
+.ear-title-main,
+.ear-loading-title {
+  color: var(--theme-ink);
+  font-family: 'Website Display', Georgia, serif;
+}
+
+.home-page .home-kicker,
+.campaign-page .campaign-kicker,
+.course-page .course-kicker,
+.intonation-page .intonation-kicker,
+.converter-page .converter-kicker,
+.ear-page .ear-settings-title {
+  color: var(--theme-primary);
+}
+
+.home-page .home-hero p,
+.home-page .home-card p,
+.home-page .home-footer,
+.campaign-page .campaign-subtitle,
+.campaign-page .campaign-panel-header p,
+.campaign-page .campaign-select-description,
+.campaign-page .campaign-auto-range-note,
+.campaign-page .campaign-slider-description,
+.campaign-page .campaign-footnote p,
+.campaign-page .campaign-loading,
+.course-page .course-group-header p,
+.course-page .course-subtitle,
+.course-page .course-tones,
+.course-page .course-state,
+.course-page .course-loading,
+.intonation-page .intonation-subtitle,
+.converter-page .converter-header p:last-child,
+.converter-page .converter-note,
+.converter-page .converter-status,
+.ear-page .ear-title-sub,
+.ear-page .ear-loading-copy,
+.ear-page .ear-meta-secondary,
+.ear-page .ear-copy,
+.ear-page .ear-stats,
+.ear-page .ear-streak-label,
+.ear-page .ear-samples-status {
+  color: var(--theme-muted);
+}
+
+.home-page .home-card,
+.campaign-page .campaign-panel,
+.campaign-page .campaign-track-card,
+.campaign-page .campaign-upgrade-modal,
+.course-page .course-group,
+.course-page .course-card,
+.intonation-page .intonation-octave,
+.converter-page .converter-panel,
+.ear-page .ear-panel,
+.ear-page .ear-session-panel,
+.ear-page .ear-settings-menu,
+.ear-page .ear-loading-card {
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-surface);
+  box-shadow: 0 5px 18px rgb(34 34 34 / 8%);
+}
+
+.home-page .home-card-tag {
+  background: var(--theme-soft);
+  color: var(--theme-primary);
+}
+
+.home-page .home-link,
+.campaign-page .campaign-link-button,
+.campaign-page .campaign-primary-button,
+.course-page .course-continue,
+.intonation-page .intonation-chill-button,
+.converter-page .file-picker,
+.ear-page .ear-button-primary,
+.ear-page .ear-toast-levelup {
+  border: 1px solid var(--theme-primary);
+  border-radius: 6px;
+  background: var(--theme-primary);
+  color: #ffffff;
+}
+
+.home-page .home-link:hover,
+.campaign-page .campaign-link-button:hover,
+.campaign-page .campaign-primary-button:hover:not(:disabled),
+.course-page .course-continue:hover,
+.intonation-page .intonation-chill-button:hover,
+.converter-page .file-picker:hover,
+.ear-page .ear-button-primary:hover:not(:disabled) {
+  background: var(--theme-primary-hover);
+}
+
+.home-page .home-link.is-secondary,
+.campaign-page .campaign-link-button.is-secondary,
+.campaign-page .campaign-reset-button,
+.course-page .course-campaign-link,
+.ear-page .ear-button-secondary {
+  border: 1px solid var(--theme-primary);
+  background: var(--theme-background);
+  color: var(--theme-primary);
+}
+
+.course-page .course-difficulty-tabs {
+  border-color: var(--theme-border);
+  background: var(--theme-soft);
+}
+
+.course-page .course-difficulty-tab {
+  color: var(--theme-ink);
+}
+
+.course-page .course-difficulty-tab.is-selected,
+.course-page .course-card.is-active {
+  border-color: var(--theme-primary);
+  background: var(--theme-primary);
+  color: #ffffff;
+}
+
+.course-page .course-card:hover:not(:disabled) {
+  border-color: var(--theme-primary);
+  background: var(--theme-soft);
+  color: var(--theme-ink);
+}
+
+.course-page .course-volume-wrap strong,
+.ear-page .ear-meta-primary,
+.ear-page .ear-volume-wrap strong {
+  color: var(--theme-primary);
+}
+
+.campaign-page .campaign-select-row select,
+.campaign-page .campaign-upgrade-modal,
+.course-page .course-audio-row select,
+.intonation-page .intonation-instrument-select select,
+.converter-page .converter-panel,
+.ear-page .ear-audio-row select {
+  border-color: var(--theme-border);
+  background: var(--theme-background);
+  color: var(--theme-ink);
+}
+
+.campaign-page .campaign-track-card strong,
+.campaign-page .campaign-upgrade-modal h2,
+.campaign-page .campaign-slider-row span,
+.intonation-page .intonation-microphone-toggle,
+.intonation-page .intonation-instrument-select,
+.ear-page .ear-audio-row label {
+  color: var(--theme-ink);
+}
+
+.campaign-page .campaign-track-card span,
+.campaign-page .campaign-upgrade-modal p {
+  color: var(--theme-muted);
+}
+
+.campaign-page .campaign-path-node {
+  border-color: var(--theme-border);
+}
+
+.campaign-page .campaign-path-node.is-current {
+  border-color: var(--theme-primary);
+  background: var(--theme-primary);
+  color: #ffffff;
+}
+
+.campaign-page .campaign-path-node.is-unlocked {
+  border-color: var(--theme-secondary);
+  background: #e8f5f3;
+  color: #1b6668;
+}
+
+.campaign-page .campaign-path-node.is-locked {
+  background: #f4f4f4;
+  color: #777777;
+}
+
+.campaign-page .campaign-upgrade-footer {
+  background: linear-gradient(to top, rgb(255 255 255 / 98%), rgb(255 255 255 / 72%));
+}
+
+.intonation-page .intonation-octave h2 {
+  color: var(--theme-ink);
+}
+
+.intonation-page .intonation-chill-button {
+  border-color: var(--theme-primary);
+}
+
+.intonation-page .intonation-note {
+  border: 1px solid var(--theme-border);
+  background: #ffffff;
+  color: var(--theme-ink);
+}
+
+.intonation-page .intonation-note.is-black {
+  border-color: #222222;
+  background: #222222;
+  color: #ffffff;
+}
+
+.intonation-page .intonation-note:active,
+.intonation-page .intonation-note.is-active {
+  border-color: var(--theme-positive);
+  background: var(--theme-positive);
+  color: #ffffff;
+}
+
+.intonation-page .intonation-microphone {
+  border-color: var(--theme-border);
+  background: var(--theme-soft);
+  color: var(--theme-ink);
+}
+
+.intonation-page .intonation-microphone.is-listening {
+  border-color: var(--theme-secondary);
+  background: #e8f5f3;
+  color: #1b6668;
+}
+
+.converter-page .converter-back,
+.converter-page .converter-files a,
+.converter-page .converter-files small,
+.converter-page .home-footer a {
+  color: var(--theme-primary);
+}
+
+.converter-page .download-link {
+  background: var(--theme-secondary);
+  color: #ffffff;
+}
+
+.converter-page .converter-files li {
+  border-color: var(--theme-border);
+}
+
+.ear-page .ear-settings-toggle,
+.ear-page .ear-back-button {
+  border-color: var(--theme-border);
+  background: var(--theme-background);
+  color: var(--theme-primary);
+}
+
+.ear-page .ear-settings-toggle:hover,
+.ear-page .ear-settings-toggle[aria-expanded='true'],
+.ear-page .ear-back-button:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary-hover);
+}
+
+.ear-page .ear-streak-bar {
+  background: #eeeeee;
+}
+
+.ear-page .ear-streak-fill,
+.ear-page .ear-scale-cell.is-filled {
+  background: var(--theme-primary);
+}
+
+.ear-page .ear-scale-cell {
+  border-color: var(--theme-border);
+  background: #eeeeee;
+}
+
+.ear-page .ear-note-button {
+  border-color: var(--theme-border);
+  background: var(--theme-background);
+  color: var(--theme-ink);
+}
+
+.ear-page .ear-note-button:disabled {
+  color: #888888;
+}
+
+.ear-page .ear-note-button.is-correct {
+  border-color: var(--theme-positive);
+  background: #e8f5e1;
+  color: #285e12;
+}
+
+.ear-page .ear-note-button.is-wrong {
+  border-color: var(--theme-danger);
+  background: #f8e9e6;
+  color: var(--theme-danger);
+}
+
+.ear-page .ear-retry {
+  color: var(--theme-danger);
+}
+
+.ear-page .ear-loading-screen {
+  background: var(--theme-background);
+  color: var(--theme-ink);
+}

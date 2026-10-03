@@ -7,6 +7,7 @@ import { IntonationTrainingPage } from './pages/intonation/IntonationTrainingPag
 import { TrainerPage } from './pages/TrainerPage'
 import { ExerciseSettings } from './components/ExcerciseSettings'
 import { ConverterPage } from './pages/converter/ConverterPage'
+import './websiteTheme.css'
 
 function App() {
   const navigate = useNavigate()
