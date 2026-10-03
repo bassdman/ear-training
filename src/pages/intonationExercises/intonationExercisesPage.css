@@ -366,3 +366,41 @@
   color: #ffffff;
   background: var(--theme-primary);
 }
+
+.ie-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ie-step-note {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.ie-step-note small {
+  color: var(--theme-muted);
+  font-size: 0.75rem;
+}
+
+.ie-step-dash {
+  color: var(--theme-muted);
+}
+
+.ie-syllable-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--theme-muted);
+  font-size: 0.9rem;
+}
+
+.ie-syllable-select select {
+  padding: 4px 8px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-ink);
+  background: var(--theme-background);
+}

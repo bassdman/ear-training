@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import randomSyllables from '../../features/intonationPractice/config/randomSyllables.json'
 import {
   formatNote,
   PITCH_CLASS_LABELS,
@@ -17,24 +18,59 @@ import {
   loadRange,
   saveRange,
 } from '../../features/intonationPractice/storage'
-import type { Exercise } from '../../features/intonationPractice/types'
+import type { Exercise, Step, SyllableMode } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
+import {
+  decodeSyllableMode,
+  encodeSyllableMode,
+} from '../../features/intonationPractice/syllables'
+
+const describeStep = (step: Step) =>
+  step.notes
+    .map((note, index) => [formatNote(note), step.syllables?.[index]].filter(Boolean).join(' '))
+    .join(', ')
+
+function StepLabel({ step }: { step: Step }) {
+  return step.notes.map((note, index) => (
+    <Fragment key={index}>
+      {index > 0 && <span className="ie-step-dash">–</span>}
+      <span className="ie-step-note">
+        <span>{formatNote(note)}</span>
+        {step.syllables && <small>{step.syllables[index]}</small>}
+      </span>
+    </Fragment>
+  ))
+}
 
 type ExerciseItemProps = {
   exercise: Exercise
   transpose: number
+  initialSyllableMode?: SyllableMode
   onPlay: (notes: number[]) => void
 }
 
-function ExerciseItem({ exercise, transpose, onPlay }: ExerciseItemProps) {
+function ExerciseItem({
+  exercise,
+  transpose,
+  initialSyllableMode = { mode: 'off' },
+  onPlay,
+}: ExerciseItemProps) {
   const [shuffleCount, setShuffleCount] = useState(0)
+  const [syllableMode, setSyllableMode] = useState<SyllableMode>(initialSyllableMode)
   const notes = useMemo(
     () => transposeNotes(exercise.notes, transpose),
     [exercise.notes, transpose],
   )
   // shuffleCount erzwingt eine neue Zufallsreihenfolge.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const sections = useMemo(() => generateSections(notes), [notes, shuffleCount])
+  const sections = useMemo(
+    () =>
+      generateSections(notes, {
+        syllableMode,
+        syllablePool: randomSyllables,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notes, syllableMode, shuffleCount],
+  )
   const flatSteps = useMemo(
     () =>
       sections.flatMap((section) =>
@@ -54,11 +90,26 @@ function ExerciseItem({ exercise, transpose, onPlay }: ExerciseItemProps) {
           <strong>{exercise.name}</strong>
           <span className="ie-notes">{notes.map(formatNote).join(' ')}</span>
         </div>
+        <label className="ie-syllable-select">
+          Silbe
+          <select
+            value={encodeSyllableMode(syllableMode)}
+            onChange={(event) => setSyllableMode(decodeSyllableMode(event.target.value))}
+          >
+            <option value="off">Aus</option>
+            <option value="random">Zufällig</option>
+            {randomSyllables.map((syllable) => (
+              <option key={syllable} value={`fixed:${syllable}`}>
+                {syllable}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <ol className="ie-sections">
         {visibleSteps.map((entry, index) => {
-          const label = entry.step.map(formatNote).join('–')
+          const label = describeStep(entry.step)
           const isDone = index < doneCount
           const isFirstOfSection = index === 0 || visibleSteps[index - 1].title !== entry.title
           const canToggle = index === doneCount || index === doneCount - 1
@@ -71,9 +122,9 @@ function ExerciseItem({ exercise, transpose, onPlay }: ExerciseItemProps) {
                   type="button"
                   className="ie-step"
                   aria-label={`${entry.title} abspielen: ${label}`}
-                  onClick={() => onPlay(entry.step)}
+                  onClick={() => onPlay(entry.step.notes)}
                 >
-                  {label}
+                  <StepLabel step={entry.step} />
                 </button>
                 {entry.kind === 'random' && (
                   <button
@@ -232,6 +283,7 @@ export function IntonationPracticePage() {
                 key={randomPick.id}
                 exercise={randomPick.exercise}
                 transpose={randomPick.transpose}
+                initialSyllableMode={{ mode: 'random' }}
                 onPlay={handlePlay}
               />
             </ul>

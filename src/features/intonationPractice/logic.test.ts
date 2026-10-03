@@ -7,7 +7,13 @@ import {
   shiftToPitchClass,
   transposeNotes,
 } from './notes'
-import { generateSections, getPlayableNotes, resolveTransposition } from './sections'
+import {
+  generateSections,
+  getPlayableNotes,
+  pickSyllables,
+  resolveTransposition,
+} from './sections'
+import { decodeSyllableMode, encodeSyllableMode } from './syllables'
 import { loadAllExercises, loadExercises, loadRange, saveExercises, saveRange } from './storage'
 import { DEFAULT_NOTE_RANGE, startNotesInRange } from './range'
 import { DEFAULT_EXERCISES } from './defaultExercises'
@@ -40,14 +46,17 @@ describe('notes', () => {
 })
 
 describe('generateSections', () => {
+  const stepNotes = (section: { steps: { notes: number[] }[] }) =>
+    section.steps.map((step) => step.notes)
+
   it('erzeugt Einzeltöne, Tonwechsel, Zufall und Tonfolge', () => {
     const sections = generateSections([60, 64, 62, 60], { randomLength: 5, random: () => 0 })
 
     expect(sections.map((section) => section.kind)).toEqual(['single', 'pairs', 'original', 'random'])
-    expect(sections[0].steps).toEqual([[60], [64], [62]])
-    expect(sections[1].steps).toEqual([[60, 64], [64, 62], [62, 60]])
-    expect(sections[2].steps).toEqual([[60, 64, 62, 60]])
-    expect(sections[3].steps).toEqual([[60, 60, 60, 60, 60]])
+    expect(stepNotes(sections[0])).toEqual([[60], [64], [62]])
+    expect(stepNotes(sections[1])).toEqual([[60, 64], [64, 62], [62, 60]])
+    expect(stepNotes(sections[2])).toEqual([[60, 64, 62, 60]])
+    expect(stepNotes(sections[3])).toEqual([[60, 60, 60, 60, 60]])
   })
 
   it('lässt Tonwechsel und Zufall bei einem einzelnen Ton weg', () => {
@@ -57,7 +66,66 @@ describe('generateSections', () => {
 
   it('überspringt doppelte und gleiche Paare', () => {
     const sections = generateSections([60, 60, 64, 60, 64])
-    expect(sections[1].steps).toEqual([[60, 64], [64, 60]])
+    expect(stepNotes(sections[1])).toEqual([[60, 64], [64, 60]])
+  })
+
+  it('lässt die Silben standardmäßig aus', () => {
+    const sections = generateSections([60, 64, 62], { syllablePool: ['a', 'b'] })
+    expect(sections.every((section) => section.steps.every((step) => !step.syllables))).toBe(true)
+  })
+
+  it('verwendet bei fester Silbe überall dieselbe', () => {
+    const sections = generateSections([60, 64, 62], {
+      randomLength: 3,
+      syllableMode: { mode: 'fixed', syllable: 'de' },
+    })
+    expect(sections[0].steps.map((step) => step.syllables)).toEqual([['de'], ['de'], ['de']])
+    expect(sections[1].steps[0].syllables).toEqual(['de', 'de'])
+    expect(sections[2].steps[0].syllables).toEqual(['de', 'de', 'de'])
+    expect(sections[3].steps[0].syllables).toEqual(['de', 'de', 'de'])
+  })
+
+  it('nimmt im Zufallsmodus pro Ton verschiedene Silben aus dem Pool', () => {
+    const pool = ['a', 'b', 'c', 'd']
+    const sections = generateSections([60, 64], {
+      randomLength: 4,
+      syllableMode: { mode: 'random' },
+      syllablePool: pool,
+    })
+    const randomSection = sections[sections.length - 1].steps[0].syllables!
+    expect(new Set(randomSection).size).toBe(4)
+    expect(sections[0].steps[0].syllables).toHaveLength(1)
+    expect(sections[1].steps[0].syllables).toHaveLength(2)
+  })
+
+  it('lässt im Zufallsmodus ohne Pool die Silben weg', () => {
+    const sections = generateSections([60, 64], { syllableMode: { mode: 'random' } })
+    expect(sections[0].steps[0].syllables).toBeUndefined()
+  })
+})
+
+describe('pickSyllables', () => {
+  it('füllt mit weiteren Durchgängen auf, wenn der Pool zu klein ist', () => {
+    const picked = pickSyllables(5, ['a', 'b'])
+    expect(picked).toHaveLength(5)
+    expect(picked.every((syllable) => ['a', 'b'].includes(syllable))).toBe(true)
+  })
+
+  it('liefert ohne Pool nichts', () => {
+    expect(pickSyllables(3, [])).toEqual([])
+  })
+})
+
+describe('syllableMode', () => {
+  it('kodiert und dekodiert den Select-Wert', () => {
+    const modes = [
+      { mode: 'off' },
+      { mode: 'random' },
+      { mode: 'fixed', syllable: 'de' },
+    ] as const
+    for (const mode of modes) {
+      expect(decodeSyllableMode(encodeSyllableMode(mode))).toEqual(mode)
+    }
   })
 })
 
