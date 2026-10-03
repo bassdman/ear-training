@@ -311,3 +311,58 @@
   background: var(--theme-background);
   cursor: pointer;
 }
+
+.ie-range {
+  display: flex;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.ie-range label {
+  display: grid;
+  gap: 4px;
+  color: var(--theme-muted);
+  font-size: 0.9rem;
+}
+
+.ie-range select {
+  padding: 8px 10px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-ink);
+  background: var(--theme-background);
+}
+
+.ie-random-button:disabled,
+.ie-pitch-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ie-start-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ie-start-select button {
+  min-width: 52px;
+  padding: 6px 12px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-ink);
+  font-weight: 700;
+  background: var(--theme-surface);
+  cursor: pointer;
+}
+
+.ie-start-select button:hover {
+  border-color: var(--theme-primary);
+}
+
+.ie-start-select button[aria-pressed='true'] {
+  border-color: var(--theme-primary);
+  color: #ffffff;
+  background: var(--theme-primary);
+}

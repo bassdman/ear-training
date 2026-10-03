@@ -1,7 +1,9 @@
 import { DEFAULT_EXERCISES } from './defaultExercises'
+import { DEFAULT_NOTE_RANGE, isValidRange, type NoteRange } from './range'
 import type { Exercise } from './types'
 
 export const INTONATION_PRACTICE_STORAGE_KEY = 'ear-training-intonation-practice-v1'
+export const INTONATION_RANGE_STORAGE_KEY = 'ear-training-intonation-range-v1'
 
 function isExercise(value: unknown): value is Exercise {
   if (typeof value !== 'object' || value === null) return false
@@ -27,6 +29,24 @@ export function loadExercises(): Exercise[] {
 
 export function loadAllExercises(): Exercise[] {
   return [...DEFAULT_EXERCISES, ...loadExercises()]
+}
+
+export function loadRange(): NoteRange {
+  try {
+    const stored = window.localStorage.getItem(INTONATION_RANGE_STORAGE_KEY)
+    const parsed: unknown = stored ? JSON.parse(stored) : null
+    return isValidRange(parsed) ? { min: parsed.min, max: parsed.max } : DEFAULT_NOTE_RANGE
+  } catch {
+    return DEFAULT_NOTE_RANGE
+  }
+}
+
+export function saveRange(range: NoteRange): void {
+  try {
+    window.localStorage.setItem(INTONATION_RANGE_STORAGE_KEY, JSON.stringify(range))
+  } catch {
+    // Speicherfehler ignorieren
+  }
 }
 
 export function saveExercises(exercises: Exercise[]): void {

@@ -8,7 +8,8 @@ import {
   transposeNotes,
 } from './notes'
 import { generateSections, getPlayableNotes, resolveTransposition } from './sections'
-import { loadAllExercises, loadExercises, saveExercises } from './storage'
+import { loadAllExercises, loadExercises, loadRange, saveExercises, saveRange } from './storage'
+import { DEFAULT_NOTE_RANGE, startNotesInRange } from './range'
 import { DEFAULT_EXERCISES } from './defaultExercises'
 
 describe('notes', () => {
@@ -79,6 +80,29 @@ describe('Transposition', () => {
     expect(resolveTransposition('random', () => 0)).toBe(-6)
     expect(resolveTransposition('random', () => 0.999)).toBe(5)
     expect(getPlayableNotes(notes, 'random', () => 0)).toEqual([54, 58])
+  })
+})
+
+describe('range', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('liefert alle Starttöne, bei denen die Übung in die Range passt', () => {
+    // c e g = 0, +4, +7 Halbtöne
+    expect(startNotesInRange([60, 64, 67], { min: 60, max: 70 })).toEqual([60, 61, 62, 63])
+    expect(startNotesInRange([67, 64, 60], { min: 60, max: 70 })).toEqual([67, 68, 69, 70])
+  })
+
+  it('liefert nichts, wenn die Übung nicht in die Range passt', () => {
+    expect(startNotesInRange([60, 64, 67], { min: 60, max: 64 })).toEqual([])
+  })
+
+  it('validiert und speichert die Range', () => {
+    expect(loadRange()).toEqual(DEFAULT_NOTE_RANGE)
+    saveRange({ min: 50, max: 70 })
+    expect(loadRange()).toEqual({ min: 50, max: 70 })
+
+    window.localStorage.setItem('ear-training-intonation-range-v1', '{"min":70,"max":50}')
+    expect(loadRange()).toEqual(DEFAULT_NOTE_RANGE)
   })
 })
 

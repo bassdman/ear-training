@@ -4,11 +4,19 @@ import { Link } from 'react-router-dom'
 import {
   formatNote,
   PITCH_CLASS_LABELS,
-  shiftToPitchClass,
   transposeNotes,
 } from '../../features/intonationPractice/notes'
-import { generateSections, resolveTransposition } from '../../features/intonationPractice/sections'
-import { loadAllExercises } from '../../features/intonationPractice/storage'
+import {
+  NOTE_RANGE_BOUNDS,
+  startNotesInRange,
+  type NoteRange,
+} from '../../features/intonationPractice/range'
+import { generateSections } from '../../features/intonationPractice/sections'
+import {
+  loadAllExercises,
+  loadRange,
+  saveRange,
+} from '../../features/intonationPractice/storage'
 import type { Exercise } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 
@@ -100,29 +108,76 @@ function ExerciseItem({ exercise, transpose, onPlay }: ExerciseItemProps) {
 
 type RandomPick = { id: number; exercise: Exercise; transpose: number }
 
+const NOTE_OPTIONS = Array.from(
+  { length: NOTE_RANGE_BOUNDS.max - NOTE_RANGE_BOUNDS.min + 1 },
+  (_, i) => NOTE_RANGE_BOUNDS.min + i,
+)
+
+const pitchClassOf = (midi: number) => ((midi % 12) + 12) % 12
+const DEFAULT_START_NOTE = 60
+
 export function IntonationPracticePage() {
   const [exercises] = useState<Exercise[]>(loadAllExercises)
+  const [range, setRange] = useState<NoteRange>(loadRange)
   const [randomPick, setRandomPick] = useState<RandomPick | null>(null)
-  const [openPitch, setOpenPitch] = useState<number | null>(null)
+  const [openStart, setOpenStart] = useState<number | null>(null)
   const { play, error: playError } = usePlayNotes()
 
+  // Alle Übungen mit jedem Startton, bei dem sie komplett in der Range liegen.
+  const placements = useMemo(
+    () =>
+      exercises.flatMap((exercise) =>
+        startNotesInRange(exercise.notes, range).map((start) => ({
+          exercise,
+          start,
+          shift: start - exercise.notes[0],
+        })),
+      ),
+    [exercises, range],
+  )
+  const startsByPitchClass = useMemo(() => {
+    const groups: number[][] = PITCH_CLASS_LABELS.map(() => [])
+    for (const start of [...new Set(placements.map((entry) => entry.start))].sort((a, b) => a - b)) {
+      groups[pitchClassOf(start)].push(start)
+    }
+    return groups
+  }, [placements])
+
+  const updateRange = (next: NoteRange) => {
+    setRange(next)
+    saveRange(next)
+    setRandomPick(null)
+  }
+
   useEffect(() => {
-    if (openPitch === null) return
+    if (openStart === null) return
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenPitch(null)
+      if (event.key === 'Escape') setOpenStart(null)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [openPitch])
+  }, [openStart])
 
   const handlePlay = (notes: number[]) => void play(notes)
 
-  const drawRandom = () =>
+  const openPitchClass = (pitchClass: number) => {
+    const starts = startsByPitchClass[pitchClass]
+    // Vorauswahl: der Startton, der am nächsten an c4 liegt.
+    setOpenStart(
+      starts.reduce((best, start) =>
+        Math.abs(start - DEFAULT_START_NOTE) < Math.abs(best - DEFAULT_START_NOTE) ? start : best,
+      ),
+    )
+  }
+
+  const drawRandom = () => {
+    const pick = placements[Math.floor(Math.random() * placements.length)]
     setRandomPick((previous) => ({
       id: (previous?.id ?? 0) + 1,
-      exercise: exercises[Math.floor(Math.random() * exercises.length)],
-      transpose: resolveTransposition('random'),
+      exercise: pick.exercise,
+      transpose: pick.shift,
     }))
+  }
 
   if (exercises.length === 0) {
     return (
@@ -140,6 +195,35 @@ export function IntonationPracticePage() {
         </p>
       )}
 
+      <section className="ie-range" aria-label="Stimmumfang">
+        <label>
+          Tiefster Ton
+          <select
+            value={range.min}
+            onChange={(event) => updateRange({ ...range, min: Number(event.target.value) })}
+          >
+            {NOTE_OPTIONS.filter((note) => note <= range.max).map((note) => (
+              <option key={note} value={note}>
+                {formatNote(note)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Höchster Ton
+          <select
+            value={range.max}
+            onChange={(event) => updateRange({ ...range, max: Number(event.target.value) })}
+          >
+            {NOTE_OPTIONS.filter((note) => note >= range.min).map((note) => (
+              <option key={note} value={note}>
+                {formatNote(note)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
       <section className="ie-random" aria-label="Zufallsübung">
         {randomPick ? (
           <>
@@ -156,9 +240,17 @@ export function IntonationPracticePage() {
             </button>
           </>
         ) : (
-          <button type="button" className="ie-random-button" onClick={drawRandom}>
+          <button
+            type="button"
+            className="ie-random-button"
+            disabled={placements.length === 0}
+            onClick={drawRandom}
+          >
             Zufallsübung aufdecken
           </button>
+        )}
+        {placements.length === 0 && (
+          <p className="ie-hint">Keine Übung passt in diesen Tonumfang.</p>
         )}
       </section>
 
@@ -171,7 +263,8 @@ export function IntonationPracticePage() {
                 type="button"
                 className="ie-pitch-toggle"
                 aria-haspopup="dialog"
-                onClick={() => setOpenPitch(pitchClass)}
+                disabled={startsByPitchClass[pitchClass].length === 0}
+                onClick={() => openPitchClass(pitchClass)}
               >
                 {label}
               </button>
@@ -180,30 +273,44 @@ export function IntonationPracticePage() {
         </ul>
       </section>
 
-      {openPitch !== null && (
-        <div className="ie-overlay" onClick={() => setOpenPitch(null)}>
+      {openStart !== null && (
+        <div className="ie-overlay" onClick={() => setOpenStart(null)}>
           <div
             className="ie-overlay-panel"
             role="dialog"
             aria-modal="true"
-            aria-label={`Übungen ab ${PITCH_CLASS_LABELS[openPitch]}`}
+            aria-label={`Übungen ab ${PITCH_CLASS_LABELS[pitchClassOf(openStart)]}`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="ie-overlay-head">
-              <h2>Start auf {PITCH_CLASS_LABELS[openPitch]}</h2>
-              <button type="button" className="ie-overlay-close" onClick={() => setOpenPitch(null)}>
+              <h2>Start auf {formatNote(openStart)}</h2>
+              <button type="button" className="ie-overlay-close" onClick={() => setOpenStart(null)}>
                 Schließen
               </button>
             </div>
-            <ul className="ie-list">
-              {exercises.map((exercise) => (
-                <ExerciseItem
-                  key={`${openPitch}-${exercise.id}`}
-                  exercise={exercise}
-                  transpose={shiftToPitchClass(exercise.notes[0], openPitch)}
-                  onPlay={handlePlay}
-                />
+            <div className="ie-start-select" role="group" aria-label="Startton">
+              {startsByPitchClass[pitchClassOf(openStart)].map((start) => (
+                <button
+                  key={start}
+                  type="button"
+                  aria-pressed={start === openStart}
+                  onClick={() => setOpenStart(start)}
+                >
+                  {formatNote(start)}
+                </button>
               ))}
+            </div>
+            <ul className="ie-list">
+              {placements
+                .filter((entry) => entry.start === openStart)
+                .map(({ exercise, shift }) => (
+                  <ExerciseItem
+                    key={`${openStart}-${exercise.id}`}
+                    exercise={exercise}
+                    transpose={shift}
+                    onPlay={handlePlay}
+                  />
+                ))}
             </ul>
           </div>
         </div>
