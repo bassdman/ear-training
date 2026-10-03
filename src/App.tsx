@@ -4,6 +4,7 @@ import { CampaignTrainerPage } from './features/campaign/CampaignTrainerPage'
 import { CoursePage } from './pages/course/CoursePage'
 import { HomePage } from './pages/home/HomePage'
 import { IntonationTrainingPage } from './pages/intonation/IntonationTrainingPage'
+import { IntonationExercisesPage } from './pages/intonationExercises/IntonationExercisesPage'
 import { TrainerPage } from './pages/TrainerPage'
 import { ExerciseSettings } from './components/ExcerciseSettings'
 import { ConverterPage } from './pages/converter/ConverterPage'
@@ -17,6 +18,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/course" element={<CoursePage />} />
       <Route path="/intonation-training" element={<IntonationTrainingPage />} />
+      <Route path="/intonation-exercises" element={<IntonationExercisesPage />} />
       <Route path="/converter" element={<ConverterPage />} />
       <Route
         path="/campaign"

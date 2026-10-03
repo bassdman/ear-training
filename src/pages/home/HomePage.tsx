@@ -45,6 +45,16 @@ export function HomePage() {
             </Link>
           </article>
 
+          <article className="home-card">
+            <h2>Intonationsübungen</h2>
+            <p>
+              Lege Tonfolgen an, die in mehreren Tonhöhen und Abschnitten geübt werden.
+            </p>
+            <Link className="home-link is-secondary" to="/intonation-exercises">
+              Zu den Übungen
+            </Link>
+          </article>
+
         </section>
 
         <footer className="home-footer">
