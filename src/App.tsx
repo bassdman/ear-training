@@ -7,6 +7,7 @@ import { IntonationTrainingPage } from './pages/intonation/IntonationTrainingPag
 import { IntonationCreatePage } from './pages/intonationExercises/IntonationCreatePage'
 import { IntonationExercisesLayout } from './pages/intonationExercises/IntonationExercisesLayout'
 import { IntonationPracticePage } from './pages/intonationExercises/IntonationPracticePage'
+import { IntonationSongsPage } from './pages/intonationExercises/IntonationSongsPage'
 import { TrainerPage } from './pages/TrainerPage'
 import { ExerciseSettings } from './components/ExcerciseSettings'
 import { ConverterPage } from './pages/converter/ConverterPage'
@@ -23,6 +24,7 @@ function App() {
       <Route path="/intonation-exercises" element={<IntonationExercisesLayout />}>
         <Route index element={<Navigate to="practice" replace />} />
         <Route path="practice" element={<IntonationPracticePage />} />
+        <Route path="songs" element={<IntonationSongsPage />} />
         <Route path="create" element={<IntonationCreatePage />} />
       </Route>
       <Route path="/converter" element={<ConverterPage />} />

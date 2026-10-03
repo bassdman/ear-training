@@ -13,6 +13,7 @@ export function IntonationExercisesLayout() {
 
         <nav className="ie-nav" aria-label="Bereiche">
           <NavLink to="/intonation-exercises/practice">Üben</NavLink>
+          <NavLink to="/intonation-exercises/songs">Lieder</NavLink>
           <NavLink to="/intonation-exercises/create">Erstellen</NavLink>
         </nav>
 

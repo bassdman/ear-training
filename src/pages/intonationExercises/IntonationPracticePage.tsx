@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import randomSyllables from '../../features/intonationPractice/config/randomSyllables.json'
@@ -18,35 +18,15 @@ import {
   loadRange,
   saveRange,
 } from '../../features/intonationPractice/storage'
-import type { Exercise, Step, SyllableMode } from '../../features/intonationPractice/types'
+import type { Exercise, SyllableMode } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
-import {
-  decodeSyllableMode,
-  encodeSyllableMode,
-} from '../../features/intonationPractice/syllables'
-
-const describeStep = (step: Step) =>
-  step.notes
-    .map((note, index) => [formatNote(note), step.syllables?.[index]].filter(Boolean).join(' '))
-    .join(', ')
-
-function StepLabel({ step }: { step: Step }) {
-  return step.notes.map((note, index) => (
-    <Fragment key={index}>
-      {index > 0 && <span className="ie-step-dash">–</span>}
-      <span className="ie-step-note">
-        <span>{formatNote(note)}</span>
-        {step.syllables && <small>{step.syllables[index]}</small>}
-      </span>
-    </Fragment>
-  ))
-}
+import { PracticeCard } from './PracticeCard'
 
 type ExerciseItemProps = {
   exercise: Exercise
   transpose: number
   initialSyllableMode?: SyllableMode
-  onPlay: (notes: number[]) => void
+  onPlay: (notes: (number | null)[]) => void
 }
 
 function ExerciseItem({
@@ -63,97 +43,21 @@ function ExerciseItem({
   )
   // shuffleCount erzwingt eine neue Zufallsreihenfolge.
   const sections = useMemo(
-    () =>
-      generateSections(notes, {
-        syllableMode,
-        syllablePool: randomSyllables,
-      }),
+    () => generateSections(notes, { syllableMode, syllablePool: randomSyllables }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [notes, syllableMode, shuffleCount],
   )
-  const flatSteps = useMemo(
-    () =>
-      sections.flatMap((section) =>
-        section.steps.map((step) => ({ kind: section.kind, title: section.title, step })),
-      ),
-    [sections],
-  )
-  // Anzahl der abgehakten Schritte; nur der nächste offene Schritt ist sichtbar.
-  const [doneCount, setDoneCount] = useState(0)
-  const visibleSteps = flatSteps.slice(0, doneCount + 1)
-  const isComplete = doneCount >= flatSteps.length
 
   return (
-    <li className={`ie-item ${isComplete ? 'is-complete' : ''}`}>
-      <div className="ie-item-head">
-        <div>
-          <strong>{exercise.name}</strong>
-          <span className="ie-notes">{notes.map(formatNote).join(' ')}</span>
-        </div>
-        <label className="ie-syllable-select">
-          Silbe
-          <select
-            value={encodeSyllableMode(syllableMode)}
-            onChange={(event) => setSyllableMode(decodeSyllableMode(event.target.value))}
-          >
-            <option value="off">Aus</option>
-            <option value="random">Zufällig</option>
-            {randomSyllables.map((syllable) => (
-              <option key={syllable} value={`fixed:${syllable}`}>
-                {syllable}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <ol className="ie-sections">
-        {visibleSteps.map((entry, index) => {
-          const label = describeStep(entry.step)
-          const isDone = index < doneCount
-          const isFirstOfSection = index === 0 || visibleSteps[index - 1].title !== entry.title
-          const canToggle = index === doneCount || index === doneCount - 1
-
-          return (
-            <li key={index} className={isDone ? 'is-done' : ''}>
-              <span className="ie-section-title">{isFirstOfSection ? entry.title : ''}</span>
-              <span className="ie-steps">
-                <button
-                  type="button"
-                  className="ie-step"
-                  aria-label={`${entry.title} abspielen: ${label}`}
-                  onClick={() => onPlay(entry.step.notes)}
-                >
-                  <StepLabel step={entry.step} />
-                </button>
-                {entry.kind === 'random' && (
-                  <button
-                    type="button"
-                    className="ie-step ie-shuffle"
-                    aria-label="Zufällige Töne neu mischen"
-                    title="Neu mischen"
-                    onClick={() => setShuffleCount((count) => count + 1)}
-                  >
-                    ↻
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="ie-done"
-                  aria-label={`${label} geschafft`}
-                  aria-pressed={isDone}
-                  disabled={!canToggle}
-                  onClick={() => setDoneCount(isDone ? index : index + 1)}
-                >
-                  ✓
-                </button>
-              </span>
-            </li>
-          )
-        })}
-      </ol>
-      {isComplete && <p className="ie-hint">Alle Schritte geschafft.</p>}
-    </li>
+    <PracticeCard
+      title={exercise.name}
+      subtitle={notes.map(formatNote).join(' ')}
+      sections={sections}
+      syllableMode={syllableMode}
+      onSyllableModeChange={setSyllableMode}
+      onShuffle={() => setShuffleCount((count) => count + 1)}
+      onPlay={onPlay}
+    />
   )
 }
 
@@ -209,7 +113,7 @@ export function IntonationPracticePage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [openStart])
 
-  const handlePlay = (notes: number[]) => void play(notes)
+  const handlePlay = (notes: (number | null)[]) => void play(notes)
 
   const openPitchClass = (pitchClass: number) => {
     const starts = startsByPitchClass[pitchClass]

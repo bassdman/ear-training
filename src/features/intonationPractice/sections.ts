@@ -30,6 +30,8 @@ export function generateSections(
     random?: () => number
     syllableMode?: SyllableMode
     syllablePool?: readonly string[]
+    // Aufeinanderfolgende Töne gelten nur innerhalb einer Sequenz als Tonwechsel (Standard: die ganze Tonfolge)
+    pairSequences?: readonly (readonly number[])[]
   } = {},
 ): Section[] {
   const {
@@ -54,11 +56,13 @@ export function generateSections(
 
   const pairKeys = new Set<string>()
   const pairs: Step[] = []
-  for (let i = 0; i < notes.length - 1; i++) {
-    const key = `${notes[i]}:${notes[i + 1]}`
-    if (notes[i] === notes[i + 1] || pairKeys.has(key)) continue
-    pairKeys.add(key)
-    pairs.push(stepAt(i, i + 1))
+  for (const sequence of options.pairSequences ?? [notes]) {
+    for (let i = 0; i < sequence.length - 1; i++) {
+      const key = `${sequence[i]}:${sequence[i + 1]}`
+      if (sequence[i] === sequence[i + 1] || pairKeys.has(key)) continue
+      pairKeys.add(key)
+      pairs.push(withSyllables([sequence[i], sequence[i + 1]]))
+    }
   }
 
   const randomNotes: number[] = []

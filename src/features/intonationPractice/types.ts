@@ -14,10 +14,11 @@ export type SyllableMode =
 // Halbtöne relativ zum Original oder beliebige Tonhöhe
 export type Transposition = number | 'random'
 
-export type SectionKind = 'single' | 'pairs' | 'random' | 'original'
+export type SectionKind = 'single' | 'pairs' | 'random' | 'original' | 'lyrics'
 
+// null steht für eine Pause (nur im Liedtext)
 export type Step = {
-  notes: number[]
+  notes: (number | null)[]
   syllables?: string[]
 }
 
@@ -25,4 +26,13 @@ export type Section = {
   kind: SectionKind
   title: string
   steps: Step[]
+}
+
+// note null = Pause; text ist leer, wenn zum Ton nichts gesungen wird
+export type SongNote = { note: number | null; text: string }
+
+export type Song = {
+  id: string
+  name: string
+  lines: SongNote[][]
 }

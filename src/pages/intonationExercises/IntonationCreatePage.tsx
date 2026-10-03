@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { formatNote, parseNoteSequence } from '../../features/intonationPractice/notes'
 import { loadExercises, saveExercises } from '../../features/intonationPractice/storage'
 import type { Exercise } from '../../features/intonationPractice/types'
+import { SongCreateSection } from './SongCreateSection'
 
 export function IntonationCreatePage() {
   const [exercises, setExercises] = useState<Exercise[]>(loadExercises)
@@ -38,6 +39,7 @@ export function IntonationCreatePage() {
 
   return (
     <>
+      <h2 className="ie-heading">Übung anlegen</h2>
       <form className="ie-form" onSubmit={handleSubmit}>
         <label>
           Name (optional)
@@ -86,6 +88,8 @@ export function IntonationCreatePage() {
           ))}
         </ul>
       )}
+
+      <SongCreateSection />
     </>
   )
 }

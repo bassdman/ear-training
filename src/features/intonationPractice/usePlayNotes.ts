@@ -8,7 +8,7 @@ export function usePlayNotes() {
   const contextRef = useRef<AudioContext | null>(null)
   const instrumentRef = useRef<ReturnType<typeof Soundfont> | null>(null)
 
-  const play = useCallback(async (notes: readonly number[]) => {
+  const play = useCallback(async (notes: readonly (number | null)[]) => {
     setError(null)
     try {
       if (!contextRef.current || contextRef.current.state === 'closed') {
@@ -31,6 +31,7 @@ export function usePlayNotes() {
       instrument.stop()
       const startTime = context.currentTime + 0.05
       notes.forEach((note, index) => {
+        if (note === null) return
         instrument.start({
           note,
           time: startTime + index * NOTE_DURATION_S,

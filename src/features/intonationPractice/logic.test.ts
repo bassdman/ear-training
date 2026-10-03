@@ -14,9 +14,20 @@ import {
   resolveTransposition,
 } from './sections'
 import { decodeSyllableMode, encodeSyllableMode } from './syllables'
-import { loadAllExercises, loadExercises, loadRange, saveExercises, saveRange } from './storage'
+import { flattenSong, generateSongSections, parseSongInput, sliceSong } from './songs'
+import {
+  loadAllExercises,
+  loadAllSongs,
+  loadExercises,
+  loadRange,
+  loadSongs,
+  saveExercises,
+  saveRange,
+  saveSongs,
+} from './storage'
 import { DEFAULT_NOTE_RANGE, startNotesInRange } from './range'
 import { DEFAULT_EXERCISES } from './defaultExercises'
+import { DEFAULT_SONGS } from './defaultSongs'
 
 describe('notes', () => {
   it('parst Töne mit und ohne Oktave', () => {
@@ -46,7 +57,7 @@ describe('notes', () => {
 })
 
 describe('generateSections', () => {
-  const stepNotes = (section: { steps: { notes: number[] }[] }) =>
+  const stepNotes = (section: { steps: { notes: (number | null)[] }[] }) =>
     section.steps.map((step) => step.notes)
 
   it('erzeugt Einzeltöne, Tonwechsel, Zufall und Tonfolge', () => {
@@ -113,6 +124,110 @@ describe('pickSyllables', () => {
 
   it('liefert ohne Pool nichts', () => {
     expect(pickSyllables(3, [])).toEqual([])
+  })
+})
+
+describe('Lieder', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('parst Töne mit Text, ohne Text und Pausen zeilenweise', () => {
+    expect(parseSongInput('c4:Al e4 -\n\n g4:gel')).toEqual({
+      lines: [
+        [
+          { note: 60, text: 'Al' },
+          { note: 64, text: '' },
+          { note: null, text: '' },
+        ],
+        [{ note: 67, text: 'gel' }],
+      ],
+    })
+  })
+
+  it('meldet Fehler mit Zeilennummer und verlangt mindestens einen Ton', () => {
+    expect(parseSongInput('c4:a\nx4:b')).toEqual({ error: 'Zeile 2: Unbekannter Ton "x4"' })
+    expect(parseSongInput('  ')).toHaveProperty('error')
+    expect(parseSongInput('- -')).toHaveProperty('error')
+  })
+
+  it('erzeugt Aufwärmübungen aus allen Tönen und danach den Liedtext', () => {
+    const parsed = parseSongInput('c4:Al e4:le - g4:gel\nc4:fliegt')
+    if ('error' in parsed) throw new Error(parsed.error)
+    const sections = generateSongSections(
+      { id: '1', name: 'Lied', lines: parsed.lines },
+      { randomLength: 3, random: () => 0 },
+    )
+
+    expect(sections.map((section) => section.kind)).toEqual(['single', 'pairs', 'random', 'lyrics'])
+    expect(sections[0].steps.map((step) => step.notes)).toEqual([[60], [64], [67]])
+    // kein Tonwechsel über Pause oder Zeilenende hinweg
+    expect(sections[1].steps.map((step) => step.notes)).toEqual([[60, 64]])
+    expect(sections[3].steps).toEqual([
+      { notes: [60, 64, null, 67], syllables: ['Al', 'le', '', 'gel'] },
+      { notes: [60], syllables: ['fliegt'] },
+    ])
+  })
+
+  it('wählt einen Ausschnitt über Zeilen hinweg und lässt leere Zeilen weg', () => {
+    const parsed = parseSongInput('c4:a d4:b e4:c\nf4:d g4:e\na4:f')
+    if ('error' in parsed) throw new Error(parsed.error)
+    const song = { id: '1', name: 'Lied', lines: parsed.lines }
+
+    expect(flattenSong(song).map((entry) => [entry.index, entry.line])).toEqual([
+      [0, 0], [1, 0], [2, 0], [3, 1], [4, 1], [5, 2],
+    ])
+    expect(sliceSong(song, { start: 2, end: 4 }).lines.map((line) => line.map((entry) => entry.text))).toEqual([
+      ['c'],
+      ['d', 'e'],
+    ])
+    expect(sliceSong(song, { start: 5, end: 5 }).lines).toHaveLength(1)
+  })
+
+  it('erzeugt Übungen nur aus dem gewählten Ausschnitt', () => {
+    const parsed = parseSongInput('c4:a d4:b e4:c\nf4:d g4:e')
+    if ('error' in parsed) throw new Error(parsed.error)
+    const song = { id: '1', name: 'Lied', lines: parsed.lines }
+    const sections = generateSongSections(sliceSong(song, { start: 1, end: 3 }))
+
+    expect(sections[0].steps.map((step) => step.notes)).toEqual([[62], [64], [65]])
+    expect(sections[sections.length - 1].steps.map((step) => step.syllables)).toEqual([
+      ['b', 'c'],
+      ['d'],
+    ])
+  })
+
+  it('speichert Lieder und verwirft kaputte Einträge', () => {
+    const song = {
+      id: '1',
+      name: 'Lied',
+      lines: [[{ note: 60, text: 'a' }, { note: null, text: '' }]],
+    }
+    saveSongs([song])
+    expect(loadSongs()).toEqual([song])
+
+    window.localStorage.setItem(
+      'ear-training-intonation-songs-v1',
+      JSON.stringify([song, { id: '2', name: 'x', lines: [[{ note: 'c' }]] }]),
+    )
+    expect(loadSongs()).toEqual([song])
+  })
+})
+
+describe('Standardlieder', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('lädt jede Lieddatei aus config/songs', () => {
+    expect(DEFAULT_SONGS.map((song) => song.name)).toContain('Alle meine Entchen')
+    const entchen = DEFAULT_SONGS.find((song) => song.id === 'default-alle-meine-entchen')!
+    expect(entchen.lines).toHaveLength(5)
+    expect(entchen.lines[0].map((entry) => entry.text)).toEqual(['Al', 'le', 'mei', 'ne', 'Ent', 'chen'])
+    expect(entchen.lines[0].map((entry) => entry.note)).toEqual([60, 62, 64, 65, 67, 67])
+  })
+
+  it('liefert Standardlieder vor den eigenen Liedern', () => {
+    const own = { id: 'own', name: 'Eigenes', lines: [[{ note: 60, text: 'a' }]] }
+    saveSongs([own])
+    expect(loadAllSongs()).toEqual([...DEFAULT_SONGS, own])
+    expect(loadSongs()).toEqual([own])
   })
 })
 

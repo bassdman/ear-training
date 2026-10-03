@@ -404,3 +404,93 @@
   color: var(--theme-ink);
   background: var(--theme-background);
 }
+
+.ie-form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-ink);
+  font: inherit;
+  background: var(--theme-background);
+  resize: vertical;
+}
+
+.ie-hint code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--theme-soft);
+}
+
+.ie-song-lines {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--theme-muted);
+}
+
+.ie-song-select {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ie-song-text {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ie-song-text li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ie-song-entry {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 40px;
+  margin-bottom: 10px;
+}
+
+.ie-song-entry small {
+  min-height: 1em;
+  color: var(--theme-muted);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.ie-song-chip {
+  width: 100%;
+  padding: 2px 8px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-muted);
+  line-height: 1.2;
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-song-entry.is-in-range .ie-song-chip {
+  border-color: var(--theme-primary);
+  color: var(--theme-ink);
+  background: var(--theme-soft);
+}
+
+.ie-song-entry.is-in-range small {
+  color: var(--theme-ink);
+}
+
+.ie-song-chip.is-anchor {
+  border-style: dashed;
+  border-width: 2px;
+  border-color: var(--theme-primary);
+}
+
+.ie-song-actions {
+  display: flex;
+  gap: 8px;
+}
