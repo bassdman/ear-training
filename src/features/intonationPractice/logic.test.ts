@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { formatNote, parseNote, parseNoteSequence, transposeNotes } from './notes'
 import {
-  generateSections,
-  getPlayableNotes,
-  resolveTransposition,
-  TRANSPOSITION_OPTIONS,
-} from './sections'
+  formatNote,
+  parseNote,
+  parseNoteSequence,
+  shiftToPitchClass,
+  transposeNotes,
+} from './notes'
+import { generateSections, getPlayableNotes, resolveTransposition } from './sections'
 import { loadExercises, saveExercises } from './storage'
 
 describe('notes', () => {
@@ -61,8 +62,12 @@ describe('generateSections', () => {
 describe('Transposition', () => {
   const notes = [60, 64]
 
-  it('bietet -4 bis +4 und Zufall an', () => {
-    expect(TRANSPOSITION_OPTIONS).toEqual([-4, -3, -2, -1, 0, 1, 2, 3, 4, 'random'])
+  it('legt den ersten Ton auf die gewählte Tonklasse (kleinste Verschiebung)', () => {
+    expect(shiftToPitchClass(60, 0)).toBe(0)
+    expect(shiftToPitchClass(60, 2)).toBe(2)
+    expect(shiftToPitchClass(60, 7)).toBe(-5)
+    expect(shiftToPitchClass(64, 0)).toBe(-4)
+    expect(shiftToPitchClass(60, 6)).toBe(-6)
   })
 
   it('transponiert fest um den gewählten Wert', () => {

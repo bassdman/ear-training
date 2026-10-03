@@ -36,3 +36,11 @@ export function parseNoteSequence(input: string): ParsedSequence {
 export function transposeNotes(notes: readonly number[], semitones: number): number[] {
   return notes.map((note) => note + semitones)
 }
+
+export const PITCH_CLASS_LABELS = ['C', 'Cis', 'D', 'Dis', 'E', 'F', 'Fis', 'G', 'Gis', 'A', 'Ais', 'H']
+
+// Kleinste Verschiebung (-6 bis +5 Halbtöne), die den ersten Ton auf die Tonklasse legt.
+export function shiftToPitchClass(firstNote: number, pitchClass: number): number {
+  const shift = (((pitchClass - firstNote) % 12) + 12) % 12
+  return shift > 5 ? shift - 12 : shift
+}

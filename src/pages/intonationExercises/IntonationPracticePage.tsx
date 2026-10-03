@@ -1,36 +1,32 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { formatNote } from '../../features/intonationPractice/notes'
 import {
-  generateSections,
-  getPlayableNotes,
-  resolveTransposition,
-  TRANSPOSITION_OPTIONS,
-} from '../../features/intonationPractice/sections'
+  formatNote,
+  PITCH_CLASS_LABELS,
+  shiftToPitchClass,
+  transposeNotes,
+} from '../../features/intonationPractice/notes'
+import { generateSections, resolveTransposition } from '../../features/intonationPractice/sections'
 import { loadExercises } from '../../features/intonationPractice/storage'
-import type { Exercise, Transposition } from '../../features/intonationPractice/types'
+import type { Exercise } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
-
-const formatTranspose = (transpose: Transposition) =>
-  transpose === 'random' ? 'Zufall' : `${transpose > 0 ? '+' : ''}${transpose}`
 
 type ExerciseItemProps = {
   exercise: Exercise
+  transpose: number
   onPlay: (notes: number[]) => void
 }
 
-function ExerciseItem({ exercise, onPlay }: ExerciseItemProps) {
-  const [transpose, setTranspose] = useState<Transposition>(0)
+function ExerciseItem({ exercise, transpose, onPlay }: ExerciseItemProps) {
   const [shuffleCount, setShuffleCount] = useState(0)
-  // Bei Zufall wird die Anzeige im Original belassen und erst beim Abspielen verschoben.
-  const displayNotes = useMemo(
-    () => (transpose === 'random' ? exercise.notes : getPlayableNotes(exercise.notes, transpose)),
+  const notes = useMemo(
+    () => transposeNotes(exercise.notes, transpose),
     [exercise.notes, transpose],
   )
   // shuffleCount erzwingt eine neue Zufallsreihenfolge.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const sections = useMemo(() => generateSections(displayNotes), [displayNotes, shuffleCount])
+  const sections = useMemo(() => generateSections(notes), [notes, shuffleCount])
   const flatSteps = useMemo(
     () =>
       sections.flatMap((section) =>
@@ -41,25 +37,14 @@ function ExerciseItem({ exercise, onPlay }: ExerciseItemProps) {
   // Anzahl der abgehakten Schritte; nur der nächste offene Schritt ist sichtbar.
   const [doneCount, setDoneCount] = useState(0)
   const visibleSteps = flatSteps.slice(0, doneCount + 1)
-
   const isComplete = doneCount >= flatSteps.length
-
-  const selectTranspose = (option: Transposition) => {
-    setTranspose(option)
-    setDoneCount(0)
-  }
-
-  const playStep = (step: number[]) => {
-    const shift = transpose === 'random' ? resolveTransposition('random') : 0
-    onPlay(step.map((note) => note + shift))
-  }
 
   return (
     <li className={`ie-item ${isComplete ? 'is-complete' : ''}`}>
       <div className="ie-item-head">
         <div>
           <strong>{exercise.name}</strong>
-          <span className="ie-notes">{exercise.notes.map(formatNote).join(' ')}</span>
+          <span className="ie-notes">{notes.map(formatNote).join(' ')}</span>
         </div>
       </div>
 
@@ -78,7 +63,7 @@ function ExerciseItem({ exercise, onPlay }: ExerciseItemProps) {
                   type="button"
                   className="ie-step"
                   aria-label={`${entry.title} abspielen: ${label}`}
-                  onClick={() => playStep(entry.step)}
+                  onClick={() => onPlay(entry.step)}
                 >
                   {label}
                 </button>
@@ -109,34 +94,43 @@ function ExerciseItem({ exercise, onPlay }: ExerciseItemProps) {
         })}
       </ol>
       {isComplete && <p className="ie-hint">Alle Schritte geschafft.</p>}
-
-      <div className="ie-transpose" role="radiogroup" aria-label={`Transponieren ${exercise.name}`}>
-        <span>Transponieren</span>
-        {TRANSPOSITION_OPTIONS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={option === transpose}
-            className={option === transpose ? 'is-selected' : ''}
-            onClick={() => selectTranspose(option)}
-          >
-            {formatTranspose(option)}
-          </button>
-        ))}
-      </div>
-      <p className="ie-hint">
-        {transpose === 'random'
-          ? 'Beliebige Tonhöhe bei jedem Durchgang'
-          : getPlayableNotes(exercise.notes, transpose).map(formatNote).join(' ')}
-      </p>
     </li>
   )
 }
 
+type RandomPick = { id: number; exercise: Exercise; transpose: number }
+
 export function IntonationPracticePage() {
   const [exercises] = useState<Exercise[]>(loadExercises)
+  const [randomPick, setRandomPick] = useState<RandomPick | null>(null)
+  const [openPitch, setOpenPitch] = useState<number | null>(null)
   const { play, error: playError } = usePlayNotes()
+
+  useEffect(() => {
+    if (openPitch === null) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenPitch(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [openPitch])
+
+  const handlePlay = (notes: number[]) => void play(notes)
+
+  const drawRandom = () =>
+    setRandomPick((previous) => ({
+      id: (previous?.id ?? 0) + 1,
+      exercise: exercises[Math.floor(Math.random() * exercises.length)],
+      transpose: resolveTransposition('random'),
+    }))
+
+  if (exercises.length === 0) {
+    return (
+      <p className="ie-hint">
+        Noch keine Übungen. <Link to="/intonation-exercises/create">Übung erstellen</Link>
+      </p>
+    )
+  }
 
   return (
     <>
@@ -146,16 +140,73 @@ export function IntonationPracticePage() {
         </p>
       )}
 
-      {exercises.length === 0 ? (
-        <p className="ie-hint">
-          Noch keine Übungen. <Link to="/intonation-exercises/create">Übung erstellen</Link>
-        </p>
-      ) : (
-        <ul className="ie-list" aria-label="Übungen">
-          {exercises.map((exercise) => (
-            <ExerciseItem key={exercise.id} exercise={exercise} onPlay={(notes) => void play(notes)} />
+      <section className="ie-random" aria-label="Zufallsübung">
+        {randomPick ? (
+          <>
+            <ul className="ie-list">
+              <ExerciseItem
+                key={randomPick.id}
+                exercise={randomPick.exercise}
+                transpose={randomPick.transpose}
+                onPlay={handlePlay}
+              />
+            </ul>
+            <button type="button" className="ie-random-button is-small" onClick={drawRandom}>
+              Neue Zufallsübung
+            </button>
+          </>
+        ) : (
+          <button type="button" className="ie-random-button" onClick={drawRandom}>
+            Zufallsübung aufdecken
+          </button>
+        )}
+      </section>
+
+      <section aria-label="Tonhöhen">
+        <h2 className="ie-heading">Tonhöhen</h2>
+        <ul className="ie-pitch-grid">
+          {PITCH_CLASS_LABELS.map((label, pitchClass) => (
+            <li key={label}>
+              <button
+                type="button"
+                className="ie-pitch-toggle"
+                aria-haspopup="dialog"
+                onClick={() => setOpenPitch(pitchClass)}
+              >
+                {label}
+              </button>
+            </li>
           ))}
         </ul>
+      </section>
+
+      {openPitch !== null && (
+        <div className="ie-overlay" onClick={() => setOpenPitch(null)}>
+          <div
+            className="ie-overlay-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Übungen ab ${PITCH_CLASS_LABELS[openPitch]}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ie-overlay-head">
+              <h2>Start auf {PITCH_CLASS_LABELS[openPitch]}</h2>
+              <button type="button" className="ie-overlay-close" onClick={() => setOpenPitch(null)}>
+                Schließen
+              </button>
+            </div>
+            <ul className="ie-list">
+              {exercises.map((exercise) => (
+                <ExerciseItem
+                  key={`${openPitch}-${exercise.id}`}
+                  exercise={exercise}
+                  transpose={shiftToPitchClass(exercise.notes[0], openPitch)}
+                  onPlay={handlePlay}
+                />
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
     </>
   )

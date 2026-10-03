@@ -35,11 +35,6 @@ export function generateSections(
   return sections
 }
 
-export const MAX_TRANSPOSE = 4
-export const TRANSPOSITION_OPTIONS: Transposition[] = [
-  ...Array.from({ length: 2 * MAX_TRANSPOSE + 1 }, (_, i) => i - MAX_TRANSPOSE),
-  'random',
-]
 const RANDOM_TRANSPOSE_RANGE = { min: -6, max: 5 }
 
 // Bei 'random' wird eine Tonhöhe innerhalb einer Oktave gewählt.
