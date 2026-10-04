@@ -48,10 +48,17 @@ export function getMicrophoneErrorMessage(error: unknown): string {
   return 'Das Mikrofon konnte nicht verwendet werden. Versuche es erneut.'
 }
 
-export function detectPitch(samples: Float32Array, sampleRate: number): number | null {
+export const DEFAULT_MIN_RMS = 0.015
+export const DEFAULT_MIN_CORRELATION = 0.75
+
+export function detectPitch(
+  samples: Float32Array,
+  sampleRate: number,
+  { minRms = DEFAULT_MIN_RMS, minCorrelation = DEFAULT_MIN_CORRELATION } = {},
+): number | null {
   let rms = 0
   for (const sample of samples) rms += sample * sample
-  if (Math.sqrt(rms / samples.length) < 0.015) return null
+  if (Math.sqrt(rms / samples.length) < minRms) return null
 
   const minimumLag = Math.floor(sampleRate / 1000)
   const maximumLag = Math.floor(sampleRate / 70)
@@ -74,5 +81,5 @@ export function detectPitch(samples: Float32Array, sampleRate: number): number |
     }
   }
 
-  return bestLag === -1 || bestCorrelation < 0.75 ? null : sampleRate / bestLag
+  return bestLag === -1 || bestCorrelation < minCorrelation ? null : sampleRate / bestLag
 }

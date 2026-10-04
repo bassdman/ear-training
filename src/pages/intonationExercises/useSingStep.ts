@@ -3,19 +3,46 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   describePitch,
   INITIAL_SING_STATE,
+  stableFrequency,
   stepSingState,
   type PitchReading,
+  type SingOptions,
   type SingState,
 } from '../../features/intonationPractice/singing'
 import {
   PITCH_MAX_RECORDING_DURATION_MS,
   PITCH_SILENCE_TIMEOUT_MS,
   PITCH_TOLERANCE_CENTS,
-  REQUIRED_STABLE_SAMPLES,
 } from '../intonation/config'
 import { detectPitch, getMicrophoneErrorMessage } from '../intonation/helpers/pitchUtils'
 
+// Stellschrauben der Erkennung beim Singen
 export const SING_HOLD_MS = 2000
+// Aussetzer bis zu dieser Dauer pausieren die Haltezeit nur
+export const SING_GRACE_MS = 1500
+export const SING_RELEASE_MS = 200
+// Pegel- und Qualitätsschwelle der Tonhöhenerkennung (niedriger = empfindlicher)
+export const SING_MIN_RMS = 0.008
+export const SING_MIN_CORRELATION = 0.65
+// Messungen der letzten SING_WINDOW_MS werden zu einem Wert zusammengefasst
+export const SING_WINDOW_MS = 250
+export const SING_STABLE = { minSamples: 3, maxDeviationCents: 50, minShare: 0.6 }
+// So lange bleibt der zuletzt gehörte Ton in der Anzeige stehen
+export const SING_DISPLAY_HOLD_MS = 600
+
+// Entrauschen/Pegelregelung des Browsers würde gesungene Töne teils abschneiden
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+}
+
+const SING_OPTIONS: SingOptions = {
+  holdMs: SING_HOLD_MS,
+  toleranceCents: PITCH_TOLERANCE_CENTS,
+  graceMs: SING_GRACE_MS,
+  releaseMs: SING_RELEASE_MS,
+}
 
 export type SingProgress = {
   noteIndex: number
@@ -69,7 +96,7 @@ export function useSingStep() {
       }
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
         const audioContext = new AudioContext()
         // iOS/Safari startet den Kontext nach dem await manchmal angehalten
         if (audioContext.state === 'suspended') await audioContext.resume()
@@ -77,7 +104,7 @@ export function useSingStep() {
         analyser.fftSize = 2048
         audioContext.createMediaStreamSource(stream).connect(analyser)
         const samples = new Float32Array(analyser.fftSize)
-        const stableFrequencies: number[] = []
+        const recent: { frequency: number; time: number }[] = []
 
         streamRef.current = stream
         audioContextRef.current = audioContext
@@ -88,56 +115,47 @@ export function useSingStep() {
         const startTime = performance.now()
         const maxDuration = PITCH_MAX_RECORDING_DURATION_MS * targets.length
         let lastAudibleTime = startTime
+        let lastReading: { reading: PitchReading; time: number } | null = null
         let state: SingState = INITIAL_SING_STATE
 
         const analyse = () => {
           const now = performance.now()
           analyser.getFloatTimeDomainData(samples)
-          const frequency = detectPitch(samples, audioContext.sampleRate)
-          const options = { holdMs: SING_HOLD_MS, toleranceCents: PITCH_TOLERANCE_CENTS }
+          const frequency = detectPitch(samples, audioContext.sampleRate, {
+            minRms: SING_MIN_RMS,
+            minCorrelation: SING_MIN_CORRELATION,
+          })
 
-          if (frequency === null) {
-            stableFrequencies.length = 0
-            state = stepSingState(state, targets, null, now, options).state
-            setProgress({
-              noteIndex: state.index,
-              total: targets.length,
-              target: targets[state.index],
-              hold: 0,
-              detected: null,
-            })
-            if (now - lastAudibleTime >= PITCH_SILENCE_TIMEOUT_MS) {
-              stop()
-              return
-            }
-          } else {
+          if (frequency !== null) {
             lastAudibleTime = now
-            stableFrequencies.push(frequency)
-            if (stableFrequencies.length > REQUIRED_STABLE_SAMPLES) stableFrequencies.shift()
-            const spreadInCents =
-              1200 * Math.log2(Math.max(...stableFrequencies) / Math.min(...stableFrequencies))
+            recent.push({ frequency, time: now })
+          }
+          while (recent.length > 0 && now - recent[0].time > SING_WINDOW_MS) recent.shift()
 
-            if (stableFrequencies.length >= 2 && spreadInCents < 50) {
-              const average =
-                stableFrequencies.reduce((sum, value) => sum + value, 0) / stableFrequencies.length
-              const result = stepSingState(state, targets, average, now, options)
-              state = result.state
-              if (result.done) {
-                stop()
-                onSuccess()
-                return
-              }
-              setProgress({
-                noteIndex: state.index,
-                total: targets.length,
-                target: targets[state.index],
-                hold: result.holdProgress,
-                detected: describePitch(average),
-              })
-            }
+          const stable = stableFrequency(
+            recent.map((entry) => entry.frequency),
+            SING_STABLE,
+          )
+          if (stable !== null) lastReading = { reading: describePitch(stable), time: now }
+
+          const result = stepSingState(state, targets, stable, now, SING_OPTIONS)
+          state = result.state
+          if (result.done) {
+            stop()
+            onSuccess()
+            return
           }
 
-          if (now - startTime >= maxDuration) {
+          setProgress({
+            noteIndex: state.index,
+            total: targets.length,
+            target: targets[state.index],
+            hold: result.holdProgress,
+            detected:
+              lastReading && now - lastReading.time < SING_DISPLAY_HOLD_MS ? lastReading.reading : null,
+          })
+
+          if (now - lastAudibleTime >= PITCH_SILENCE_TIMEOUT_MS || now - startTime >= maxDuration) {
             stop()
             return
           }
