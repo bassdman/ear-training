@@ -9,6 +9,12 @@ import {
 import type { Section, Step, SyllableMode } from '../../features/intonationPractice/types'
 import type { SingController } from './useSingStep'
 
+function describeHeard({ detected, target }: NonNullable<SingController['progress']>) {
+  if (!detected) return 'Kein Ton erkannt – bitte lauter oder näher am Mikrofon singen'
+  const sameNoteOtherOctave = detected.midi !== target && detected.midi % 12 === target % 12
+  return `Gehört: ${formatNote(detected.midi)}${sameNoteOtherOctave ? ' – richtige Note, aber andere Oktave' : ''}`
+}
+
 function MicIcon() {
   return (
     <svg
@@ -177,6 +183,7 @@ export function PracticeCard({
                     Ton {sing.progress.noteIndex + 1} von {sing.progress.total}:{' '}
                     {formatNote(sing.progress.target)} halten
                     <progress value={sing.progress.hold} max={1} />
+                    <span className="ie-sing-heard">{describeHeard(sing.progress)}</span>
                   </span>
                 )}
                 <button

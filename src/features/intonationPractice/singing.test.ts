@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { centsFromTarget, INITIAL_SING_STATE, stepSingState } from './singing'
+import { centsFromTarget, describePitch, INITIAL_SING_STATE, stepSingState } from './singing'
 
 const options = { holdMs: 2000, toleranceCents: 50 }
 const a4 = 440
@@ -10,6 +10,14 @@ describe('centsFromTarget', () => {
   it('liefert 0 beim exakten Ton und 100 bei einem Halbton darüber', () => {
     expect(centsFromTarget(440, midiA4)).toBeCloseTo(0)
     expect(centsFromTarget(440 * 2 ** (1 / 12), midiA4)).toBeCloseTo(100)
+  })
+})
+
+describe('describePitch', () => {
+  it('liefert den nächsten Halbton und die Abweichung in Cent', () => {
+    expect(describePitch(440)).toEqual({ midi: 69, cents: 0 })
+    expect(describePitch(440 * 2 ** (30 / 1200))).toEqual({ midi: 69, cents: 30 })
+    expect(describePitch(261.63).midi).toBe(60)
   })
 })
 

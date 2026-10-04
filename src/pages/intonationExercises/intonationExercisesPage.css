@@ -527,6 +527,7 @@
 }
 
 .ie-sing-status {
+  flex-wrap: wrap;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -537,4 +538,9 @@
 .ie-sing-status progress {
   width: 80px;
   accent-color: var(--theme-positive);
+}
+
+.ie-sing-heard {
+  flex-basis: 100%;
+  font-weight: 600;
 }

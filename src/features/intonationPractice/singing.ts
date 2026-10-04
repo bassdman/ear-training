@@ -13,6 +13,14 @@ export function centsFromTarget(frequency: number, targetMidi: number): number {
   return 1200 * Math.log2(frequency / (440 * 2 ** ((targetMidi - 69) / 12)))
 }
 
+export type PitchReading = { midi: number; cents: number }
+
+// Nächster Halbton zur Frequenz samt Abweichung in Cent.
+export function describePitch(frequency: number): PitchReading {
+  const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
+  return { midi, cents: Math.round(centsFromTarget(frequency, midi)) }
+}
+
 // frequency null = nichts gesungen; sonst die stabilisierte Frequenz.
 export function stepSingState(
   state: SingState,

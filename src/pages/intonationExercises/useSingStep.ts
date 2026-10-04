@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
+  describePitch,
   INITIAL_SING_STATE,
   stepSingState,
+  type PitchReading,
   type SingState,
 } from '../../features/intonationPractice/singing'
 import {
@@ -15,7 +17,14 @@ import { detectPitch, getMicrophoneErrorMessage } from '../intonation/helpers/pi
 
 export const SING_HOLD_MS = 2000
 
-export type SingProgress = { noteIndex: number; total: number; target: number; hold: number }
+export type SingProgress = {
+  noteIndex: number
+  total: number
+  target: number
+  hold: number
+  // null: gerade kein Ton erkannt
+  detected: PitchReading | null
+}
 
 // Nimmt über das Mikrofon auf und meldet Erfolg, wenn jeder Ton der Reihe nach SING_HOLD_MS lang trifft.
 export function useSingStep() {
@@ -62,6 +71,8 @@ export function useSingStep() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         const audioContext = new AudioContext()
+        // iOS/Safari startet den Kontext nach dem await manchmal angehalten
+        if (audioContext.state === 'suspended') await audioContext.resume()
         const analyser = audioContext.createAnalyser()
         analyser.fftSize = 2048
         audioContext.createMediaStreamSource(stream).connect(analyser)
@@ -72,7 +83,7 @@ export function useSingStep() {
         audioContextRef.current = audioContext
         keyRef.current = key
         setListeningKey(key)
-        setProgress({ noteIndex: 0, total: targets.length, target: targets[0], hold: 0 })
+        setProgress({ noteIndex: 0, total: targets.length, target: targets[0], hold: 0, detected: null })
 
         const startTime = performance.now()
         const maxDuration = PITCH_MAX_RECORDING_DURATION_MS * targets.length
@@ -88,7 +99,13 @@ export function useSingStep() {
           if (frequency === null) {
             stableFrequencies.length = 0
             state = stepSingState(state, targets, null, now, options).state
-            setProgress({ noteIndex: state.index, total: targets.length, target: targets[state.index], hold: 0 })
+            setProgress({
+              noteIndex: state.index,
+              total: targets.length,
+              target: targets[state.index],
+              hold: 0,
+              detected: null,
+            })
             if (now - lastAudibleTime >= PITCH_SILENCE_TIMEOUT_MS) {
               stop()
               return
@@ -115,6 +132,7 @@ export function useSingStep() {
                 total: targets.length,
                 target: targets[state.index],
                 hold: result.holdProgress,
+                detected: describePitch(average),
               })
             }
           }
