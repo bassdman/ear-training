@@ -26,16 +26,13 @@ function SongItem({ song, onPlay, sing }: SongItemProps) {
   const [range, setRange] = useState<SongRange>(fullRange)
   // Erster Klick der Auswahl; erst der zweite Klick legt den Bereich fest.
   const [anchor, setAnchor] = useState<number | null>(null)
-  const [shuffleCount, setShuffleCount] = useState(0)
 
   const selected = useMemo(() => sliceSong(song, range), [song, range])
-  // shuffleCount erzwingt eine neue Zufallsreihenfolge.
-  const sections = useMemo(
-    () => generateSongSections(selected),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, shuffleCount],
-  )
   const isFullSong = range.start === fullRange.start && range.end === fullRange.end
+  const sections = useMemo(
+    () => generateSongSections(selected, { withSelection: !isFullSong }),
+    [selected, isFullSong],
+  )
 
   const handleChipClick = (index: number) => {
     if (anchor === null) {
@@ -57,7 +54,6 @@ function SongItem({ song, onPlay, sing }: SongItemProps) {
       title={song.name}
       subtitle={isFullSong ? 'Ganzes Lied' : `Auswahl: Ton ${range.start + 1} bis ${range.end + 1}`}
       sections={sections}
-      onShuffle={() => setShuffleCount((count) => count + 1)}
       onPlay={onPlay}
       sing={sing}
     >

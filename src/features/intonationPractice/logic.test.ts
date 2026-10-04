@@ -152,16 +152,13 @@ describe('Lieder', () => {
   it('erzeugt Aufwärmübungen aus allen Tönen und danach den Liedtext', () => {
     const parsed = parseSongInput('c4:Al e4:le - g4:gel\nc4:fliegt')
     if ('error' in parsed) throw new Error(parsed.error)
-    const sections = generateSongSections(
-      { id: '1', name: 'Lied', lines: parsed.lines },
-      { randomLength: 3, random: () => 0 },
-    )
+    const sections = generateSongSections({ id: '1', name: 'Lied', lines: parsed.lines })
 
-    expect(sections.map((section) => section.kind)).toEqual(['single', 'pairs', 'random', 'lyrics'])
+    expect(sections.map((section) => section.kind)).toEqual(['single', 'pairs', 'lyrics'])
     expect(sections[0].steps.map((step) => step.notes)).toEqual([[60], [64], [67]])
     // kein Tonwechsel über Pause oder Zeilenende hinweg
     expect(sections[1].steps.map((step) => step.notes)).toEqual([[60, 64]])
-    expect(sections[3].steps).toEqual([
+    expect(sections[2].steps).toEqual([
       { notes: [60, 64, null, 67], syllables: ['Al', 'le', '', 'gel'] },
       { notes: [60], syllables: ['fliegt'] },
     ])
@@ -193,6 +190,20 @@ describe('Lieder', () => {
       ['b', 'c'],
       ['d'],
     ])
+  })
+
+  it('hängt eine Auswahl über mehrere Zeilen als eine zusammenhängende Unterübung an', () => {
+    const parsed = parseSongInput('c4:a d4:b e4:c\nf4:d g4:e')
+    if ('error' in parsed) throw new Error(parsed.error)
+    const song = { id: '1', name: 'Lied', lines: parsed.lines }
+
+    const multiLine = generateSongSections(sliceSong(song, { start: 1, end: 3 }), { withSelection: true })
+    expect(multiLine.map((section) => section.kind)).toEqual(['single', 'pairs', 'lyrics', 'selection'])
+    expect(multiLine[3].steps).toEqual([{ notes: [62, 64, 65], syllables: ['b', 'c', 'd'] }])
+
+    // innerhalb einer Zeile ist die Auswahl schon ein Liedtext-Schritt
+    const singleLine = generateSongSections(sliceSong(song, { start: 0, end: 1 }), { withSelection: true })
+    expect(singleLine.map((section) => section.kind)).toEqual(['single', 'pairs', 'lyrics'])
   })
 
   it('speichert Lieder und verwirft kaputte Einträge', () => {

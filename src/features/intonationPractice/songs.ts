@@ -64,9 +64,10 @@ export function sliceSong(song: Song, range: SongRange): Song {
 }
 
 // Aufwärmübungen mit allen Tönen des Liedes, danach der Liedtext Zeile für Zeile (ohne Transposition).
+// Mit withSelection kommt eine Auswahl über mehrere Zeilen zusätzlich als eine zusammenhängende Unterübung.
 export function generateSongSections(
   song: Song,
-  options: { randomLength?: number; random?: () => number } = {},
+  options: { withSelection?: boolean } = {},
 ): Section[] {
   const notes: number[] = []
   const runs: number[][] = []
@@ -84,16 +85,26 @@ export function generateSongSections(
     if (run.length > 0) runs.push(run)
   }
 
-  const warmUps = generateSections(notes, { ...options, pairSequences: runs }).filter(
-    (section) => section.kind !== 'original',
+  const warmUps = generateSections(notes, { pairSequences: runs }).filter(
+    (section) => section.kind === 'single' || section.kind === 'pairs',
   )
-  const lyrics: Section = {
-    kind: 'lyrics',
-    title: 'Liedtext',
-    steps: song.lines.map((line) => ({
-      notes: line.map((entry) => entry.note),
-      syllables: line.map((entry) => entry.text),
-    })),
+  const lyricSteps = song.lines.map((line) => ({
+    notes: line.map((entry) => entry.note),
+    syllables: line.map((entry) => entry.text),
+  }))
+  const sections: Section[] = [...warmUps, { kind: 'lyrics', title: 'Liedtext', steps: lyricSteps }]
+
+  if (options.withSelection && lyricSteps.length > 1) {
+    sections.push({
+      kind: 'selection',
+      title: 'Auswahl',
+      steps: [
+        {
+          notes: lyricSteps.flatMap((step) => step.notes),
+          syllables: lyricSteps.flatMap((step) => step.syllables),
+        },
+      ],
+    })
   }
-  return [...warmUps, lyrics]
+  return sections
 }

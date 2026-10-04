@@ -67,7 +67,7 @@ type PracticeCardProps = {
   sections: Section[]
   syllableMode?: SyllableMode
   onSyllableModeChange?: (mode: SyllableMode) => void
-  onShuffle: () => void
+  onShuffle?: () => void
   onPlay: (notes: (number | null)[]) => void
   sing?: SingController
   children?: ReactNode
@@ -149,7 +149,7 @@ export function PracticeCard({
                 >
                   <StepLabel step={entry.step} />
                 </button>
-                {entry.kind === 'random' && (
+                {entry.kind === 'random' && onShuffle && (
                   <button
                     type="button"
                     className="ie-step ie-shuffle"

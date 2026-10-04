@@ -14,7 +14,7 @@ export type SyllableMode =
 // Halbtöne relativ zum Original oder beliebige Tonhöhe
 export type Transposition = number | 'random'
 
-export type SectionKind = 'single' | 'pairs' | 'random' | 'original' | 'lyrics'
+export type SectionKind = 'single' | 'pairs' | 'random' | 'original' | 'lyrics' | 'selection'
 
 // null steht für eine Pause (nur im Liedtext)
 export type Step = {
