@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 
 import randomSyllables from '../../features/intonationPractice/config/randomSyllables.json'
 import { formatNote } from '../../features/intonationPractice/notes'
@@ -7,6 +7,34 @@ import {
   encodeSyllableMode,
 } from '../../features/intonationPractice/syllables'
 import type { Section, Step, SyllableMode } from '../../features/intonationPractice/types'
+import type { SingController } from './useSingStep'
+
+function MicIcon() {
+  return (
+    <svg
+      className="ie-mic-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" x2="12" y1="19" y2="22" />
+    </svg>
+  )
+}
+
+function StopIcon() {
+  return (
+    <svg className="ie-mic-icon" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor" />
+    </svg>
+  )
+}
 
 const describeStep = (step: Step) =>
   step.notes
@@ -35,6 +63,7 @@ type PracticeCardProps = {
   onSyllableModeChange?: (mode: SyllableMode) => void
   onShuffle: () => void
   onPlay: (notes: (number | null)[]) => void
+  sing?: SingController
   children?: ReactNode
 }
 
@@ -46,8 +75,13 @@ export function PracticeCard({
   onSyllableModeChange,
   onShuffle,
   onPlay,
+  sing,
   children,
 }: PracticeCardProps) {
+  const cardId = useId()
+  const stopOwned = sing?.stopOwned
+  useEffect(() => () => stopOwned?.(cardId), [stopOwned, cardId])
+
   const flatSteps = useMemo(
     () =>
       sections.flatMap((section) =>
@@ -94,6 +128,8 @@ export function PracticeCard({
           const isDone = index < doneCount
           const isFirstOfSection = index === 0 || visibleSteps[index - 1].title !== entry.title
           const canToggle = index === doneCount || index === doneCount - 1
+          const stepKey = `${cardId}:${index}`
+          const isListening = sing?.listeningKey === stepKey
 
           return (
             <li key={index} className={isDone ? 'is-done' : ''}>
@@ -117,6 +153,31 @@ export function PracticeCard({
                   >
                     ↻
                   </button>
+                )}
+                {sing && !isDone && (
+                  <button
+                    type="button"
+                    className={`ie-mic ${isListening ? 'is-listening' : ''}`}
+                    aria-label={isListening ? 'Aufnahme beenden' : `${label} mit dem Mikrofon singen`}
+                    aria-pressed={isListening}
+                    disabled={index !== doneCount}
+                    onClick={() =>
+                      isListening
+                        ? sing.stop()
+                        : void sing.start(stepKey, entry.step.notes, () =>
+                            setDoneCount((count) => Math.max(count, index + 1)),
+                          )
+                    }
+                  >
+                    {isListening ? <StopIcon /> : <MicIcon />}
+                  </button>
+                )}
+                {isListening && sing.progress && (
+                  <span className="ie-sing-status" role="status">
+                    Ton {sing.progress.noteIndex + 1} von {sing.progress.total}:{' '}
+                    {formatNote(sing.progress.target)} halten
+                    <progress value={sing.progress.hold} max={1} />
+                  </span>
                 )}
                 <button
                   type="button"

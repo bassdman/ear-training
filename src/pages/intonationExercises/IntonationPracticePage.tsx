@@ -21,12 +21,14 @@ import {
 import type { Exercise, SyllableMode } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 import { PracticeCard } from './PracticeCard'
+import { useSingStep, type SingController } from './useSingStep'
 
 type ExerciseItemProps = {
   exercise: Exercise
   transpose: number
   initialSyllableMode?: SyllableMode
   onPlay: (notes: (number | null)[]) => void
+  sing: SingController
 }
 
 function ExerciseItem({
@@ -34,6 +36,7 @@ function ExerciseItem({
   transpose,
   initialSyllableMode = { mode: 'off' },
   onPlay,
+  sing,
 }: ExerciseItemProps) {
   const [shuffleCount, setShuffleCount] = useState(0)
   const [syllableMode, setSyllableMode] = useState<SyllableMode>(initialSyllableMode)
@@ -57,6 +60,7 @@ function ExerciseItem({
       onSyllableModeChange={setSyllableMode}
       onShuffle={() => setShuffleCount((count) => count + 1)}
       onPlay={onPlay}
+      sing={sing}
     />
   )
 }
@@ -77,6 +81,7 @@ export function IntonationPracticePage() {
   const [randomPick, setRandomPick] = useState<RandomPick | null>(null)
   const [openStart, setOpenStart] = useState<number | null>(null)
   const { play, error: playError } = usePlayNotes()
+  const sing = useSingStep()
 
   // Alle Übungen mit jedem Startton, bei dem sie komplett in der Range liegen.
   const placements = useMemo(
@@ -144,9 +149,9 @@ export function IntonationPracticePage() {
 
   return (
     <>
-      {playError && (
+      {(playError || sing.error) && (
         <p className="ie-error" role="alert">
-          {playError}
+          {playError ?? sing.error}
         </p>
       )}
 
@@ -189,6 +194,7 @@ export function IntonationPracticePage() {
                 transpose={randomPick.transpose}
                 initialSyllableMode={{ mode: 'random' }}
                 onPlay={handlePlay}
+                sing={sing}
               />
             </ul>
             <button type="button" className="ie-random-button is-small" onClick={drawRandom}>
@@ -265,6 +271,7 @@ export function IntonationPracticePage() {
                     exercise={exercise}
                     transpose={shift}
                     onPlay={handlePlay}
+                    sing={sing}
                   />
                 ))}
             </ul>

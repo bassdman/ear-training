@@ -220,7 +220,7 @@ describe('Standardlieder', () => {
     const entchen = DEFAULT_SONGS.find((song) => song.id === 'default-alle-meine-entchen')!
     expect(entchen.lines).toHaveLength(5)
     expect(entchen.lines[0].map((entry) => entry.text)).toEqual(['Al', 'le', 'mei', 'ne', 'Ent', 'chen'])
-    expect(entchen.lines[0].map((entry) => entry.note)).toEqual([60, 62, 64, 65, 67, 67])
+    expect(entchen.lines[0].map((entry) => entry.note)).toEqual([48, 50, 52, 53, 55, 55])
   })
 
   it('liefert Standardlieder vor den eigenen Liedern', () => {

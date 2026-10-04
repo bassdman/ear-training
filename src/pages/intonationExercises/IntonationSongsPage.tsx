@@ -12,8 +12,15 @@ import { loadAllSongs } from '../../features/intonationPractice/storage'
 import type { Song } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 import { PracticeCard } from './PracticeCard'
+import { useSingStep, type SingController } from './useSingStep'
 
-function SongItem({ song, onPlay }: { song: Song; onPlay: (notes: (number | null)[]) => void }) {
+type SongItemProps = {
+  song: Song
+  onPlay: (notes: (number | null)[]) => void
+  sing: SingController
+}
+
+function SongItem({ song, onPlay, sing }: SongItemProps) {
   const entries = useMemo(() => flattenSong(song), [song])
   const fullRange = useMemo<SongRange>(() => ({ start: 0, end: entries.length - 1 }), [entries])
   const [range, setRange] = useState<SongRange>(fullRange)
@@ -52,6 +59,7 @@ function SongItem({ song, onPlay }: { song: Song; onPlay: (notes: (number | null
       sections={sections}
       onShuffle={() => setShuffleCount((count) => count + 1)}
       onPlay={onPlay}
+      sing={sing}
     >
       <div className="ie-song-select">
         <ol className="ie-song-text" aria-label="Liedtext">
@@ -115,6 +123,7 @@ function SongItem({ song, onPlay }: { song: Song; onPlay: (notes: (number | null
 export function IntonationSongsPage() {
   const [songs] = useState<Song[]>(loadAllSongs)
   const { play, error: playError } = usePlayNotes()
+  const sing = useSingStep()
 
   if (songs.length === 0) {
     return (
@@ -126,14 +135,14 @@ export function IntonationSongsPage() {
 
   return (
     <>
-      {playError && (
+      {(playError || sing.error) && (
         <p className="ie-error" role="alert">
-          {playError}
+          {playError ?? sing.error}
         </p>
       )}
       <ul className="ie-list" aria-label="Lieder">
         {songs.map((song) => (
-          <SongItem key={song.id} song={song} onPlay={(notes) => void play(notes)} />
+          <SongItem key={song.id} song={song} onPlay={(notes) => void play(notes)} sing={sing} />
         ))}
       </ul>
     </>

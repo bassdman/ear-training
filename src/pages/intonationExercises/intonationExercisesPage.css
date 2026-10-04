@@ -494,3 +494,47 @@
   display: flex;
   gap: 8px;
 }
+
+.ie-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  margin-left: 8px;
+  border: 1px solid var(--theme-primary);
+  border-radius: 6px;
+  color: var(--theme-primary);
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-mic:disabled {
+  border-color: var(--theme-border);
+  color: var(--theme-border);
+  cursor: default;
+}
+
+.ie-mic.is-listening {
+  border-color: var(--theme-danger);
+  color: #ffffff;
+  background: var(--theme-danger);
+}
+
+.ie-mic-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.ie-sing-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--theme-muted);
+  font-size: 0.85rem;
+}
+
+.ie-sing-status progress {
+  width: 80px;
+  accent-color: var(--theme-positive);
+}
