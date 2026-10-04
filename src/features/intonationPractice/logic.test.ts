@@ -14,7 +14,15 @@ import {
   resolveTransposition,
 } from './sections'
 import { decodeSyllableMode, encodeSyllableMode } from './syllables'
-import { flattenSong, generateSongSections, parseSongInput, sliceSong } from './songs'
+import {
+  DEFAULT_BEATS_PER_MINUTE,
+  flattenSong,
+  generateSongSections,
+  isValidBeatsPerMinute,
+  noteDurationSeconds,
+  parseSongInput,
+  sliceSong,
+} from './songs'
 import {
   loadAllExercises,
   loadAllSongs,
@@ -219,6 +227,31 @@ describe('Lieder', () => {
       'ear-training-intonation-songs-v1',
       JSON.stringify([song, { id: '2', name: 'x', lines: [[{ note: 'c' }]] }]),
     )
+    expect(loadSongs()).toEqual([song])
+  })
+})
+
+describe('Tempo', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('berechnet die Tondauer aus beatsPerMinute, mit Standardwert', () => {
+    expect(noteDurationSeconds({ beatsPerMinute: 120 })).toBe(0.5)
+    expect(noteDurationSeconds({ beatsPerMinute: 60 })).toBe(1)
+    expect(noteDurationSeconds({})).toBeCloseTo(60 / DEFAULT_BEATS_PER_MINUTE)
+  })
+
+  it('prüft den erlaubten Bereich', () => {
+    expect(isValidBeatsPerMinute(100)).toBe(true)
+    expect(isValidBeatsPerMinute(10)).toBe(false)
+    expect(isValidBeatsPerMinute(400)).toBe(false)
+    expect(isValidBeatsPerMinute('100')).toBe(false)
+  })
+
+  it('übernimmt das Tempo der Standardlieder und speichert es bei eigenen Liedern', () => {
+    expect(DEFAULT_SONGS.find((song) => song.id === 'default-alle-meine-entchen')?.beatsPerMinute).toBe(100)
+
+    const song = { id: '1', name: 'Lied', beatsPerMinute: 80, lines: [[{ note: 60, text: 'a' }]] }
+    saveSongs([song, { ...song, id: '2', beatsPerMinute: 5 }])
     expect(loadSongs()).toEqual([song])
   })
 })

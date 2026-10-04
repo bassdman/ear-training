@@ -1,6 +1,7 @@
 {
   "id": "default-alle-meine-entchen",
   "name": "Alle meine Entchen",
+  "beatsPerMinute": 100,
   "lines": [
     "c3:Al d3:le e3:mei f3:ne g3:Ent g3:chen",
     "a3:schwim a3:men a3:auf a3:dem g3:See",

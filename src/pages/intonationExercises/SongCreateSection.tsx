@@ -1,7 +1,13 @@
 import { useState, type FormEvent } from 'react'
 
 import { formatNote } from '../../features/intonationPractice/notes'
-import { formatSongLine, parseSongInput } from '../../features/intonationPractice/songs'
+import {
+  BEATS_PER_MINUTE_RANGE,
+  DEFAULT_BEATS_PER_MINUTE,
+  formatSongLine,
+  isValidBeatsPerMinute,
+  parseSongInput,
+} from '../../features/intonationPractice/songs'
 import { loadSongs, saveSongs } from '../../features/intonationPractice/storage'
 import type { Song } from '../../features/intonationPractice/types'
 
@@ -11,6 +17,7 @@ a4:hoch a4:am g4:Him`
 export function SongCreateSection() {
   const [songs, setSongs] = useState<Song[]>(loadSongs)
   const [name, setName] = useState('')
+  const [beatsPerMinute, setBeatsPerMinute] = useState(DEFAULT_BEATS_PER_MINUTE)
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +38,17 @@ export function SongCreateSection() {
       return
     }
 
-    update([...songs, { id: crypto.randomUUID(), name: name.trim(), lines: parsed.lines }])
+    if (!isValidBeatsPerMinute(beatsPerMinute)) {
+      setError(
+        `Das Tempo muss zwischen ${BEATS_PER_MINUTE_RANGE.min} und ${BEATS_PER_MINUTE_RANGE.max} liegen.`,
+      )
+      return
+    }
+
+    update([
+      ...songs,
+      { id: crypto.randomUUID(), name: name.trim(), beatsPerMinute, lines: parsed.lines },
+    ])
     setName('')
     setInput('')
     setError(null)
@@ -44,6 +61,16 @@ export function SongCreateSection() {
         <label>
           Name
           <input value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label>
+          Tempo (beatsPerMinute, ein Ton pro Schlag)
+          <input
+            type="number"
+            min={BEATS_PER_MINUTE_RANGE.min}
+            max={BEATS_PER_MINUTE_RANGE.max}
+            value={beatsPerMinute}
+            onChange={(event) => setBeatsPerMinute(Number(event.target.value))}
+          />
         </label>
         <label>
           Töne und Text

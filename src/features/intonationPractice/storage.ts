@@ -1,5 +1,6 @@
 import { DEFAULT_EXERCISES } from './defaultExercises'
 import { DEFAULT_SONGS } from './defaultSongs'
+import { isValidBeatsPerMinute } from './songs'
 import { DEFAULT_NOTE_RANGE, isValidRange, type NoteRange } from './range'
 import type { Exercise, Song, SongNote } from './types'
 
@@ -75,6 +76,7 @@ function isSong(value: unknown): value is Song {
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
+    (candidate.beatsPerMinute === undefined || isValidBeatsPerMinute(candidate.beatsPerMinute)) &&
     Array.isArray(candidate.lines) &&
     candidate.lines.every((line) => Array.isArray(line) && line.every(isSongNote))
   )

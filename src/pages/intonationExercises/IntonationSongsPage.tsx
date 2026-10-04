@@ -5,6 +5,7 @@ import { formatNote } from '../../features/intonationPractice/notes'
 import {
   flattenSong,
   generateSongSections,
+  noteDurationSeconds,
   sliceSong,
   type SongRange,
 } from '../../features/intonationPractice/songs'
@@ -12,15 +13,17 @@ import { loadAllSongs } from '../../features/intonationPractice/storage'
 import type { Song } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 import { PracticeCard } from './PracticeCard'
-import { useSingStep, type SingController } from './useSingStep'
+import { SING_HOLD_MS, useSingStep, type SingController } from './useSingStep'
 
 type SongItemProps = {
   song: Song
-  onPlay: (notes: (number | null)[]) => void
+  onPlay: (notes: (number | null)[], options: { noteDurationS: number }) => void
   sing: SingController
 }
 
-function SongItem({ song, onPlay, sing }: SongItemProps) {
+function SongItem({ song, onPlay: playWithOptions, sing }: SongItemProps) {
+  const noteDurationS = noteDurationSeconds(song)
+  const onPlay = (notes: (number | null)[]) => playWithOptions(notes, { noteDurationS })
   const entries = useMemo(() => flattenSong(song), [song])
   const fullRange = useMemo<SongRange>(() => ({ start: 0, end: entries.length - 1 }), [entries])
   const [range, setRange] = useState<SongRange>(fullRange)
@@ -55,6 +58,7 @@ function SongItem({ song, onPlay, sing }: SongItemProps) {
       subtitle={isFullSong ? 'Ganzes Lied' : `Auswahl: Ton ${range.start + 1} bis ${range.end + 1}`}
       sections={sections}
       onPlay={onPlay}
+      holdMs={Math.min(SING_HOLD_MS, noteDurationS * 1000)}
       sing={sing}
     >
       <div className="ie-song-select">
@@ -138,7 +142,12 @@ export function IntonationSongsPage() {
       )}
       <ul className="ie-list" aria-label="Lieder">
         {songs.map((song) => (
-          <SongItem key={song.id} song={song} onPlay={(notes) => void play(notes)} sing={sing} />
+          <SongItem
+            key={song.id}
+            song={song}
+            onPlay={(notes, options) => void play(notes, options)}
+            sing={sing}
+          />
         ))}
       </ul>
     </>

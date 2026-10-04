@@ -34,5 +34,7 @@ export type SongNote = { note: number | null; text: string }
 export type Song = {
   id: string
   name: string
+  // Ein Ton dauert 60 / beatsPerMinute Sekunden
+  beatsPerMinute?: number
   lines: SongNote[][]
 }

@@ -4,6 +4,23 @@ import type { Section, Song, SongNote } from './types'
 
 export type ParsedSong = { lines: SongNote[][] } | { error: string }
 
+export const DEFAULT_BEATS_PER_MINUTE = 100
+export const BEATS_PER_MINUTE_RANGE = { min: 20, max: 300 }
+
+export function isValidBeatsPerMinute(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= BEATS_PER_MINUTE_RANGE.min &&
+    value <= BEATS_PER_MINUTE_RANGE.max
+  )
+}
+
+// Dauer eines Tones (und einer Pause) in Sekunden
+export function noteDurationSeconds(song: Pick<Song, 'beatsPerMinute'>): number {
+  return 60 / (song.beatsPerMinute ?? DEFAULT_BEATS_PER_MINUTE)
+}
+
 // Eine Zeile pro Liedzeile; Tokens: "ton:text", "ton" (ohne Text) oder "-" (Pause).
 export function parseSongInput(input: string): ParsedSong {
   const lines: SongNote[][] = []

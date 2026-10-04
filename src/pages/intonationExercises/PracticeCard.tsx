@@ -68,6 +68,8 @@ type PracticeCardProps = {
   syllableMode?: SyllableMode
   onSyllableModeChange?: (mode: SyllableMode) => void
   onShuffle?: () => void
+  // Haltezeit pro Ton beim Singen (Standard: SING_HOLD_MS)
+  holdMs?: number
   onPlay: (notes: (number | null)[]) => void
   sing?: SingController
   children?: ReactNode
@@ -80,6 +82,7 @@ export function PracticeCard({
   syllableMode,
   onSyllableModeChange,
   onShuffle,
+  holdMs,
   onPlay,
   sing,
   children,
@@ -170,8 +173,11 @@ export function PracticeCard({
                     onClick={() =>
                       isListening
                         ? sing.stop()
-                        : void sing.start(stepKey, entry.step.notes, () =>
-                            setDoneCount((count) => Math.max(count, index + 1)),
+                        : void sing.start(
+                            stepKey,
+                            entry.step.notes,
+                            () => setDoneCount((count) => Math.max(count, index + 1)),
+                            holdMs,
                           )
                     }
                   >

@@ -84,7 +84,12 @@ export function useSingStep() {
   )
 
   const start = useCallback(
-    async (key: string, notes: readonly (number | null)[], onSuccess: () => void) => {
+    async (
+      key: string,
+      notes: readonly (number | null)[],
+      onSuccess: () => void,
+      holdMs: number = SING_HOLD_MS,
+    ) => {
       stop()
       setError(null)
       const targets = notes.filter((note): note is number => note !== null)
@@ -138,7 +143,7 @@ export function useSingStep() {
           )
           if (stable !== null) lastReading = { reading: describePitch(stable), time: now }
 
-          const result = stepSingState(state, targets, stable, now, SING_OPTIONS)
+          const result = stepSingState(state, targets, stable, now, { ...SING_OPTIONS, holdMs })
           state = result.state
           if (result.done) {
             stop()
