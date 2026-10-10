@@ -19,9 +19,11 @@ import {
   flattenSong,
   generateSongSections,
   isValidBeatsPerMinute,
+  isValidSongTranspose,
   noteDurationSeconds,
   parseSongInput,
   sliceSong,
+  transposeSong,
 } from './songs'
 import {
   loadAllExercises,
@@ -29,9 +31,11 @@ import {
   loadExercises,
   loadRange,
   loadSongs,
+  loadSongTranspositions,
   saveExercises,
   saveRange,
   saveSongs,
+  saveSongTranspositions,
 } from './storage'
 import { DEFAULT_NOTE_RANGE, startNotesInRange } from './range'
 import { DEFAULT_EXERCISES } from './defaultExercises'
@@ -149,6 +153,21 @@ describe('Lieder', () => {
         [{ note: 67, text: 'gel' }],
       ],
     })
+  })
+
+  it('transponiert Liednoten, behält aber Text und Pausen bei', () => {
+    const parsed = parseSongInput('c4:Al e4:le -')
+    if ('error' in parsed) throw new Error(parsed.error)
+    const song = { id: '1', name: 'Lied', lines: parsed.lines }
+
+    expect(transposeSong(song, -2).lines).toEqual([
+      [
+        { note: 58, text: 'Al' },
+        { note: 62, text: 'le' },
+        { note: null, text: '' },
+      ],
+    ])
+    expect(song.lines).toEqual(parsed.lines)
   })
 
   it('meldet Fehler mit Zeilennummer und verlangt mindestens einen Ton', () => {
@@ -358,5 +377,21 @@ describe('storage', () => {
 
     window.localStorage.setItem('ear-training-intonation-practice-v1', '{kaputt')
     expect(loadExercises()).toEqual([])
+  })
+
+  it('speichert Transpositionen pro Lied und ignoriert ungültige Werte', () => {
+    expect(isValidSongTranspose(-12)).toBe(true)
+    expect(isValidSongTranspose(12)).toBe(true)
+    expect(isValidSongTranspose(13)).toBe(false)
+    expect(isValidSongTranspose(1.5)).toBe(false)
+
+    saveSongTranspositions({ 'song-a': -3, 'song-b': 5 })
+    expect(loadSongTranspositions()).toEqual({ 'song-a': -3, 'song-b': 5 })
+
+    window.localStorage.setItem(
+      'ear-training-intonation-song-transpositions-v1',
+      '{"song-a":-13,"song-b":2.5,"song-c":4}',
+    )
+    expect(loadSongTranspositions()).toEqual({ 'song-c': 4 })
   })
 })

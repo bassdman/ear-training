@@ -1,6 +1,6 @@
 import { DEFAULT_EXERCISES } from './defaultExercises'
 import { DEFAULT_SONGS } from './defaultSongs'
-import { isValidBeatsPerMinute } from './songs'
+import { isValidBeatsPerMinute, isValidSongTranspose } from './songs'
 import { DEFAULT_NOTE_RANGE, isValidRange, type NoteRange } from './range'
 import type { Exercise, Song, SongNote } from './types'
 
@@ -103,4 +103,34 @@ export function saveSongs(songs: Song[]): void {
 
 export function loadAllSongs(): Song[] {
   return [...DEFAULT_SONGS, ...loadSongs()]
+}
+
+export const INTONATION_SONG_TRANSPOSE_STORAGE_KEY = 'ear-training-intonation-song-transpositions-v1'
+
+export type SongTranspositions = Record<string, number>
+
+export function loadSongTranspositions(): SongTranspositions {
+  try {
+    const stored = window.localStorage.getItem(INTONATION_SONG_TRANSPOSE_STORAGE_KEY)
+    const parsed: unknown = stored ? JSON.parse(stored) : null
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {}
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, number] =>
+        isValidSongTranspose(entry[1]),
+      ),
+    )
+  } catch {
+    return {}
+  }
+}
+
+export function saveSongTranspositions(transpositions: SongTranspositions): void {
+  try {
+    window.localStorage.setItem(
+      INTONATION_SONG_TRANSPOSE_STORAGE_KEY,
+      JSON.stringify(transpositions),
+    )
+  } catch {
+    // Speicherfehler ignorieren
+  }
 }

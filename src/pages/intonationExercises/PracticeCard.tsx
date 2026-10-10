@@ -65,6 +65,7 @@ type PracticeCardProps = {
   title: string
   subtitle: ReactNode
   sections: Section[]
+  headerActions?: ReactNode
   syllableMode?: SyllableMode
   onSyllableModeChange?: (mode: SyllableMode) => void
   onShuffle?: () => void
@@ -79,6 +80,7 @@ export function PracticeCard({
   title,
   subtitle,
   sections,
+  headerActions,
   syllableMode,
   onSyllableModeChange,
   onShuffle,
@@ -110,6 +112,7 @@ export function PracticeCard({
           <strong>{title}</strong>
           <span className="ie-notes">{subtitle}</span>
         </div>
+        {headerActions}
         {syllableMode && onSyllableModeChange && (
           <label className="ie-syllable-select">
             Silbe

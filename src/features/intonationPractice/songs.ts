@@ -6,6 +6,16 @@ export type ParsedSong = { lines: SongNote[][] } | { error: string }
 
 export const DEFAULT_BEATS_PER_MINUTE = 100
 export const BEATS_PER_MINUTE_RANGE = { min: 20, max: 300 }
+export const SONG_TRANSPOSE_RANGE = { min: -12, max: 12 }
+
+export function isValidSongTranspose(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= SONG_TRANSPOSE_RANGE.min &&
+    value <= SONG_TRANSPOSE_RANGE.max
+  )
+}
 
 export function isValidBeatsPerMinute(value: unknown): value is number {
   return (
@@ -78,6 +88,19 @@ export function sliceSong(song: Song, range: SongRange): Song {
     )
     .filter((line) => line.length > 0)
   return { ...song, lines }
+}
+
+export function transposeSong(song: Song, semitones: number): Song {
+  if (semitones === 0) return song
+  return {
+    ...song,
+    lines: song.lines.map((line) =>
+      line.map((entry) => ({
+        ...entry,
+        note: entry.note === null ? null : entry.note + semitones,
+      })),
+    ),
+  }
 }
 
 // Aufwärmübungen mit allen Tönen des Liedes, danach der Liedtext Zeile für Zeile (ohne Transposition).

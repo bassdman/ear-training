@@ -118,6 +118,52 @@
   gap: 12px;
 }
 
+.ie-song-settings {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.ie-song-settings-toggle {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-muted);
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-song-settings-toggle:hover,
+.ie-song-settings.is-open .ie-song-settings-toggle {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+.ie-song-settings-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.ie-song-settings-panel {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 250px;
+  padding: 12px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  background: var(--theme-background);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
+}
+
 .ie-notes {
   margin-left: 12px;
   color: var(--theme-muted);
@@ -431,6 +477,49 @@
   display: grid;
   gap: 8px;
   margin-top: 12px;
+}
+
+.ie-transpose {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.ie-transpose-step,
+.ie-transpose-reset {
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-ink);
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-transpose-step:disabled {
+  color: var(--theme-muted);
+  cursor: default;
+}
+
+.ie-transpose-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.ie-transpose output {
+  color: var(--theme-muted);
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.ie-transpose-controls {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.ie-transpose-reset {
+  grid-column: 1 / -1;
 }
 
 .ie-song-text {
