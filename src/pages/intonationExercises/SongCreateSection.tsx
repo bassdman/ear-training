@@ -8,6 +8,7 @@ import {
   isValidBeatsPerMinute,
 } from '../../features/intonationPractice/songs'
 import { loadAllSongs, resetSongOverride, saveSong } from '../../features/intonationPractice/storage'
+import { downloadSong } from '../../features/intonationPractice/songExport'
 import type { Song, SongNote, SongNoteValue } from '../../features/intonationPractice/types'
 import { DEFAULT_SONGS } from '../../features/intonationPractice/defaultSongs'
 
@@ -51,7 +52,14 @@ function noteTexts(note: SongNote): string[] {
 }
 
 export function SongCreateSection() {
-  const [songs, setSongs] = useState<Song[]>(loadAllSongs)
+  const [songs, setSongs] = useState<Song[]>(() => {
+    const loadedSongs = loadAllSongs()
+    console.info('[SongEditor] Songliste geladen', {
+      count: loadedSongs.length,
+      songIds: loadedSongs.map((song) => song.id),
+    })
+    return loadedSongs
+  })
   const [editingSongId, setEditingSongId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [beatsPerMinute, setBeatsPerMinute] = useState(DEFAULT_BEATS_PER_MINUTE)
@@ -63,17 +71,66 @@ export function SongCreateSection() {
   const [error, setError] = useState<string | null>(null)
 
   const startEditing = (song: Song) => {
-    setEditingSongId(song.id)
-    setName(song.name)
-    setBeatsPerMinute(song.beatsPerMinute ?? DEFAULT_BEATS_PER_MINUTE)
-    setMeasures(
-      song.lines.length > 0
+    console.info('[SongEditor] Öffnen angefordert', {
+      id: song.id,
+      name: song.name,
+      lineCount: Array.isArray(song.lines) ? song.lines.length : null,
+    })
+
+    try {
+      if (!Array.isArray(song.lines)) throw new Error('Die Liedzeilen fehlen oder sind ungültig.')
+
+      for (const [lineIndex, line] of song.lines.entries()) {
+        if (!Array.isArray(line)) {
+          throw new Error(`Zeile ${lineIndex + 1} ist keine gültige Notenliste.`)
+        }
+        for (const [entryIndex, entry] of line.entries()) {
+          if (
+            entry.note !== null &&
+            (!Number.isInteger(entry.note) || entry.note < 0 || entry.note > 127)
+          ) {
+            throw new Error(
+              `Zeile ${lineIndex + 1}, Eintrag ${entryIndex + 1}: ${entry.note} ist keine gültige MIDI-Tonhöhe (ganze Zahl von 0 bis 127).`,
+            )
+          }
+          if (entry.textParts !== undefined && !entry.textParts.every((part) => typeof part === 'string')) {
+            throw new Error(
+              `Zeile ${lineIndex + 1}, Eintrag ${entryIndex + 1}: Die Textteile sind ungültig.`,
+            )
+          }
+          if (entry.duration !== undefined && !NOTE_VALUES.some((value) => value.value === entry.duration)) {
+            throw new Error(
+              `Zeile ${lineIndex + 1}, Eintrag ${entryIndex + 1}: Der Notenwert „${entry.duration}“ wird nicht unterstützt.`,
+            )
+          }
+        }
+      }
+
+      const editableLines = song.lines.length > 0
         ? song.lines.map((line) => line.map((note) => ({ ...note, textParts: note.textParts?.slice() })))
-        : [[]],
-    )
-    setSelected(null)
-    setEntryKind('note')
-    setError(null)
+        : [[]]
+
+      setEditingSongId(song.id)
+      setName(song.name)
+      setBeatsPerMinute(song.beatsPerMinute ?? DEFAULT_BEATS_PER_MINUTE)
+      setMeasures(editableLines)
+      setSelected(null)
+      setEntryKind('note')
+      setError(null)
+      console.info('[SongEditor] Lied geöffnet', {
+        id: song.id,
+        lineCount: song.lines.length,
+        entryCount: song.lines.reduce((count, line) => count + line.length, 0),
+      })
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause)
+      console.error('[SongEditor] Lied konnte nicht geöffnet werden', {
+        id: song.id,
+        name: song.name,
+        reason,
+      })
+      setError(`„${song.name}“ kann nicht geöffnet werden. ${reason}`)
+    }
   }
 
   const clearEditor = () => {
@@ -93,6 +150,14 @@ export function SongCreateSection() {
   }
 
   const selectedEntry = selected ? measures[selected.measure]?.[selected.index] : undefined
+  const availablePitches = Array.from(
+    new Set([
+      ...PITCH_OPTIONS,
+      ...measures.flatMap((line) =>
+        line.flatMap((entry) => (entry.note === null ? [] : [entry.note])),
+      ),
+    ]),
+  ).sort((pitchA, pitchB) => pitchA - pitchB)
 
   const updateSelected = (updateNote: (note: SongNote) => SongNote) => {
     if (!selected) return
@@ -269,7 +334,7 @@ export function SongCreateSection() {
                 disabled={entryKind === 'rest' && !selectedEntry}
                 onChange={(event) => handlePitchChange(Number(event.target.value))}
               >
-                {PITCH_OPTIONS.map((value) => (
+                {availablePitches.map((value) => (
                   <option key={value} value={value}>
                     {formatNote(value)}
                   </option>
@@ -413,6 +478,13 @@ export function SongCreateSection() {
               <div className="ie-item-head">
                 <strong>{song.name}</strong>
                 <div className="ie-song-actions">
+                  <button
+                    type="button"
+                    aria-label={`Lied "${song.name}" exportieren`}
+                    onClick={() => downloadSong(song)}
+                  >
+                    Exportieren
+                  </button>
                   <button
                     type="button"
                     aria-label={`Lied "${song.name}" bearbeiten`}
