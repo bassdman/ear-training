@@ -20,8 +20,10 @@ import {
   generateSongSections,
   isValidBeatsPerMinute,
   isValidSongTranspose,
+  formatSongLine,
   noteDurationSeconds,
   parseSongInput,
+  songNoteDurationSeconds,
   sliceSong,
   transposeSong,
 } from './songs'
@@ -155,6 +157,28 @@ describe('Lieder', () => {
     })
   })
 
+  it('parst Notenwerte vor dem Text und berechnet deren Dauer relativ zur Viertelnote', () => {
+    const parsed = parseSongInput('c4/1:lang d4/2:halt e4:kurz f4/8:schnell -/8')
+    if ('error' in parsed) throw new Error(parsed.error)
+
+    expect(parsed.lines[0]).toEqual([
+      { note: 60, text: 'lang', duration: 'whole' },
+      { note: 62, text: 'halt', duration: 'half' },
+      { note: 64, text: 'kurz' },
+      { note: 65, text: 'schnell', duration: 'eighth' },
+      { note: null, text: '', duration: 'eighth' },
+    ])
+    expect(parsed.lines[0].map((note) => songNoteDurationSeconds(note, 0.5))).toEqual([
+      2, 1, 0.5, 0.25, 0.25,
+    ])
+  })
+
+  it('formatiert den Notenwert zusammen mit Ton und Text', () => {
+    const parsed = parseSongInput('c4/8:Al e4:le -/2')
+    if ('error' in parsed) throw new Error(parsed.error)
+    expect(formatSongLine(parsed.lines[0], formatNote)).toBe('c4/8 Al · e4 le · -/2')
+  })
+
   it('transponiert Liednoten, behält aber Text und Pausen bei', () => {
     const parsed = parseSongInput('c4:Al e4:le -')
     if ('error' in parsed) throw new Error(parsed.error)
@@ -186,9 +210,36 @@ describe('Lieder', () => {
     // kein Tonwechsel über Pause oder Zeilenende hinweg
     expect(sections[1].steps.map((step) => step.notes)).toEqual([[60, 64]])
     expect(sections[2].steps).toEqual([
-      { notes: [60, 64, null, 67], syllables: ['Al', 'le', '', 'gel'] },
-      { notes: [60], syllables: ['fliegt'] },
+      {
+        notes: [60, 64, null, 67],
+        syllables: ['Al', 'le', '', 'gel'],
+        noteValues: ['quarter', 'quarter', 'quarter', 'quarter'],
+        durationsS: [0.6, 0.6, 0.6, 0.6],
+      },
+      {
+        notes: [60],
+        syllables: ['fliegt'],
+        noteValues: ['quarter'],
+        durationsS: [0.6],
+      },
     ])
+  })
+
+  it('übernimmt unterschiedliche Notenwerte in die Wiedergabeschritte des Liedtexts', () => {
+    const parsed = parseSongInput('c4/2:lang d4/8:kurz -/8')
+    if ('error' in parsed) throw new Error(parsed.error)
+    const sections = generateSongSections({
+      id: '1',
+      name: 'Lied',
+      beatsPerMinute: 120,
+      lines: parsed.lines,
+    })
+
+    expect(sections.at(-1)?.steps[0]).toMatchObject({
+      notes: [60, 62, null],
+      noteValues: ['half', 'eighth', 'eighth'],
+      durationsS: [1, 0.25, 0.25],
+    })
   })
 
   it('wählt einen Ausschnitt über Zeilen hinweg und lässt leere Zeilen weg', () => {
@@ -226,7 +277,14 @@ describe('Lieder', () => {
 
     const multiLine = generateSongSections(sliceSong(song, { start: 1, end: 3 }), { withSelection: true })
     expect(multiLine.map((section) => section.kind)).toEqual(['single', 'pairs', 'lyrics', 'selection'])
-    expect(multiLine[3].steps).toEqual([{ notes: [62, 64, 65], syllables: ['b', 'c', 'd'] }])
+    expect(multiLine[3].steps).toEqual([
+      {
+        notes: [62, 64, 65],
+        syllables: ['b', 'c', 'd'],
+        noteValues: ['quarter', 'quarter', 'quarter'],
+        durationsS: [0.6, 0.6, 0.6],
+      },
+    ])
 
     // innerhalb einer Zeile ist die Auswahl schon ein Liedtext-Schritt
     const singleLine = generateSongSections(sliceSong(song, { start: 0, end: 1 }), { withSelection: true })

@@ -20,6 +20,8 @@ export type SectionKind = 'single' | 'pairs' | 'random' | 'original' | 'lyrics' 
 export type Step = {
   notes: (number | null)[]
   syllables?: string[]
+  durationsS?: number[]
+  noteValues?: SongNoteValue[]
 }
 
 export type Section = {
@@ -28,13 +30,20 @@ export type Section = {
   steps: Step[]
 }
 
-// note null = Pause; text ist leer, wenn zum Ton nichts gesungen wird
-export type SongNote = { note: number | null; text: string }
+export type SongNoteValue = 'whole' | 'half' | 'quarter' | 'eighth'
+
+// note null = Pause; fehlender duration-Wert bedeutet Viertelnote.
+export type SongNote = {
+  note: number | null
+  text: string
+  duration?: SongNoteValue
+  textParts?: string[]
+}
 
 export type Song = {
   id: string
   name: string
-  // Ein Ton dauert 60 / beatsPerMinute Sekunden
+  // Viertelnoten pro Minute
   beatsPerMinute?: number
   lines: SongNote[][]
 }

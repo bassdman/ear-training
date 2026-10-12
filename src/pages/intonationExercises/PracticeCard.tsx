@@ -8,6 +8,7 @@ import {
 } from '../../features/intonationPractice/syllables'
 import type { Section, Step, SyllableMode } from '../../features/intonationPractice/types'
 import type { SingController } from './useSingStep'
+import { SongGridDisplay } from './SongGridDisplay'
 
 function describeHeard({ detected, target }: NonNullable<SingController['progress']>) {
   if (!detected) return 'Kein Ton erkannt – bitte lauter oder näher am Mikrofon singen'
@@ -70,8 +71,8 @@ type PracticeCardProps = {
   onSyllableModeChange?: (mode: SyllableMode) => void
   onShuffle?: () => void
   // Haltezeit pro Ton beim Singen (Standard: SING_HOLD_MS)
-  holdMs?: number
-  onPlay: (notes: (number | null)[]) => void
+  holdMs?: number | readonly number[]
+  onPlay: (notes: (number | null)[], durationsS?: readonly number[]) => void
   sing?: SingController
   children?: ReactNode
 }
@@ -147,14 +148,38 @@ export function PracticeCard({
             <li key={index} className={isDone ? 'is-done' : ''}>
               <span className="ie-section-title">{isFirstOfSection ? entry.title : ''}</span>
               <span className="ie-steps">
-                <button
-                  type="button"
-                  className="ie-step"
-                  aria-label={`${entry.title} abspielen: ${label}`}
-                  onClick={() => onPlay(entry.step.notes)}
-                >
-                  <StepLabel step={entry.step} />
-                </button>
+                {entry.step.noteValues ? (
+                  <div className="ie-song-practice-step">
+                    <SongGridDisplay
+                      label={`${entry.title}: ${label}`}
+                      formatNote={formatNote}
+                      items={entry.step.notes.map((note, noteIndex) => ({
+                        id: String(noteIndex),
+                        note,
+                        duration: entry.step.noteValues?.[noteIndex],
+                        text: entry.step.syllables?.[noteIndex] ?? '',
+                        textParts: entry.step.syllables?.[noteIndex]?.split(' '),
+                      }))}
+                    />
+                    <button
+                      type="button"
+                      className="ie-song-play-step"
+                      aria-label={`${entry.title} abspielen`}
+                      onClick={() => onPlay(entry.step.notes, entry.step.durationsS)}
+                    >
+                      Abspielen
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="ie-step"
+                    aria-label={`${entry.title} abspielen: ${label}`}
+                    onClick={() => onPlay(entry.step.notes, entry.step.durationsS)}
+                  >
+                    <StepLabel step={entry.step} />
+                  </button>
+                )}
                 {entry.kind === 'random' && onShuffle && (
                   <button
                     type="button"
@@ -180,7 +205,13 @@ export function PracticeCard({
                             stepKey,
                             entry.step.notes,
                             () => setDoneCount((count) => Math.max(count, index + 1)),
-                            holdMs,
+                            entry.step.durationsS
+                              ? entry.step.notes.flatMap((note, noteIndex) => {
+                                  if (note === null) return []
+                                  const duration = entry.step.durationsS?.[noteIndex] ?? 0
+                                  return [Math.max(300, duration * 1000)]
+                                })
+                              : holdMs,
                           )
                     }
                   >

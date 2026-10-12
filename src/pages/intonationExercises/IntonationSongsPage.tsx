@@ -7,6 +7,7 @@ import {
   generateSongSections,
   noteDurationSeconds,
   SONG_TRANSPOSE_RANGE,
+  songNoteDurationSeconds,
   sliceSong,
   transposeSong,
   type SongRange,
@@ -19,19 +20,24 @@ import {
 import type { Song } from '../../features/intonationPractice/types'
 import { usePlayNotes } from '../../features/intonationPractice/usePlayNotes'
 import { PracticeCard } from './PracticeCard'
+import { SongGridDisplay } from './SongGridDisplay'
 import { SING_HOLD_MS, useSingStep, type SingController } from './useSingStep'
 
 type SongItemProps = {
   song: Song
   transpose: number
   onTransposeChange: (transpose: number) => void
-  onPlay: (notes: (number | null)[], options: { noteDurationS: number }) => void
+  onPlay: (
+    notes: (number | null)[],
+    options: { noteDurationS: number; noteDurationsS?: readonly number[] },
+  ) => void
   sing: SingController
 }
 
 function SongItem({ song, transpose, onTransposeChange, onPlay: playWithOptions, sing }: SongItemProps) {
   const noteDurationS = noteDurationSeconds(song)
-  const onPlay = (notes: (number | null)[]) => playWithOptions(notes, { noteDurationS })
+  const onPlay = (notes: (number | null)[], noteDurationsS?: readonly number[]) =>
+    playWithOptions(notes, { noteDurationS, noteDurationsS })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
   const transposedSong = useMemo(() => transposeSong(song, transpose), [song, transpose])
@@ -145,38 +151,32 @@ function SongItem({ song, transpose, onTransposeChange, onPlay: playWithOptions,
       sing={sing}
     >
       <div className="ie-song-select">
-        <ol className="ie-song-text" aria-label="Liedtext">
-          {song.lines.map((_, lineIndex) => (
-            <li key={lineIndex}>
-              {entries
-                .filter((entry) => entry.line === lineIndex)
-                .map((entry) => {
-                  const inRange = entry.index >= range.start && entry.index <= range.end
-                  return (
-                    <span
-                      key={entry.index}
-                      className={`ie-song-entry ${inRange ? 'is-in-range' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className={`ie-song-chip ${anchor === entry.index ? 'is-anchor' : ''}`}
-                        aria-pressed={inRange}
-                        aria-label={
-                          entry.note === null
-                            ? 'Pause'
-                            : `${formatNote(entry.note)} ${entry.text}`.trim()
-                        }
-                        onClick={() => handleChipClick(entry.index)}
-                      >
-                        {entry.note === null ? '·' : formatNote(entry.note)}
-                      </button>
-                      <small>{entry.text}</small>
-                    </span>
-                  )
-                })}
-            </li>
-          ))}
-        </ol>
+        <div className="ie-song-grid-lines" aria-label="Liednoten und Text">
+          {song.lines.map((_, lineIndex) => {
+            const lineEntries = entries.filter((entry) => entry.line === lineIndex)
+            return (
+              <SongGridDisplay
+                key={lineIndex}
+                label={`Liedzeile ${lineIndex + 1}`}
+                formatNote={formatNote}
+                items={lineEntries.map((entry) => ({
+                  id: String(entry.index),
+                  note: entry.note,
+                  text: entry.text,
+                  textParts: entry.textParts,
+                  duration: entry.duration,
+                }))}
+                selectedIds={new Set(
+                  lineEntries
+                    .filter((entry) => entry.index >= range.start && entry.index <= range.end)
+                    .map((entry) => String(entry.index)),
+                )}
+                anchorId={anchor === null ? null : String(anchor)}
+                onItemClick={(id) => handleChipClick(Number(id))}
+              />
+            )
+          })}
+        </div>
         <p className="ie-hint">
           {anchor === null
             ? 'Zwei Töne anklicken, um einen Bereich auszuwählen.'
@@ -186,9 +186,13 @@ function SongItem({ song, transpose, onTransposeChange, onPlay: playWithOptions,
           <button
             type="button"
             className="ie-step"
-            onClick={() =>
-              onPlay(entries.slice(range.start, range.end + 1).map((entry) => entry.note))
-            }
+            onClick={() => {
+              const selectedEntries = entries.slice(range.start, range.end + 1)
+              onPlay(
+                selectedEntries.map((entry) => entry.note),
+                selectedEntries.map((entry) => songNoteDurationSeconds(entry, noteDurationS)),
+              )
+            }}
           >
             ▶ Auswahl abspielen
           </button>

@@ -9,7 +9,10 @@ export function usePlayNotes() {
   const instrumentRef = useRef<ReturnType<typeof Soundfont> | null>(null)
 
   const play = useCallback(
-    async (notes: readonly (number | null)[], options: { noteDurationS?: number } = {}) => {
+    async (
+      notes: readonly (number | null)[],
+      options: { noteDurationS?: number; noteDurationsS?: readonly number[] } = {},
+    ) => {
       const noteDurationS = options.noteDurationS ?? NOTE_DURATION_S
       setError(null)
       try {
@@ -32,13 +35,15 @@ export function usePlayNotes() {
 
         instrument.stop()
         const startTime = context.currentTime + 0.05
+        let elapsedS = 0
         notes.forEach((note, index) => {
-          if (note === null) return
-          instrument.start({
-            note,
-            time: startTime + index * noteDurationS,
-            duration: noteDurationS,
-          })
+          const requestedDuration = options.noteDurationsS?.[index]
+          const duration =
+            requestedDuration !== undefined && Number.isFinite(requestedDuration) && requestedDuration > 0
+              ? requestedDuration
+              : noteDurationS
+          if (note !== null) instrument.start({ note, time: startTime + elapsedS, duration })
+          elapsedS += duration
         })
       } catch {
         setError('Der Ton konnte nicht abgespielt werden.')

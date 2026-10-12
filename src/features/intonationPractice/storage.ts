@@ -1,6 +1,6 @@
 import { DEFAULT_EXERCISES } from './defaultExercises'
 import { DEFAULT_SONGS } from './defaultSongs'
-import { isValidBeatsPerMinute, isValidSongTranspose } from './songs'
+import { isValidBeatsPerMinute, isValidSongNoteValue, isValidSongTranspose } from './songs'
 import { DEFAULT_NOTE_RANGE, isValidRange, type NoteRange } from './range'
 import type { Exercise, Song, SongNote } from './types'
 
@@ -66,7 +66,10 @@ function isSongNote(value: unknown): value is SongNote {
   const candidate = value as Partial<SongNote>
   return (
     (candidate.note === null || typeof candidate.note === 'number') &&
-    typeof candidate.text === 'string'
+    typeof candidate.text === 'string' &&
+    (candidate.textParts === undefined ||
+      (Array.isArray(candidate.textParts) && candidate.textParts.every((part) => typeof part === 'string'))) &&
+    (candidate.duration === undefined || isValidSongNoteValue(candidate.duration))
   )
 }
 
@@ -101,8 +104,18 @@ export function saveSongs(songs: Song[]): void {
   }
 }
 
+export function saveSong(song: Song): void {
+  saveSongs([...loadSongs().filter((entry) => entry.id !== song.id), song])
+}
+
+export function resetSongOverride(id: string): void {
+  saveSongs(loadSongs().filter((song) => song.id !== id))
+}
+
 export function loadAllSongs(): Song[] {
-  return [...DEFAULT_SONGS, ...loadSongs()]
+  const songs = new Map(DEFAULT_SONGS.map((song) => [song.id, song]))
+  for (const song of loadSongs()) songs.set(song.id, song)
+  return [...songs.values()]
 }
 
 export const INTONATION_SONG_TRANSPOSE_STORAGE_KEY = 'ear-training-intonation-song-transpositions-v1'

@@ -78,6 +78,22 @@ describe('stepSingState', () => {
     expect(run(targets, Array(22).fill(b4), first, 2200).done).toBe(true)
   })
 
+  it('verwendet für jeden gesungenen Ton seine eigene Haltezeit', () => {
+    const variableOptions = { ...options, holdMs: [200, 500] }
+    let result: SingStep = { state: INITIAL_SING_STATE, holdProgress: 0, done: false }
+    for (const now of [0, 100, 200]) {
+      result = stepSingState(result.state, [69, 71], a4, now, variableOptions)
+    }
+    expect(result.state.index).toBe(1)
+
+    for (const now of [300, 400, 500, 600]) {
+      result = stepSingState(result.state, [69, 71], b4, now, variableOptions)
+    }
+    expect(result.done).toBe(false)
+    result = stepSingState(result.state, [69, 71], b4, 700, variableOptions)
+    expect(result.done).toBe(true)
+  })
+
   it('verlangt bei gleichem Folgeton erst eine Pause', () => {
     const targets = [69, 69]
     const first = run(targets, Array(22).fill(a4))

@@ -21,7 +21,7 @@ export type SingStep = { state: SingState; holdProgress: number; done: boolean }
 
 export type SingOptions = {
   // So lange muss der Ton insgesamt getroffen werden
-  holdMs: number
+  holdMs: number | readonly number[]
   toleranceCents: number
   // Erst nach so langem Aussetzen am Stück beginnt die Haltezeit von vorn
   graceMs: number
@@ -31,6 +31,7 @@ export type SingOptions = {
 
 // Begrenzt Lücken zwischen zwei Messungen (z. B. Tab im Hintergrund)
 const MAX_FRAME_MS = 100
+const DEFAULT_SING_HOLD_MS = 2000
 
 export function centsFromTarget(frequency: number, targetMidi: number): number {
   return 1200 * Math.log2(frequency / (440 * 2 ** ((targetMidi - 69) / 12)))
@@ -54,6 +55,10 @@ export function stepSingState(
 ): SingStep {
   const elapsed = state.lastTime === null ? 0 : Math.min(now - state.lastTime, MAX_FRAME_MS)
   const target = targets[state.index]
+  const holdMs =
+    typeof options.holdMs === 'number'
+      ? options.holdMs
+      : (options.holdMs[state.index] ?? options.holdMs.at(-1) ?? DEFAULT_SING_HOLD_MS)
   const inTune = frequency !== null && Math.abs(centsFromTarget(frequency, target)) <= options.toleranceCents
 
   if (!inTune) {
@@ -65,7 +70,7 @@ export function stepSingState(
       heldMs: lostMs > options.graceMs ? 0 : state.heldMs,
       waitForRelease: lostMs >= options.releaseMs ? false : state.waitForRelease,
     }
-    return { state: next, holdProgress: Math.min(1, next.heldMs / options.holdMs), done: false }
+    return { state: next, holdProgress: Math.min(1, next.heldMs / holdMs), done: false }
   }
 
   if (state.waitForRelease) {
@@ -73,10 +78,10 @@ export function stepSingState(
   }
 
   const heldMs = state.heldMs + elapsed
-  if (heldMs < options.holdMs) {
+  if (heldMs < holdMs) {
     return {
       state: { ...state, lastTime: now, lostMs: 0, heldMs },
-      holdProgress: heldMs / options.holdMs,
+      holdProgress: heldMs / holdMs,
       done: false,
     }
   }

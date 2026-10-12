@@ -88,7 +88,7 @@ export function useSingStep() {
       key: string,
       notes: readonly (number | null)[],
       onSuccess: () => void,
-      holdMs: number = SING_HOLD_MS,
+      holdMs: number | readonly number[] = SING_HOLD_MS,
     ) => {
       stop()
       setError(null)

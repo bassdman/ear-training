@@ -1,12 +1,49 @@
 import { parseNote } from './notes'
 import { generateSections } from './sections'
-import type { Section, Song, SongNote } from './types'
+import type { Section, Song, SongNote, SongNoteValue } from './types'
 
 export type ParsedSong = { lines: SongNote[][] } | { error: string }
 
 export const DEFAULT_BEATS_PER_MINUTE = 100
 export const BEATS_PER_MINUTE_RANGE = { min: 20, max: 300 }
 export const SONG_TRANSPOSE_RANGE = { min: -12, max: 12 }
+const NOTE_VALUE_BY_DENOMINATOR: Record<number, SongNoteValue> = {
+  1: 'whole',
+  2: 'half',
+  4: 'quarter',
+  8: 'eighth',
+}
+const NOTE_VALUE_DENOMINATOR: Record<SongNoteValue, number> = {
+  whole: 1,
+  half: 2,
+  quarter: 4,
+  eighth: 8,
+}
+const NOTE_VALUE_BEATS: Record<SongNoteValue, number> = {
+  whole: 4,
+  half: 2,
+  quarter: 1,
+  eighth: 0.5,
+}
+
+export function isValidSongNoteValue(value: unknown): value is SongNoteValue {
+  return value === 'whole' || value === 'half' || value === 'quarter' || value === 'eighth'
+}
+
+export function songNoteDurationSeconds(
+  note: Pick<SongNote, 'duration'>,
+  quarterNoteDurationS: number,
+): number {
+  return quarterNoteDurationS * NOTE_VALUE_BEATS[note.duration ?? 'quarter']
+}
+
+function noteValueSuffix(duration?: SongNoteValue): string {
+  return duration && duration !== 'quarter' ? `/${NOTE_VALUE_DENOMINATOR[duration]}` : ''
+}
+
+export function formatSongNoteValue(duration?: SongNoteValue): string {
+  return noteValueSuffix(duration)
+}
 
 export function isValidSongTranspose(value: unknown): value is number {
   return (
@@ -26,12 +63,12 @@ export function isValidBeatsPerMinute(value: unknown): value is number {
   )
 }
 
-// Dauer eines Tones (und einer Pause) in Sekunden
+// Dauer einer Viertelnote in Sekunden; Songnoten und Pausen skalieren diese Dauer.
 export function noteDurationSeconds(song: Pick<Song, 'beatsPerMinute'>): number {
   return 60 / (song.beatsPerMinute ?? DEFAULT_BEATS_PER_MINUTE)
 }
 
-// Eine Zeile pro Liedzeile; Tokens: "ton:text", "ton" (ohne Text) oder "-" (Pause).
+// Eine Zeile pro Liedzeile; Notenwert optional als Nenner vor dem Text, z. B. "c4/8:Al".
 export function parseSongInput(input: string): ParsedSong {
   const lines: SongNote[][] = []
 
@@ -41,14 +78,23 @@ export function parseSongInput(input: string): ParsedSong {
 
     const line: SongNote[] = []
     for (const token of tokens) {
-      if (token === '-') {
-        line.push({ note: null, text: '' })
-        continue
+      const [pitchedPart, ...textParts] = token.split(':')
+      const match = pitchedPart.match(/^(.*?)(?:\/([1248]))?$/)
+      if (!match) return { error: `Zeile ${index + 1}: Ungültiger Notenwert in "${token}"` }
+      const [, notePart, denominatorText] = match
+      const duration = denominatorText ? NOTE_VALUE_BY_DENOMINATOR[Number(denominatorText)] : undefined
+      if (denominatorText && !duration) {
+        return { error: `Zeile ${index + 1}: Notenwert muss 1, 2, 4 oder 8 sein.` }
       }
-      const [notePart, ...textParts] = token.split(':')
-      const note = parseNote(notePart)
-      if (note === null) return { error: `Zeile ${index + 1}: Unbekannter Ton "${notePart}"` }
-      line.push({ note, text: textParts.join(':') })
+      const note = notePart === '-' ? null : parseNote(notePart)
+      if (notePart !== '-' && note === null) {
+        return { error: `Zeile ${index + 1}: Unbekannter Ton "${notePart}"` }
+      }
+      line.push({
+        note,
+        text: textParts.join(':'),
+        ...(duration && duration !== 'quarter' ? { duration } : {}),
+      })
     }
     lines.push(line)
   }
@@ -61,7 +107,14 @@ export function parseSongInput(input: string): ParsedSong {
 
 export function formatSongLine(line: readonly SongNote[], formatNote: (midi: number) => string): string {
   return line
-    .map((entry) => (entry.note === null ? '-' : [formatNote(entry.note), entry.text].filter(Boolean).join(' ')))
+    .map((entry) =>
+      [
+        `${entry.note === null ? '-' : formatNote(entry.note)}${noteValueSuffix(entry.duration)}`,
+        entry.text,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    )
     .join(' · ')
 }
 
@@ -130,7 +183,11 @@ export function generateSongSections(
   )
   const lyricSteps = song.lines.map((line) => ({
     notes: line.map((entry) => entry.note),
-    syllables: line.map((entry) => entry.text),
+    syllables: line.map((entry) => entry.textParts?.filter(Boolean).join(' ') || entry.text),
+    noteValues: line.map((entry) => entry.duration ?? 'quarter'),
+    durationsS: line.map((entry) =>
+      songNoteDurationSeconds(entry, noteDurationSeconds(song)),
+    ),
   }))
   const sections: Section[] = [...warmUps, { kind: 'lyrics', title: 'Liedtext', steps: lyricSteps }]
 
@@ -142,6 +199,8 @@ export function generateSongSections(
         {
           notes: lyricSteps.flatMap((step) => step.notes),
           syllables: lyricSteps.flatMap((step) => step.syllables),
+          noteValues: lyricSteps.flatMap((step) => step.noteValues ?? []),
+          durationsS: lyricSteps.flatMap((step) => step.durationsS ?? []),
         },
       ],
     })

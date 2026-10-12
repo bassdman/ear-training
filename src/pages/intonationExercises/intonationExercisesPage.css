@@ -431,6 +431,10 @@
   font-size: 0.75rem;
 }
 
+.ie-step-note .ie-step-duration {
+  font-variant-numeric: tabular-nums;
+}
+
 .ie-step-dash {
   color: var(--theme-muted);
 }
@@ -459,6 +463,292 @@
   font: inherit;
   background: var(--theme-background);
   resize: vertical;
+}
+
+.ie-song-grid-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.ie-song-grid-tools {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ie-song-grid-tools label {
+  display: grid;
+  gap: 4px;
+  color: var(--theme-muted);
+  font-size: 0.85rem;
+}
+
+.ie-song-grid-tools select,
+.ie-song-grid-tools button {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--theme-border);
+  border-radius: 5px;
+  color: var(--theme-ink);
+  background: var(--theme-background);
+}
+
+.ie-song-form-actions,
+.ie-song-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ie-song-actions button,
+.ie-song-form-actions button {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--theme-border);
+  border-radius: 5px;
+  color: var(--theme-ink);
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-song-grid-measures {
+  display: grid;
+  gap: 12px;
+}
+
+.ie-song-measure {
+  display: grid;
+  gap: 6px;
+}
+
+.ie-song-grid-scroll {
+  overflow-x: auto;
+  padding-bottom: 3px;
+}
+
+.ie-song-grid-head,
+.ie-song-grid-note-row,
+.ie-song-grid-lyrics {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(48px, 1fr));
+  min-width: 440px;
+}
+
+.ie-song-grid-head {
+  color: var(--theme-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.ie-song-grid-head span:nth-child(2n) {
+  border-right: 2px solid var(--theme-border);
+}
+
+.ie-song-grid-note-row {
+  min-height: 42px;
+  border: 1px solid var(--theme-border);
+  border-bottom: 0;
+}
+
+.ie-song-grid-note-row > * {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid var(--theme-border);
+}
+
+.ie-song-grid-note-row > :nth-child(2n) {
+  border-right-width: 2px;
+}
+
+.ie-song-grid-note {
+  overflow: hidden;
+  color: var(--theme-ink);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--theme-primary) 16%, var(--theme-background));
+  cursor: pointer;
+}
+
+.ie-song-grid-note.is-alt {
+  background: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-background));
+}
+
+.ie-song-grid-note.is-selected {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--theme-primary);
+  outline-offset: -3px;
+}
+
+.ie-song-grid-empty {
+  color: var(--theme-muted);
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-song-grid-empty:hover {
+  color: var(--theme-primary);
+  background: var(--theme-soft);
+}
+
+.ie-song-grid-lyrics input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 4px;
+  border: 1px solid var(--theme-border);
+  border-radius: 0;
+  color: var(--theme-ink);
+  text-align: center;
+  background: var(--theme-background);
+}
+
+.ie-song-grid-lyrics input:nth-child(2n) {
+  border-right-width: 2px;
+}
+
+.ie-song-grid-lyrics input.is-note-0 {
+  background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-background));
+}
+
+.ie-song-grid-lyrics input.is-note-1 {
+  background: color-mix(in srgb, var(--theme-danger) 8%, var(--theme-background));
+}
+
+.ie-song-grid-lyrics input:disabled {
+  background: var(--theme-soft);
+}
+
+.ie-song-grid-lines {
+  display: grid;
+  gap: 10px;
+}
+
+.ie-song-grid-display {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.ie-song-grid-display-measure {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.ie-song-grid-display-head,
+.ie-song-grid-display-notes,
+.ie-song-grid-display-text {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(40px, 1fr));
+  min-width: 320px;
+}
+
+.ie-song-grid-display-head {
+  color: var(--theme-muted);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.ie-song-grid-display-head span:nth-child(2n) {
+  border-right: 2px solid var(--theme-border);
+}
+
+.ie-song-grid-display-notes {
+  min-height: 36px;
+  border: 1px solid var(--theme-border);
+}
+
+.ie-song-grid-display-note,
+.ie-song-grid-display-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 5px;
+  border: 0;
+  border-right: 1px solid var(--theme-border);
+  border-radius: 0;
+  color: var(--theme-ink);
+  font-size: 0.83rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--theme-primary) 16%, var(--theme-background));
+}
+
+.ie-song-grid-display-note.is-alt {
+  background: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-background));
+}
+
+button.ie-song-grid-display-note {
+  cursor: pointer;
+}
+
+button.ie-song-grid-display-note:hover {
+  filter: brightness(0.96);
+}
+
+.ie-song-grid-display-note.is-in-range {
+  box-shadow: inset 0 0 0 2px var(--theme-primary);
+}
+
+.ie-song-grid-display-note.is-anchor {
+  outline: 2px dashed var(--theme-primary);
+  outline-offset: -4px;
+}
+
+.ie-song-grid-display-empty {
+  background: var(--theme-background);
+}
+
+.ie-song-grid-display-notes::after,
+.ie-song-grid-display-text::after {
+  content: '';
+  display: none;
+}
+
+.ie-song-grid-display-text > span {
+  min-width: 0;
+  min-height: 28px;
+  overflow: hidden;
+  padding: 4px 2px;
+  border: 1px solid var(--theme-border);
+  color: var(--theme-muted);
+  font-size: 0.74rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ie-song-grid-display-text > span.is-alt {
+  background: color-mix(in srgb, var(--theme-danger) 8%, var(--theme-background));
+}
+
+.ie-song-practice-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  width: 100%;
+}
+
+.ie-song-play-step {
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 1px solid var(--theme-primary);
+  border-radius: 5px;
+  color: var(--theme-primary);
+  background: var(--theme-background);
+  cursor: pointer;
+}
+
+.ie-song-play-step:hover {
+  color: #ffffff;
+  background: var(--theme-primary);
 }
 
 .ie-hint code {
@@ -550,6 +840,11 @@
   color: var(--theme-muted);
   font-size: 0.8rem;
   line-height: 1.2;
+}
+
+.ie-song-entry .ie-song-duration {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
 }
 
 .ie-song-chip {
