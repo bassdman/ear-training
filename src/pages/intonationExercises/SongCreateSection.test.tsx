@@ -99,7 +99,7 @@ describe('SongCreateSection', () => {
     render(<SongCreateSection />)
 
     await user.click(screen.getByRole('button', { name: `Lied "${song.name}" bearbeiten` }))
-    await user.click(screen.getAllByRole('button', { name: 'h2', exact: true })[0])
+    await user.click(screen.getAllByRole('button', { name: /^h2$/ })[0])
 
     expect(screen.getByLabelText('Tonhöhe')).toHaveValue('47')
     expect(infoLog).toHaveBeenCalledWith(
@@ -135,7 +135,7 @@ describe('SongCreateSection', () => {
   it('exportiert ein Lied aus dem Liedmenü als JSON-Datei', async () => {
     const user = userEvent.setup()
     const song = DEFAULT_SONGS.find((entry) => entry.id === 'default-every-breath-you-take')!
-    const createObjectURL = vi.fn(() => 'blob:song-export')
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:song-export')
     const revokeObjectURL = vi.fn()
     const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })

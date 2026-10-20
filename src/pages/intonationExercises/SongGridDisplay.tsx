@@ -56,7 +56,7 @@ export function SongGridDisplay({
 
   return (
     <div className="ie-song-grid-display" role="group" aria-label={label}>
-      {measures.map((entries, measureIndex) => (
+      {measures.map((entries) => (
         <div className="ie-song-grid-display-measure" key={entries[0].item.id}>
           <div className="ie-song-grid-display-head" aria-hidden="true">
             {Array.from({ length: GRID_COLUMNS }, (_, slot) => (
