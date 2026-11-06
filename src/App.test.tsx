@@ -18,6 +18,29 @@ vi.mock('./components/EarTrainer', () => ({
 import App from './App'
 
 describe('App', () => {
+  it('bietet den Tuner auf der Startseite an', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Zum Tuner' })).toHaveAttribute('href', '/tuner')
+    expect(screen.queryByRole('heading', { name: 'Intonationsübungen' })).not.toBeInTheDocument()
+  })
+
+  it('leitet alte Übungslinks um, ohne gespeicherte Daten zu löschen', () => {
+    const key = 'ear-training-intonation-practice-v1'
+    localStorage.setItem(key, '[{"id":"test"}]')
+    render(
+      <MemoryRouter initialEntries={['/intonation-exercises/create']}>
+        <App />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Zum Tuner' })).toBeInTheDocument()
+    expect(localStorage.getItem(key)).toBe('[{"id":"test"}]')
+    localStorage.removeItem(key)
+  })
+
   it('startet auf der Kursseite', () => {
     useTrainerProgressMock.mockReturnValue({
       loaded: true,

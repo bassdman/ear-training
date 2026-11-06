@@ -46,12 +46,12 @@ export function HomePage() {
           </article>
 
           <article className="home-card">
-            <h2>Intonationsübungen</h2>
+            <h2>Stimm-Tuner</h2>
             <p>
-              Lege Tonfolgen an, die in mehreren Tonhöhen und Abschnitten geübt werden.
+              Verfolge deine gesungene Tonhöhe und ihren Verlauf auf einem Notenraster.
             </p>
-            <Link className="home-link is-secondary" to="/intonation-exercises">
-              Zu den Übungen
+            <Link className="home-link is-secondary" to="/tuner">
+              Zum Tuner
             </Link>
           </article>
 

@@ -4,10 +4,7 @@ import { CampaignTrainerPage } from './features/campaign/CampaignTrainerPage'
 import { CoursePage } from './pages/course/CoursePage'
 import { HomePage } from './pages/home/HomePage'
 import { IntonationTrainingPage } from './pages/intonation/IntonationTrainingPage'
-import { IntonationCreatePage } from './pages/intonationExercises/IntonationCreatePage'
-import { IntonationExercisesLayout } from './pages/intonationExercises/IntonationExercisesLayout'
-import { IntonationPracticePage } from './pages/intonationExercises/IntonationPracticePage'
-import { IntonationSongsPage } from './pages/intonationExercises/IntonationSongsPage'
+import { TunerPage } from './pages/tuner/TunerPage'
 import { TrainerPage } from './pages/TrainerPage'
 import { ExerciseSettings } from './components/ExcerciseSettings'
 import { ConverterPage } from './pages/converter/ConverterPage'
@@ -21,12 +18,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/course" element={<CoursePage />} />
       <Route path="/intonation-training" element={<IntonationTrainingPage />} />
-      <Route path="/intonation-exercises" element={<IntonationExercisesLayout />}>
-        <Route index element={<Navigate to="practice" replace />} />
-        <Route path="practice" element={<IntonationPracticePage />} />
-        <Route path="songs" element={<IntonationSongsPage />} />
-        <Route path="create" element={<IntonationCreatePage />} />
-      </Route>
+      <Route path="/tuner" element={<TunerPage />} />
       <Route path="/converter" element={<ConverterPage />} />
       <Route
         path="/campaign"

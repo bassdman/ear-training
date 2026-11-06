@@ -1,5 +1,24 @@
 # React + TypeScript + Vite
 
+## Stimm-Tuner
+
+Auf der Startseite führt **Stimm-Tuner** zum Tonhöhenverlauf. Mit
+**Mikrofon starten** wird der Browser um Zugriff auf das Mikrofon gebeten.
+Das Diagramm zeigt die letzten fünf Sekunden; Stille oder nicht eindeutig
+erkannte Töne erscheinen als Lücke. **Mikrofon stoppen** friert den Verlauf
+ein, **Verlauf löschen** leert ihn.
+
+Der Zugriff erfordert HTTPS oder localhost und eine Mikrofonberechtigung.
+Die Analyse mit Pitchy läuft lokal im Browser; Audio wird nicht gespeichert
+oder übertragen. Die Genauigkeit kann je nach Stimme, Umgebung und Gerät
+variieren. MP3-Analyse und Audioexport sind noch nicht Bestandteil des
+Tuners.
+
+Die Empfindlichkeit und weitere Analysewerte lassen sich in
+[`src/features/tuner/config.ts`](src/features/tuner/config.ts) einstellen.
+Insbesondere senkt ein kleinerer `MIN_VOLUME_RMS` die Mindestlautstärke;
+ein kleinerer `MIN_PITCH_CLARITY` akzeptiert unklarere Signale.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

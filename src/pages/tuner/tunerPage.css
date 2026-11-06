@@ -1,0 +1,148 @@
+.tuner-page {
+  min-height: 100svh;
+  box-sizing: border-box;
+  padding: 24px 16px 40px;
+  background: linear-gradient(180deg, #0f141b, #131a24);
+  color: #edf3fb;
+}
+
+.tuner-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.tuner-back {
+  color: #b7c8db;
+  text-decoration: none;
+}
+
+.tuner-back:hover,
+.tuner-back:focus-visible {
+  text-decoration: underline;
+}
+
+.tuner-header {
+  text-align: center;
+}
+
+.tuner-header p:first-child {
+  color: #c8a56d;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+}
+
+.tuner-header h1 {
+  margin: 10px 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.tuner-header p:last-child,
+.tuner-hint {
+  color: #a7b4c5;
+}
+
+.tuner-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.tuner-controls button {
+  min-height: 44px;
+  padding: 9px 18px;
+  border: 1px solid #53677d;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tuner-primary {
+  background: #d59f46;
+  color: #1e1608;
+}
+
+.tuner-secondary {
+  background: #222d3b;
+  color: #edf3fb;
+}
+
+.tuner-status {
+  min-height: 1.5em;
+  margin: 12px 0;
+  color: #b7c8db;
+  text-align: center;
+}
+
+.tuner-error {
+  padding: 12px;
+  border: 1px solid #b75c5c;
+  border-radius: 10px;
+  background: #4a2228;
+}
+
+.tuner-display {
+  overflow: hidden;
+  border: 1px solid #354658;
+  border-radius: 18px;
+  padding: 12px;
+  background: #101923;
+}
+
+.tuner-reading {
+  display: flex;
+  min-height: 56px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 18px;
+  color: #b7c8db;
+}
+
+.tuner-reading strong {
+  color: #9cddff;
+  font-size: 2rem;
+}
+
+.tuner-chart {
+  display: block;
+  width: 100%;
+  height: clamp(420px, 62svh, 650px);
+}
+
+.tuner-grid-note line {
+  stroke: #73818c;
+  stroke-width: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+
+.tuner-grid-note.is-c line {
+  stroke: #c5d0d9;
+  stroke-width: 1.2;
+}
+
+.tuner-grid-note text,
+.tuner-grid-time text {
+  fill: #d1dce5;
+  font-size: 11px;
+}
+
+.tuner-grid-time line {
+  stroke: #40505e;
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.tuner-trace {
+  fill: none;
+  stroke: #80d5ff;
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.tuner-hint {
+  font-size: 0.85rem;
+  text-align: center;
+}
