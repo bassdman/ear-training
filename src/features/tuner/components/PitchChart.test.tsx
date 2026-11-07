@@ -2,6 +2,7 @@ import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { PitchChart } from './PitchChart'
+import { CHART_LEFT, CHART_PLOT_WIDTH } from '../chartGeometry'
 
 describe('PitchChart', () => {
   it('beschriftet und betont nur Stammtöne, behält aber alle Halbtonlinien', () => {
@@ -30,7 +31,7 @@ describe('PitchChart', () => {
     expect(container.querySelector('.tuner-chart')).toHaveAttribute('viewBox', '0 0 400 564')
     expect(container.querySelector('.tuner-grid-note line')).toHaveAttribute('x2', '400')
     expect(container.querySelectorAll('.tuner-grid-time line')[5]).toHaveAttribute('x1', '400')
-    expect(container.querySelector('clipPath rect')).toHaveAttribute('width', '354')
-    expect(container.querySelector('.tuner-trace')).toHaveAttribute('d', 'M46.00 282.00 L400.00 282.00')
+    expect(container.querySelector('clipPath rect')).toHaveAttribute('width', String(CHART_PLOT_WIDTH))
+    expect(container.querySelector('.tuner-trace')).toHaveAttribute('d', `M${CHART_LEFT.toFixed(2)} 282.00 L400.00 282.00`)
   })
 })

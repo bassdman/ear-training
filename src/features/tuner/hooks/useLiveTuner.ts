@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { ANALYSIS_FFT_SIZE, ANALYSIS_INTERVAL_MS } from '../config'
 import { appendPoint } from '../history'
 import { createPitchAnalyzer, type PitchPoint } from '../pitch'
+import { DEFAULT_TUNER_SETTINGS, type TunerSettings } from '../settings'
 
 type Status = 'idle' | 'starting' | 'listening' | 'error'
 type State = { status: Status, error: string | null, points: PitchPoint[], timeMs: number }
@@ -22,7 +22,7 @@ function microphoneError(error: unknown): string {
   return 'Das Mikrofon konnte nicht verwendet werden. Bitte versuche es erneut.'
 }
 
-export function useLiveTuner() {
+export function useLiveTuner(settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
   const [state, setState] = useState<State>(INITIAL_STATE)
   const streamRef = useRef<MediaStream | null>(null)
   const contextRef = useRef<AudioContext | null>(null)
@@ -30,6 +30,11 @@ export function useLiveTuner() {
   const generationRef = useRef(0)
   const originRef = useRef(0)
   const lastFrameRef = useRef(0)
+  const settingsRef = useRef(settings)
+
+  useEffect(() => {
+    settingsRef.current = settings
+  }, [settings])
 
   const release = useCallback(() => {
     generationRef.current += 1
@@ -90,10 +95,11 @@ export function useLiveTuner() {
       if (context.state !== 'running') throw new Error('Der AudioContext konnte nicht gestartet werden.')
 
       const analyser = context.createAnalyser()
-      analyser.fftSize = ANALYSIS_FFT_SIZE
+      let activeSettings = settingsRef.current
+      analyser.fftSize = activeSettings.analysisFftSize
       context.createMediaStreamSource(stream).connect(analyser)
-      const samples = new Float32Array(analyser.fftSize)
-      const analyzePitch = createPitchAnalyzer(samples.length)
+      let samples = new Float32Array(analyser.fftSize)
+      let analyzePitch = createPitchAnalyzer(samples.length, activeSettings)
       originRef.current = performance.now()
       lastFrameRef.current = 0
       stream.getAudioTracks().forEach((track) => {
@@ -112,17 +118,26 @@ export function useLiveTuner() {
       const analyze = () => {
         if (generation !== generationRef.current) return
         const now = performance.now()
-        if (now - lastFrameRef.current >= ANALYSIS_INTERVAL_MS) {
+        const currentSettings = settingsRef.current
+        if (now - lastFrameRef.current >= currentSettings.analysisIntervalMs) {
           try {
             let frequency: number | null = null
             if (context.state === 'running') {
+              if (currentSettings !== activeSettings) {
+                if (analyser.fftSize !== currentSettings.analysisFftSize) {
+                  analyser.fftSize = currentSettings.analysisFftSize
+                  samples = new Float32Array(analyser.fftSize)
+                }
+                analyzePitch = createPitchAnalyzer(samples.length, currentSettings)
+                activeSettings = currentSettings
+              }
               analyser.getFloatTimeDomainData(samples)
               frequency = analyzePitch(samples, context.sampleRate)
             }
             const timeMs = Math.max(0, now - originRef.current)
             setState((current) => ({
               ...current,
-              points: appendPoint(current.points, { timeMs, frequency }),
+              points: appendPoint(current.points, { timeMs, frequency }, currentSettings),
               timeMs,
             }))
             lastFrameRef.current = now

@@ -1,6 +1,6 @@
 import { PitchDetector } from 'pitchy'
 
-import { MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, MIN_PITCH_CLARITY, MIN_VOLUME_RMS } from './config'
+import { DEFAULT_TUNER_SETTINGS, type TunerSettings } from './settings'
 
 export type PitchPoint = { timeMs: number, frequency: number | null }
 
@@ -24,15 +24,15 @@ export function formatMidi(midi: number): string {
   return `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`
 }
 
-export function createPitchAnalyzer(size: number) {
+export function createPitchAnalyzer(size: number, settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
   const detector = PitchDetector.forFloat32Array(size)
-  detector.minVolumeAbsolute = MIN_VOLUME_RMS
+  detector.minVolumeAbsolute = settings.minVolumeRms
   return (samples: Float32Array, sampleRate: number): number | null => {
     const [frequency, clarity] = detector.findPitch(samples, sampleRate)
     return Number.isFinite(frequency)
-      && frequency >= MIN_FREQUENCY_HZ
-      && frequency <= MAX_FREQUENCY_HZ
-      && clarity >= MIN_PITCH_CLARITY
+      && frequency >= settings.minFrequencyHz
+      && frequency <= settings.maxFrequencyHz
+      && clarity >= settings.minPitchClarity
       ? frequency
       : null
   }

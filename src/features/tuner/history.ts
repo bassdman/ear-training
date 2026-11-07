@@ -1,15 +1,15 @@
-import { MAX_SAMPLE_GAP_MS, WINDOW_MS } from './config'
+import { DEFAULT_TUNER_SETTINGS, type TunerSettings } from './settings'
 import { CHART_LEFT, CHART_PLOT_HEIGHT, CHART_PLOT_WIDTH, CHART_TOP } from './chartGeometry'
 import { frequencyToMidi, type PitchPoint } from './pitch'
 
-export function appendPoint(points: readonly PitchPoint[], point: PitchPoint): PitchPoint[] {
+export function appendPoint(points: readonly PitchPoint[], point: PitchPoint, settings: TunerSettings = DEFAULT_TUNER_SETTINGS): PitchPoint[] {
   const previous = points.at(-1)
   const updated = [...points]
-  if (previous && point.timeMs - previous.timeMs > MAX_SAMPLE_GAP_MS && previous.frequency !== null) {
+  if (previous && point.timeMs - previous.timeMs > settings.maxSampleGapMs && previous.frequency !== null) {
     updated.push({ timeMs: previous.timeMs + 1, frequency: null })
   }
   updated.push(point)
-  const start = point.timeMs - WINDOW_MS
+  const start = point.timeMs - settings.windowMs
   const firstInWindow = updated.findIndex((entry) => entry.timeMs >= start)
   return updated.slice(Math.max(0, firstInWindow - 1))
 }

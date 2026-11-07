@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { appendPoint, buildPitchPath, nextPitchCenter } from './history'
 import type { PitchPoint } from './pitch'
+import { DEFAULT_TUNER_SETTINGS } from './settings'
 
 describe('Verlauf', () => {
   it('begrenzt das Fenster und behält höchstens einen Punkt vor dem Rand', () => {
@@ -30,6 +31,22 @@ describe('Verlauf', () => {
     const path = buildPitchPath(points, 0, 5000, 69, 18)
     expect(path.match(/M/g)).toHaveLength(3)
     expect(path.match(/L/g)).toHaveLength(1)
+  })
+
+  it('wendet die eingestellte Fensterlänge und den maximalen Messabstand an', () => {
+    const settings = { ...DEFAULT_TUNER_SETTINGS, windowMs: 200, maxSampleGapMs: 100 }
+    let points: PitchPoint[] = []
+    for (const point of [
+      { timeMs: 0, frequency: 440 },
+      { timeMs: 50, frequency: 440 },
+      { timeMs: 200, frequency: 440 },
+      { timeMs: 300, frequency: 440 },
+    ]) points = appendPoint(points, point, settings)
+    expect(points).toEqual([
+      { timeMs: 51, frequency: null },
+      { timeMs: 200, frequency: 440 },
+      { timeMs: 300, frequency: 440 },
+    ])
   })
 
   it('führt bei den äußeren 15 Prozent des Tonbereichs nach', () => {

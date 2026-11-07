@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { ANALYSIS_FFT_SIZE, MAX_FREQUENCY_HZ, MIN_FREQUENCY_HZ, MIN_VOLUME_RMS } from './config'
+import { DEFAULT_TUNER_SETTINGS } from './settings'
 import { createPitchAnalyzer, describePitch, frequencyToMidi } from './pitch'
 
 describe('Tonhöhenerkennung', () => {
+  const { analysisFftSize: ANALYSIS_FFT_SIZE, maxFrequencyHz: MAX_FREQUENCY_HZ,
+    minFrequencyHz: MIN_FREQUENCY_HZ, minVolumeRms: MIN_VOLUME_RMS } = DEFAULT_TUNER_SETTINGS
   it('ordnet Frequenzen stufenlos Noten und Cent zu', () => {
     expect(frequencyToMidi(440)).toBe(69)
     expect(describePitch(440)).toEqual({ note: 'A4', cents: 0 })

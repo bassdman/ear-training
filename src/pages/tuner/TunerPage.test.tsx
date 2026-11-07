@@ -13,6 +13,7 @@ vi.mock('../../features/tuner/hooks/useLiveTuner', () => ({
 }))
 
 import { TunerPage } from './TunerPage'
+import { DEFAULT_TUNER_SETTINGS, TUNER_SETTINGS_STORAGE_KEY } from '../../features/tuner/settings'
 
 function renderPage() {
   return render(<MemoryRouter><TunerPage /></MemoryRouter>)
@@ -21,6 +22,7 @@ function renderPage() {
 describe('TunerPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     mocks.useLiveTuner.mockReturnValue({
       status: 'idle',
       error: null,
@@ -66,5 +68,49 @@ describe('TunerPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Mikrofonzugriff verweigert')
     fireEvent.click(screen.getByRole('button', { name: 'Mikrofon starten' }))
     expect(mocks.start).toHaveBeenCalledOnce()
+  })
+
+  it('speichert Änderungen, lädt sie erneut und stellt Standardwerte wieder her', () => {
+    const { unmount } = renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen öffnen' }))
+    const volume = screen.getByLabelText('Mindestlautstärke (RMS)')
+    fireEvent.change(volume, { target: { value: '0.004' } })
+    expect(JSON.parse(localStorage.getItem(TUNER_SETTINGS_STORAGE_KEY) ?? '')).toEqual({
+      ...DEFAULT_TUNER_SETTINGS, minVolumeRms: 0.004,
+    })
+    expect(mocks.useLiveTuner).toHaveBeenLastCalledWith({
+      ...DEFAULT_TUNER_SETTINGS, minVolumeRms: 0.004,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen schließen' }))
+    expect(screen.getByRole('button', { name: 'Einstellungen öffnen' })).toHaveFocus()
+    unmount()
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen öffnen' }))
+    expect(screen.getByLabelText('Mindestlautstärke (RMS)')).toHaveValue(0.004)
+    fireEvent.click(screen.getByRole('button', { name: 'Standardwerte wiederherstellen' }))
+    expect(JSON.parse(localStorage.getItem(TUNER_SETTINGS_STORAGE_KEY) ?? '')).toEqual(DEFAULT_TUNER_SETTINGS)
+  })
+
+  it('speichert ungültige Werte nicht und schließt das Menü mit Escape', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen öffnen' }))
+    fireEvent.change(screen.getByLabelText('Mindestklarheit'), { target: { value: '2' } })
+    expect(screen.getByRole('alert')).toHaveTextContent('zwischen 0 und 1')
+    expect(localStorage.getItem(TUNER_SETTINGS_STORAGE_KEY)).toBeNull()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Einstellungen öffnen' })).toHaveFocus()
+  })
+
+  it('meldet Speicherfehler im geöffneten Menü', () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen öffnen' }))
+    fireEvent.change(screen.getByLabelText('Mindestklarheit'), { target: { value: '0.8' } })
+    expect(screen.getByRole('alert')).toHaveTextContent('konnten nicht gespeichert werden')
+    expect(mocks.useLiveTuner).toHaveBeenLastCalledWith({ ...DEFAULT_TUNER_SETTINGS, minPitchClarity: 0.8 })
+    save.mockRestore()
+    log.mockRestore()
   })
 })

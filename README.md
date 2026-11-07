@@ -14,10 +14,12 @@ oder übertragen. Die Genauigkeit kann je nach Stimme, Umgebung und Gerät
 variieren. MP3-Analyse und Audioexport sind noch nicht Bestandteil des
 Tuners.
 
-Die Empfindlichkeit und weitere Analysewerte lassen sich in
-[`src/features/tuner/config.ts`](src/features/tuner/config.ts) einstellen.
-Insbesondere senkt ein kleinerer `MIN_VOLUME_RMS` die Mindestlautstärke;
-ein kleinerer `MIN_PITCH_CLARITY` akzeptiert unklarere Signale.
+Über das Menü rechts in der unteren Leiste lassen sich Empfindlichkeit,
+Frequenzbereich und weitere Analysewerte einstellen. Gültige Änderungen
+gelten sofort und werden im lokalen Browser-Speicher abgelegt. Eine
+kleinere Mindestlautstärke erkennt leisere Signale; eine kleinere
+Mindestklarheit akzeptiert unklarere Signale. Die Standardwerte können im
+Menü wiederhergestellt werden.
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

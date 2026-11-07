@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useLiveTuner } from './useLiveTuner'
+import { DEFAULT_TUNER_SETTINGS } from '../settings'
 
 describe('Live-Tuner', () => {
   const track = { stop: vi.fn(), onended: null as (() => void) | null }
@@ -72,6 +73,24 @@ describe('Live-Tuner', () => {
     expect(track.stop).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
     unmount()
+  })
+
+  it('übernimmt geänderte Analyseparameter während der Aufnahme ohne Neustart', async () => {
+    const initial = { ...DEFAULT_TUNER_SETTINGS }
+    const { result, rerender } = renderHook(({ settings }) => useLiveTuner(settings), {
+      initialProps: { settings: initial },
+    })
+    await act(async () => { await result.current.start() })
+    time = 200
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
+    rerender({ settings: { ...initial, minVolumeRms: 0.3, analysisFftSize: 2048 } })
+    time = 300
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeNull()
+    expect(result.current.status).toBe('listening')
+    expect(getUserMedia).toHaveBeenCalledOnce()
+    expect(track.stop).not.toHaveBeenCalled()
   })
 
   it('aktiviert einen angehaltenen AudioContext vor dem Berechtigungsdialog', async () => {

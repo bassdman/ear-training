@@ -50,6 +50,132 @@
   background: #101923;
 }
 
+.tuner-menu {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  top: 10px;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  background: transparent;
+  color: #edf3fb;
+  cursor: pointer;
+}
+
+.tuner-menu svg {
+  width: 26px;
+  height: 26px;
+}
+
+.tuner-menu:focus-visible,
+.tuner-settings button:focus-visible,
+.tuner-settings input:focus-visible,
+.tuner-settings select:focus-visible {
+  outline: 3px solid #80d5ff;
+  outline-offset: 2px;
+}
+
+.tuner-settings-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 calc(73px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
+}
+
+.tuner-settings {
+  box-sizing: border-box;
+  width: min(100%, 560px);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
+  border: 1px solid #53677d;
+  border-radius: 18px 18px 0 0;
+  background: #182330;
+  color: #edf3fb;
+}
+
+.tuner-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tuner-settings-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.tuner-settings-header button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.tuner-settings p,
+.tuner-settings small {
+  color: #c4d2df;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.tuner-settings-fields {
+  display: grid;
+  gap: 18px;
+}
+
+.tuner-settings-fields label {
+  display: grid;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.tuner-settings-fields small {
+  font-weight: 400;
+}
+
+.tuner-settings-fields input,
+.tuner-settings-fields select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid #697e90;
+  border-radius: 8px;
+  background: #101923;
+  color: #edf3fb;
+}
+
+.tuner-settings .tuner-settings-error {
+  padding: 10px;
+  border: 1px solid #b75c5c;
+  border-radius: 8px;
+  background: #4a2228;
+  color: #fff;
+}
+
+.tuner-settings-reset {
+  margin-top: 20px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #697e90;
+  border-radius: 8px;
+  background: #222d3b;
+  color: #edf3fb;
+  cursor: pointer;
+}
+
 .tuner-microphone {
   display: grid;
   place-items: center;

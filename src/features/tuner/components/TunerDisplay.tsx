@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 
-import { WINDOW_MS } from '../config'
 import { nextPitchCenter } from '../history'
 import { describePitch, frequencyToMidi, type PitchPoint } from '../pitch'
 import { PitchChart } from './PitchChart'
@@ -10,9 +9,10 @@ type Props = {
   timeMs: number
   active: boolean
   span: number
+  windowMs: number
 }
 
-export function TunerDisplay({ points, timeMs, active, span }: Props) {
+export function TunerDisplay({ points, timeMs, active, span, windowMs }: Props) {
   const [center, setCenter] = useState<number | null>(null)
   const latest = points.at(-1)
   const frequency = active ? latest?.frequency ?? null : null
@@ -43,7 +43,7 @@ export function TunerDisplay({ points, timeMs, active, span }: Props) {
       </div>
       <PitchChart
         points={points}
-        startMs={timeMs - WINDOW_MS}
+        startMs={timeMs - windowMs}
         endMs={timeMs}
         center={center ?? 60}
         span={span}

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { TunerDisplay } from '../../features/tuner/components/TunerDisplay'
+import { TunerSettingsPanel } from '../../features/tuner/components/TunerSettingsPanel'
 import { useLiveTuner } from '../../features/tuner/hooks/useLiveTuner'
+import { readTunerSettings, TUNER_SETTINGS_STORAGE_KEY, type TunerSettings } from '../../features/tuner/settings'
 import './tunerPage.css'
 
 function usePitchSpan() {
@@ -16,7 +18,12 @@ function usePitchSpan() {
 }
 
 export function TunerPage() {
-  const { status, error, points, timeMs, start, stop } = useLiveTuner()
+  const [stored] = useState(readTunerSettings)
+  const [settings, setSettings] = useState(stored.settings)
+  const [settingsError, setSettingsError] = useState(stored.error)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const menuRef = useRef<HTMLButtonElement>(null)
+  const { status, error, points, timeMs, start, stop } = useLiveTuner(settings)
   const span = usePitchSpan()
   const active = status === 'listening'
   const pending = status === 'starting'
@@ -28,13 +35,30 @@ export function TunerPage() {
       : status === 'error' ? 'Mikrofon nicht aktiv'
         : 'Mikrofon aus'
 
+  const updateSettings = (next: TunerSettings) => {
+    setSettings(next)
+    try {
+      localStorage.setItem(TUNER_SETTINGS_STORAGE_KEY, JSON.stringify(next))
+      setSettingsError(null)
+    } catch (caught) {
+      console.error('Tuner-Einstellungen konnten nicht gespeichert werden:', caught)
+      setSettingsError('Einstellungen konnten nicht gespeichert werden und gelten nur bis zum Verlassen der Seite.')
+    }
+  }
+
+  const closeSettings = () => {
+    setSettingsOpen(false)
+    menuRef.current?.focus()
+  }
+
   return (
     <main className="tuner-page">
       <div className="tuner-shell">
         <Link className="tuner-back" to="/" aria-label="Zur Startseite">←</Link>
         <p className="tuner-status" role="status">{message}</p>
         {error && <p className="tuner-error" role="alert">{error}</p>}
-        <TunerDisplay points={points} timeMs={timeMs} active={active} span={span} />
+        {settingsError && !settingsOpen && <p className="tuner-error" role="alert">{settingsError}</p>}
+        <TunerDisplay points={points} timeMs={timeMs} active={active} span={span} windowMs={settings.windowMs} />
       </div>
       <div className="tuner-toolbar" role="toolbar" aria-label="Mikrofonsteuerung">
         <button
@@ -52,7 +76,22 @@ export function TunerPage() {
             {!active && !pending && <path d="M3 3l18 18" />}
           </svg>
         </button>
+        <button
+          ref={menuRef}
+          type="button"
+          className="tuner-menu"
+          aria-label="Einstellungen öffnen"
+          aria-haspopup="dialog"
+          aria-expanded={settingsOpen}
+          onClick={() => setSettingsOpen(true)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
+      {settingsOpen && <TunerSettingsPanel settings={settings} storageError={settingsError} onChange={updateSettings} onClose={closeSettings} />}
     </main>
   )
 }

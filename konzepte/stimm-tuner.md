@@ -34,8 +34,10 @@ Audioexport bleiben mittelfristige Erweiterungen.
   Notenname mit Oktave, die Abweichung in Cent und die Frequenz in Hz.
   Ohne verlässliche Messung erscheinen keine veralteten Messwerte als
   aktuelle Tonhöhe.
-- In der ersten Version sind Zeitfenster und angezeigter Tonumfang nicht
-  manuell einstellbar. Ein Export ist zunächst nicht vorgesehen.
+- Über das Menü in der unteren Leiste lassen sich die Analysewerte und das
+  Zeitfenster einstellen. Gültige Änderungen werden sofort übernommen und
+  lokal gespeichert. Der angezeigte Tonumfang ist nicht manuell einstellbar.
+  Ein Export ist zunächst nicht vorgesehen.
 
 ## Diagramm
 
@@ -373,9 +375,7 @@ ein möglicher Vergleich gehören nicht zum ersten Implementierungsumfang.
 
 ## Offene Entscheidungen vor der Umsetzung
 
-- Nach welcher konkreten Regel passt sich der Tonumfang an andere
-  Bildschirmgrößen an, und sollen Zeitfenster und Tonhöhenbereich später
-  manuell einstellbar sein?
+- Soll der Tonhöhenbereich später manuell einstellbar sein?
 - Welche Einstellungen für Pitchy, Puffergröße und Analyseintervall
   bewähren sich für Stimmen und Geräte in den benötigten Tonlagen?
 - Welche konkreten Tonlagen sowie Grenzwerte für Latenz und Genauigkeit
