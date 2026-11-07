@@ -10,8 +10,8 @@ export type TunerSettings = {
 }
 
 export const DEFAULT_TUNER_SETTINGS: Readonly<TunerSettings> = {
-  minVolumeRms: 0.008,
-  minPitchClarity: 0.85,
+  minVolumeRms: 0.001,
+  minPitchClarity: 0.2,
   minFrequencyHz: 55,
   maxFrequencyHz: 1200,
   analysisFftSize: 4096,

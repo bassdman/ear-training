@@ -112,8 +112,7 @@ export function TunerSettingsPanel({ settings, onChange, onClose, storageError }
           <h2 id="tuner-settings-title">Einstellungen</h2>
           <button ref={closeRef} type="button" onClick={onClose} aria-label="Einstellungen schließen">×</button>
         </div>
-        <p>Gültige Änderungen werden sofort übernommen und auf diesem Gerät gespeichert.</p>
-        {storageError && <p className="tuner-settings-error" role="alert">{storageError}</p>}
+            {storageError && <p className="tuner-settings-error" role="alert">{storageError}</p>}
         {error && <p className="tuner-settings-error" role="alert">{error} Ungültige Änderungen werden nicht übernommen.</p>}
         <div className="tuner-settings-fields">
           {fields.map((field) => (
