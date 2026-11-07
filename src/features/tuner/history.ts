@@ -1,4 +1,5 @@
 import { MAX_SAMPLE_GAP_MS, WINDOW_MS } from './config'
+import { CHART_LEFT, CHART_PLOT_HEIGHT, CHART_PLOT_WIDTH, CHART_TOP } from './chartGeometry'
 import { frequencyToMidi, type PitchPoint } from './pitch'
 
 export function appendPoint(points: readonly PitchPoint[], point: PitchPoint): PitchPoint[] {
@@ -29,10 +30,6 @@ export function buildPitchPath(
   center: number,
   span: number,
 ): string {
-  const left = 46
-  const width = 344
-  const top = 12
-  const height = 540
   let drawing = false
   let path = ''
   for (const point of points) {
@@ -40,8 +37,8 @@ export function buildPitchPath(
       drawing = false
       continue
     }
-    const x = left + ((point.timeMs - startMs) / (endMs - startMs)) * width
-    const y = top + ((center + span / 2 - frequencyToMidi(point.frequency)) / span) * height
+    const x = CHART_LEFT + ((point.timeMs - startMs) / (endMs - startMs)) * CHART_PLOT_WIDTH
+    const y = CHART_TOP + ((center + span / 2 - frequencyToMidi(point.frequency)) / span) * CHART_PLOT_HEIGHT
     path += `${drawing ? ' L' : ' M'}${x.toFixed(2)} ${y.toFixed(2)}`
     drawing = true
   }

@@ -2,11 +2,11 @@
 
 ## Stimm-Tuner
 
-Auf der Startseite führt **Stimm-Tuner** zum Tonhöhenverlauf. Mit
-**Mikrofon starten** wird der Browser um Zugriff auf das Mikrofon gebeten.
+Auf der Startseite führt **Stimm-Tuner** zum Tonhöhenverlauf. Das
+Mikrofonsymbol in der unteren Leiste startet und stoppt das Mikrofon; beim
+Start wird der Browser um Zugriff gebeten.
 Das Diagramm zeigt die letzten fünf Sekunden; Stille oder nicht eindeutig
-erkannte Töne erscheinen als Lücke. **Mikrofon stoppen** friert den Verlauf
-ein, **Verlauf löschen** leert ihn.
+erkannte Töne erscheinen als Lücke. Beim Stoppen friert der Verlauf ein.
 
 Der Zugriff erfordert HTTPS oder localhost und eine Mikrofonberechtigung.
 Die Analyse mit Pitchy läuft lokal im Browser; Audio wird nicht gespeichert
