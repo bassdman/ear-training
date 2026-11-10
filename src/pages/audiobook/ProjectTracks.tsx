@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { addTrack, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
 import { AudioTimeline } from './AudioTimeline'
 
+const AUDIO_EXTENSION = /\.(aac|aif|aiff|amr|caf|flac|m4a|m4b|mp3|mp4|mpga|oga|ogg|opus|wav|wave|webm)$/i
+
 export function ProjectTracks({ projectId }: { projectId: string }) {
   const [tracks, setTracks] = useState<AudioTrack[] | null>(null)
   const [error, setError] = useState('')
@@ -24,7 +26,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (!file.type.startsWith('audio/') && file.type !== '') {
+    if (!file.type.startsWith('audio/') && file.type !== '' && !AUDIO_EXTENSION.test(file.name)) {
       setError('Bitte wähle eine Audiodatei aus.')
       return
     }
@@ -68,7 +70,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
             <span className="audiobook-track-label">Spur {tracks.length + 1}</span>
             <label className={`audiobook-track-empty ${busy ? 'is-busy' : ''}`}>
               {busy ? 'Audio wird gespeichert ...' : 'Neues Audio hinzufügen'}
-              <input type="file" accept="audio/*" disabled={busy} onChange={(event) => void handleFileChange(event)} />
+              <input type="file" disabled={busy} onChange={(event) => void handleFileChange(event)} />
             </label>
           </div>
         </>

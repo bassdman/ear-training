@@ -106,6 +106,29 @@ describe('ProjectTracks', () => {
     await audioStorage.deleteProjectTracks(projectId)
   })
 
+  it('lässt die Dateiauswahl ungefiltert und akzeptiert Audio trotz abweichendem MIME-Typ', async () => {
+    const projectId = crypto.randomUUID()
+    render(<ProjectTracks projectId={projectId} />)
+    const input = await screen.findByLabelText('Neues Audio hinzufügen')
+    expect(input).not.toHaveAttribute('accept')
+
+    const files = [
+      new File(['a'], 'Sprachmemo.M4A', { type: 'video/mp4' }),
+      new File(['b'], 'aufnahme.wav', { type: 'application/octet-stream' }),
+      new File(['c'], 'titel.mp3'),
+    ]
+    for (const file of files) {
+      fireEvent.change(input, { target: { files: [file] } })
+      expect(await screen.findByText(file.name)).toBeInTheDocument()
+      await waitFor(() => expect(input).toBeEnabled())
+    }
+
+    expect((await audioStorage.readTracks(projectId)).map((track) => track.name).sort()).toEqual(
+      files.map((file) => file.name).sort(),
+    )
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
   it('meldet Fehler beim Laden', async () => {
     vi.spyOn(audioStorage, 'readTracks').mockRejectedValue(new Error('Datenbankfehler'))
     render(<ProjectTracks projectId={crypto.randomUUID()} />)

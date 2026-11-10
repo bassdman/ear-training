@@ -22,6 +22,9 @@ Bildlauf verschiebt alle Spuren gemeinsam. Alternativ lässt sich der Zoom
 Die unterstützten Audioformate hängen vom Browser ab; Audiobearbeitung ist
 noch nicht verfügbar. Beim Löschen der Browserdaten können Projekte und
 Audiodaten verloren gehen.
+Die Dateiauswahl zeigt auch Dateien ohne erkannten Audiotyp an, damit
+beispielsweise iPhone-Sprachmemos ausgewählt werden können. Ob eine Datei
+abgespielt werden kann, hängt von ihrem Inhalt und dem Browser ab.
 
 ## Stimm-Tuner
 
