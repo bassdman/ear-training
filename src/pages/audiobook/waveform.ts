@@ -19,12 +19,12 @@ export function extractWaveform(buffer: AudioBuffer): WaveformData {
   return { duration: buffer.duration, peaks, peaksPerSecond: PEAKS_PER_SECOND }
 }
 
-export async function decodeWaveform(blob: Blob): Promise<WaveformData> {
+export async function decodeWaveform(blob: Blob): Promise<{ buffer: AudioBuffer, waveform: WaveformData }> {
   const context = new AudioContext()
   try {
     const data = await blob.arrayBuffer()
     const buffer = await context.decodeAudioData(data)
-    return extractWaveform(buffer)
+    return { buffer, waveform: extractWaveform(buffer) }
   } finally {
     await context.close()
   }

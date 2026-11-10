@@ -1,38 +1,15 @@
 import 'fake-indexeddb/auto'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as audioStorage from './audioStorage'
 import { ProjectTracks } from './ProjectTracks'
 
-vi.mock('./waveform', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./waveform')>()
-  return {
-    ...actual,
-    decodeWaveform: vi.fn().mockResolvedValue({
-      duration: 10,
-      peaks: new Float32Array(1000),
-      peaksPerSecond: 100,
-    }),
-  }
-})
-
-const createObjectURL = vi.fn()
-const revokeObjectURL = vi.fn()
-
-beforeEach(() => {
-  class TestURL extends URL {
-    static createObjectURL = createObjectURL
-    static revokeObjectURL = revokeObjectURL
-  }
-  vi.stubGlobal('URL', TestURL)
-  vi.stubGlobal('ResizeObserver', class {
-    observe() {}
-    disconnect() {}
-  })
-  createObjectURL.mockReset().mockReturnValue('blob:test-audio')
-  revokeObjectURL.mockReset()
-})
+vi.mock('./AudioTimeline', () => ({
+  AudioTimeline: ({ tracks }: { tracks: audioStorage.AudioTrack[] }) => (
+    <div>{tracks.map((track) => <span key={track.id}>{track.name}</span>)}</div>
+  ),
+}))
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -46,21 +23,16 @@ describe('ProjectTracks', () => {
     const input = await screen.findByLabelText('Neues Audio hinzufügen')
     const first = new File(['first'], 'gesang.mp3', { type: 'audio/mpeg' })
     fireEvent.change(input, { target: { files: [first] } })
-    const player = await screen.findByLabelText('gesang.mp3 abspielen')
-    expect(player).toHaveAttribute('src', 'blob:test-audio')
-    expect(player).toHaveAttribute('controls')
-    expect(createObjectURL).toHaveBeenCalledWith(first)
+    expect(await screen.findByText('gesang.mp3')).toBeInTheDocument()
 
     const second = new File(['second'], 'klavier.wav', { type: 'audio/wav' })
     fireEvent.change(screen.getByLabelText('Neues Audio hinzufügen'), { target: { files: [second] } })
-    expect(await screen.findByLabelText('klavier.wav abspielen')).toBeInTheDocument()
+    expect(await screen.findByText('klavier.wav')).toBeInTheDocument()
     expect(screen.getByText('Spur 3')).toBeInTheDocument()
     view.unmount()
-    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
-
     render(<ProjectTracks projectId={projectId} />)
-    expect(await screen.findByLabelText('gesang.mp3 abspielen')).toBeInTheDocument()
-    expect(screen.getByLabelText('klavier.wav abspielen')).toBeInTheDocument()
+    expect(await screen.findByText('gesang.mp3')).toBeInTheDocument()
+    expect(screen.getByText('klavier.wav')).toBeInTheDocument()
     expect((await audioStorage.readTracks(projectId)).map((track) => track.name).sort()).toEqual(['gesang.mp3', 'klavier.wav'])
     await audioStorage.deleteProjectTracks(projectId)
   })
@@ -82,11 +54,11 @@ describe('ProjectTracks', () => {
     const input = await screen.findByLabelText('Neues Audio hinzufügen')
     fireEvent.change(input, { target: { files: [new File(['a'], 'test.mp3', { type: 'audio/mpeg' })] } })
     expect(await screen.findByRole('alert')).toHaveTextContent('konnte nicht gespeichert werden')
-    expect(screen.queryByLabelText('test.mp3 abspielen')).not.toBeInTheDocument()
+    expect(screen.queryByText('test.mp3')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Neues Audio hinzufügen')).toBeEnabled()
   })
 
-  it('weist leere und ungeeignete Dateien ab und meldet Wiedergabefehler', async () => {
+  it('weist leere und ungeeignete Dateien ab', async () => {
     const projectId = crypto.randomUUID()
     render(<ProjectTracks projectId={projectId} />)
     const input = await screen.findByLabelText('Neues Audio hinzufügen')
@@ -95,10 +67,8 @@ describe('ProjectTracks', () => {
     fireEvent.change(input, { target: { files: [new File(['text'], 'text.txt', { type: 'text/plain' })] } })
     expect(screen.getByRole('alert')).toHaveTextContent('Audiodatei')
     fireEvent.change(input, { target: { files: [new File(['a'], 'ton.mp3', { type: 'audio/mpeg' })] } })
-    const player = await screen.findByLabelText('ton.mp3 abspielen')
+    await screen.findByText('ton.mp3')
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-    fireEvent.error(player)
-    expect(screen.getByRole('alert')).toHaveTextContent('nicht abgespielt werden')
     await audioStorage.deleteProjectTracks(projectId)
   })
 

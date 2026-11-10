@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 
 import type { AudioTrack } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
+import { useSongTransport } from './useSongTransport'
 
 const MIN_ZOOM = 5
 const MAX_ZOOM = 200
@@ -10,6 +11,7 @@ const WAVE_HEIGHT = 96
 
 type TimelineTrack = {
   waveform?: WaveformData
+  buffer?: AudioBuffer
   error?: boolean
 }
 
@@ -19,8 +21,8 @@ function TrackDecoder({ track, onDecoded }: {
 }) {
   useEffect(() => {
     let active = true
-    void decodeWaveform(track.audio).then((waveform) => {
-      if (active) onDecoded(track.id, { waveform })
+    void decodeWaveform(track.audio).then(({ waveform, buffer }) => {
+      if (active) onDecoded(track.id, { waveform, buffer })
     }).catch(() => {
       if (active) onDecoded(track.id, { error: true })
     })
@@ -70,6 +72,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
   const [viewport, setViewport] = useState({ width: 0, offset: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
   const pendingScroll = useRef<{ time: number, anchor: number } | null>(null)
+  const hasTracks = tracks.length > 0
 
   const onDecoded = useCallback((id: string, result: TimelineTrack) => {
     setDecoded((current) => ({ ...current, [id]: result }))
@@ -83,7 +86,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
     const observer = new ResizeObserver(update)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [])
+  }, [hasTracks])
 
   const changeZoom = useCallback((factor: number, anchor: number) => {
     const node = viewportRef.current
@@ -106,7 +109,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
     }
     node.addEventListener('wheel', onWheel, { passive: false })
     return () => node.removeEventListener('wheel', onWheel)
-  }, [changeZoom])
+  }, [changeZoom, hasTracks])
 
   useLayoutEffect(() => {
     const node = viewportRef.current
@@ -118,6 +121,12 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
   }, [zoom])
 
   const duration = Math.max(0, ...tracks.map((track) => decoded[track.id]?.waveform?.duration ?? 0))
+  const buffers = tracks.flatMap((track) => {
+    const buffer = decoded[track.id]?.buffer
+    return buffer ? [buffer] : []
+  })
+  const ready = tracks.length > 0 && buffers.length === tracks.length && duration > 0
+  const transport = useSongTransport(buffers, duration, ready, tracks.map((track) => track.id).join(','))
   const interval = getTickInterval(zoom)
   const firstTick = Math.max(0, Math.ceil(viewport.offset / zoom / interval))
   const lastTick = Math.floor(Math.min(duration, (viewport.offset + viewport.width) / zoom) / interval)
@@ -127,8 +136,9 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
   })
 
   return (
-    <div className="audiobook-timeline-section">
+    <>
       {tracks.map((track) => <TrackDecoder key={track.id} track={track} onDecoded={onDecoded} />)}
+      {hasTracks && <div className="audiobook-timeline-section">
       <div className="audiobook-timeline-toolbar">
         <div>
           <strong>Zeitleiste</strong>
@@ -152,6 +162,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
             {ticks.map(({ seconds, x }) => (
               <span className="audiobook-tick" key={seconds} style={{ left: x }}>{formatSeconds(seconds, interval)}</span>
             ))}
+            <span className="audiobook-playhead" style={{ left: transport.position * zoom - viewport.offset }} />
           </div>
           {tracks.map((track, index) => {
             const entry = decoded[track.id]
@@ -159,9 +170,36 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
               <div className="audiobook-wave-row" key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
                   <span className="audiobook-wave-name">Spur {index + 1}: {track.name}</span>
-                  {entry?.waveform ? <Waveform data={entry.waveform} width={viewport.width} offset={viewport.offset} zoom={zoom} /> :
+                  {entry?.waveform ? (
+                    <div
+                      className="audiobook-wave-seek"
+                      role="slider"
+                      tabIndex={0}
+                      aria-label={`Wiedergabeposition in Spur ${index + 1}`}
+                      aria-valuemin={0}
+                      aria-valuemax={duration}
+                      aria-valuenow={Number(transport.position.toFixed(2))}
+                      aria-valuetext={`${transport.position.toFixed(1)} Sekunden`}
+                      onClick={(event) => {
+                        const x = event.clientX - event.currentTarget.getBoundingClientRect().left
+                        transport.seek((viewport.offset + x) / zoom)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                          event.preventDefault()
+                          transport.seek(transport.position + (event.key === 'ArrowLeft' ? -1 : 1))
+                        } else if (event.key === 'Home' || event.key === 'End') {
+                          event.preventDefault()
+                          transport.seek(event.key === 'Home' ? 0 : duration)
+                        }
+                      }}
+                    >
+                      <Waveform data={entry.waveform} width={viewport.width} offset={viewport.offset} zoom={zoom} />
+                      <span className="audiobook-playhead" style={{ left: transport.position * zoom - viewport.offset }} />
+                    </div>
+                  ) :
                     <p className="audiobook-wave-status" role={entry?.error ? 'alert' : 'status'}>
-                      {entry?.error ? 'Wellenform konnte nicht geladen werden. Die Wiedergabe bleibt verfügbar.' : 'Wellenform wird geladen ...'}
+                      {entry?.error ? 'Audiodatei konnte nicht geladen werden. Das Lied kann nicht abgespielt werden.' : 'Wellenform wird geladen ...'}
                     </p>}
                 </div>
               </div>
@@ -169,6 +207,20 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
           })}
         </div>
       </div>
-    </div>
+    </div>}
+      <div className="audiobook-transport" aria-label="Wiedergabesteuerung">
+        {transport.error && <p className="audiobook-transport-error" role="alert">{transport.error}</p>}
+        <div className="audiobook-transport-buttons">
+          {
+           transport.playing && <button type="button" className="audiobook-secondary" aria-label="Pause" disabled={!transport.playing && !transport.starting} onClick={transport.pause}>❚❚</button>
+          }
+          {
+            !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={!ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
+          }
+          
+        </div>
+        <span className="audiobook-transport-time" aria-label="Aktuelle Wiedergabeposition">{transport.position.toFixed(1)} / {duration.toFixed(1)} s</span>
+      </div>
+    </>
   )
 }

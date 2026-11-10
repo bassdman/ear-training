@@ -26,7 +26,8 @@ beforeEach(() => {
     scale: vi.fn(), fillRect: vi.fn(), fillStyle: '',
   } as unknown as CanvasRenderingContext2D)
   vi.mocked(decodeWaveform).mockResolvedValue({
-    duration: 30, peaks: new Float32Array(3000).fill(0.5), peaksPerSecond: 100,
+    buffer: { duration: 30 } as AudioBuffer,
+    waveform: { duration: 30, peaks: new Float32Array(3000).fill(0.5), peaksPerSecond: 100 },
   })
 })
 
@@ -62,8 +63,9 @@ describe('gemeinsame Zeitleiste', () => {
   it('meldet einen Dekodierfehler nur für die betroffene Spur', async () => {
     vi.mocked(decodeWaveform).mockRejectedValueOnce(new Error('unsupported'))
     const { container } = render(<AudioTimeline tracks={tracks} />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wellenform konnte nicht geladen werden')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Audiodatei konnte nicht geladen werden')
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(1))
+    expect(screen.getByRole('button', { name: 'Abspielen' })).toBeDisabled()
   })
 
   it('dekodiert eine laufende Spur weiter, wenn eine neue hinzugefügt wird', async () => {
@@ -71,8 +73,21 @@ describe('gemeinsame Zeitleiste', () => {
     vi.mocked(decodeWaveform).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
     const { rerender, container } = render(<AudioTimeline tracks={tracks.slice(0, 1)} />)
     rerender(<AudioTimeline tracks={tracks} />)
-    finish({ duration: 10, peaks: new Float32Array(1000), peaksPerSecond: 100 })
+    finish({ buffer: { duration: 10 } as AudioBuffer, waveform: { duration: 10, peaks: new Float32Array(1000), peaksPerSecond: 100 } })
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
     expect(decodeWaveform).toHaveBeenCalledTimes(2)
+  })
+
+  it('setzt die gemeinsame Position per Klick und Tastatur auch nach horizontalem Scrollen', async () => {
+    const { container } = render(<AudioTimeline tracks={tracks} />)
+    await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    viewport.scrollLeft = 200
+    fireEvent.scroll(viewport)
+    fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 2' }), { clientX: 120 })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('8.0 / 30.0 s')
+    expect(screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 1' })).toHaveAttribute('aria-valuenow', '8')
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 1' }), { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('9.0 / 30.0 s')
   })
 })
