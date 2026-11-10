@@ -1,0 +1,174 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+
+import type { AudioTrack } from './audioStorage'
+import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
+
+const MIN_ZOOM = 5
+const MAX_ZOOM = 200
+const INITIAL_ZOOM = 40
+const WAVE_HEIGHT = 96
+
+type TimelineTrack = {
+  waveform?: WaveformData
+  error?: boolean
+}
+
+function TrackDecoder({ track, onDecoded }: {
+  track: AudioTrack
+  onDecoded: (id: string, result: TimelineTrack) => void
+}) {
+  useEffect(() => {
+    let active = true
+    void decodeWaveform(track.audio).then((waveform) => {
+      if (active) onDecoded(track.id, { waveform })
+    }).catch(() => {
+      if (active) onDecoded(track.id, { error: true })
+    })
+    return () => { active = false }
+  }, [track, onDecoded])
+  return null
+}
+
+function Waveform({ data, width, offset, zoom }: {
+  data: WaveformData
+  width: number
+  offset: number
+  zoom: number
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || width <= 0) return
+    const ratio = window.devicePixelRatio || 1
+    canvas.width = Math.ceil(width * ratio)
+    canvas.height = Math.ceil(WAVE_HEIGHT * ratio)
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.scale(ratio, ratio)
+    context.fillStyle = '#283da9'
+    const columns = Math.ceil(width / 2)
+    for (let column = 0; column < columns; column++) {
+      const start = (offset + column * 2) / zoom
+      if (start >= data.duration) break
+      const end = (offset + (column + 1) * 2) / zoom
+      const first = Math.max(0, Math.floor(start * data.peaksPerSecond))
+      const last = Math.min(data.peaks.length, Math.ceil(end * data.peaksPerSecond))
+      let peak = 0
+      for (let i = first; i < last; i++) peak = Math.max(peak, data.peaks[i])
+      const height = Math.max(1, Math.min(1, peak) * (WAVE_HEIGHT - 8))
+      context.fillRect(column * 2, (WAVE_HEIGHT - height) / 2, 1, height)
+    }
+  }, [data, width, offset, zoom])
+
+  return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
+}
+
+export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
+  const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
+  const [zoom, setZoom] = useState(INITIAL_ZOOM)
+  const [viewport, setViewport] = useState({ width: 0, offset: 0 })
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const pendingScroll = useRef<{ time: number, anchor: number } | null>(null)
+
+  const onDecoded = useCallback((id: string, result: TimelineTrack) => {
+    setDecoded((current) => ({ ...current, [id]: result }))
+  }, [])
+
+  useEffect(() => {
+    const node = viewportRef.current
+    if (!node) return
+    const update = () => setViewport({ width: node.clientWidth, offset: node.scrollLeft })
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const changeZoom = useCallback((factor: number, anchor: number) => {
+    const node = viewportRef.current
+    if (!node) return
+    setZoom((current) => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current * factor))
+      if (next !== current) pendingScroll.current = { time: (node.scrollLeft + anchor) / current, anchor }
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    const node = viewportRef.current
+    if (!node) return
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0 || event.ctrlKey || event.metaKey) return
+      event.preventDefault()
+      const anchor = Math.max(0, Math.min(node.clientWidth, event.clientX - node.getBoundingClientRect().left))
+      changeZoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * 0.005), anchor)
+    }
+    node.addEventListener('wheel', onWheel, { passive: false })
+    return () => node.removeEventListener('wheel', onWheel)
+  }, [changeZoom])
+
+  useLayoutEffect(() => {
+    const node = viewportRef.current
+    const pending = pendingScroll.current
+    if (!node || !pending) return
+    node.scrollLeft = pending.time * zoom - pending.anchor
+    pendingScroll.current = null
+    setViewport({ width: node.clientWidth, offset: node.scrollLeft })
+  }, [zoom])
+
+  const duration = Math.max(0, ...tracks.map((track) => decoded[track.id]?.waveform?.duration ?? 0))
+  const interval = getTickInterval(zoom)
+  const firstTick = Math.max(0, Math.ceil(viewport.offset / zoom / interval))
+  const lastTick = Math.floor(Math.min(duration, (viewport.offset + viewport.width) / zoom) / interval)
+  const ticks = Array.from({ length: Math.max(0, lastTick - firstTick + 1) }, (_, index) => {
+    const seconds = (firstTick + index) * interval
+    return { seconds, x: seconds * zoom - viewport.offset }
+  })
+
+  return (
+    <div className="audiobook-timeline-section">
+      {tracks.map((track) => <TrackDecoder key={track.id} track={track} onDecoded={onDecoded} />)}
+      <div className="audiobook-timeline-toolbar">
+        <div>
+          <strong>Zeitleiste</strong>
+          <p>Mit dem Mausrad zoomen, horizontal scrollen zum Verschieben.</p>
+        </div>
+        <div className="audiobook-zoom-controls" aria-label="Zoom der Zeitleiste">
+          <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5, viewport.width / 2)}>−</button>
+          <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5, viewport.width / 2)}>+</button>
+        </div>
+      </div>
+      <div
+        className="audiobook-timeline-viewport"
+        ref={viewportRef}
+        onScroll={(event) => setViewport({ width: event.currentTarget.clientWidth, offset: event.currentTarget.scrollLeft })}
+        role="region"
+        aria-label="Gemeinsame Zeitleiste"
+        tabIndex={0}
+      >
+        <div className="audiobook-timeline-inner" style={{ width: Math.max(viewport.width, duration * zoom + 1) }}>
+          <div className="audiobook-ruler" style={{ width: viewport.width }} aria-label="Zeitachse in Sekunden">
+            {ticks.map(({ seconds, x }) => (
+              <span className="audiobook-tick" key={seconds} style={{ left: x }}>{formatSeconds(seconds, interval)}</span>
+            ))}
+          </div>
+          {tracks.map((track, index) => {
+            const entry = decoded[track.id]
+            return (
+              <div className="audiobook-wave-row" key={track.id}>
+                <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
+                  <span className="audiobook-wave-name">Spur {index + 1}: {track.name}</span>
+                  {entry?.waveform ? <Waveform data={entry.waveform} width={viewport.width} offset={viewport.offset} zoom={zoom} /> :
+                    <p className="audiobook-wave-status" role={entry?.error ? 'alert' : 'status'}>
+                      {entry?.error ? 'Wellenform konnte nicht geladen werden. Die Wiedergabe bleibt verfügbar.' : 'Wellenform wird geladen ...'}
+                    </p>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}

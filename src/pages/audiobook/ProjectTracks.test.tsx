@@ -5,6 +5,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as audioStorage from './audioStorage'
 import { ProjectTracks } from './ProjectTracks'
 
+vi.mock('./waveform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./waveform')>()
+  return {
+    ...actual,
+    decodeWaveform: vi.fn().mockResolvedValue({
+      duration: 10,
+      peaks: new Float32Array(1000),
+      peaksPerSecond: 100,
+    }),
+  }
+})
+
 const createObjectURL = vi.fn()
 const revokeObjectURL = vi.fn()
 
@@ -14,6 +26,10 @@ beforeEach(() => {
     static revokeObjectURL = revokeObjectURL
   }
   vi.stubGlobal('URL', TestURL)
+  vi.stubGlobal('ResizeObserver', class {
+    observe() {}
+    disconnect() {}
+  })
   createObjectURL.mockReset().mockReturnValue('blob:test-audio')
   revokeObjectURL.mockReset()
 })

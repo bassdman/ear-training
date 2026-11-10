@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 
 import { addTrack, readTracks, type AudioTrack } from './audioStorage'
+import { AudioTimeline } from './AudioTimeline'
 
 function TrackPlayer({ track, index }: { track: AudioTrack, index: number }) {
   const [url, setUrl] = useState('')
@@ -87,6 +88,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
+          {tracks.length > 0 && <AudioTimeline tracks={tracks} />}
           {tracks.map((track, index) => <TrackPlayer key={track.id} track={track} index={index} />)}
           <div className="audiobook-track">
             <span className="audiobook-track-label">Spur {tracks.length + 1}</span>
