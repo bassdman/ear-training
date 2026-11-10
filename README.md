@@ -10,13 +10,17 @@ in ihren freien Bereich öffnet **Importieren**; die ausgewählte Audiodatei
 wird als Block an der angeklickten Zeitposition eingefügt. Pro Spur sind
 mehrere nicht überlappende Blöcke möglich. Die Breite zeigt ihre Dauer;
 Blöcke lassen sich mit Maus oder Touch zeitlich und zwischen Spuren verschieben.
+Am linken oder rechten Rand scrollt die Ansicht beim Ziehen automatisch mit
+einer halben sichtbaren Zeitleistenbreite pro Sekunde, auch über das bisherige
+Songende hinaus. Beim Verschieben pausiert die Wiedergabe.
 Per Tastatur verschieben die Pfeiltasten einen fokussierten Block um eine
 Sekunde oder auf die benachbarte Spur. Überlappungen sind nicht erlaubt.
 Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
-Eine rote Linie zeigt die aktuelle Position über alle Spuren hinweg.
+Eine fest mittige rote Linie zeigt die aktuelle Position über alle Spuren hinweg;
+bei der Wiedergabe bewegen sich die Spuren darunter nach links.
 Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien werden
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
 Links neben jeder Wellenform öffnet das Lautsprechersymbol den Lautstärkeregler;
@@ -24,9 +28,9 @@ Links neben jeder Wellenform öffnet das Lautsprechersymbol den Lautstärkeregle
 auch während der Wiedergabe und werden pro Spur lokal gespeichert. Bei aktiver
 Stummschaltung erscheinen die Spur grau und der Mute-Button rot.
 Die gemeinsame Zeitleiste zeigt Wellenformen und Sekundenmarkierungen.
-Das Mausrad über der Zeitleiste zoomt hinein oder heraus; horizontaler
-Bildlauf verschiebt alle Spuren gemeinsam. Alternativ lässt sich der Zoom
-über die Schaltflächen ändern.
+Das Mausrad über den Spuren zoomt um die aktuelle Position; horizontaler
+Bildlauf ändert die Wiedergabeposition bis zum Songende. Alternativ lässt sich
+der Zoom über die Schaltflächen ändern.
 Die unterstützten Audioformate hängen vom Browser ab; Audiobearbeitung ist
 noch nicht verfügbar. Beim Löschen der Browserdaten können Projekte und
 Audiodaten verloren gehen.

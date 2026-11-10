@@ -8,6 +8,7 @@ const MIN_ZOOM = 5
 const MAX_ZOOM = 200
 const INITIAL_ZOOM = 40
 const WAVE_HEIGHT = 96
+const DRAG_EDGE_WIDTH = 48
 
 type TimelineTrack = {
   waveform?: WaveformData
@@ -126,11 +127,12 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
   const [viewport, setViewport] = useState({ width: 0, offset: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
-  const pendingScroll = useRef<{ time: number, anchor: number } | null>(null)
-  const [menu, setMenu] = useState<{ trackId: string, time: number, x: number, y: number } | null>(null)
+  const [menu, setMenu] = useState<{ trackId: string, time: number, y: number } | null>(null)
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
-  const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, initialStart: number, initialScroll: number, duration: number, moved: boolean } | null>(null)
+  const [pendingExtent, setPendingExtent] = useState(0)
+  const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, x: number, initialStart: number, initialScroll: number, duration: number, moved: boolean, targetId?: string, direction: number, scroll: number, lastFrame?: number } | null>(null)
   const previewRef = useRef<typeof drag>(null)
+  const dragFrame = useRef<number | null>(null)
   const hasTracks = tracks.length > 0
 
   const onDecoded = useCallback((id: string, result: TimelineTrack) => {
@@ -147,14 +149,8 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
     return () => observer.disconnect()
   }, [hasTracks])
 
-  const changeZoom = useCallback((factor: number, anchor: number) => {
-    const node = viewportRef.current
-    if (!node) return
-    setZoom((current) => {
-      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current * factor))
-      if (next !== current) pendingScroll.current = { time: (node.scrollLeft + anchor) / current, anchor }
-      return next
-    })
+  const changeZoom = useCallback((factor: number) => {
+    setZoom((current) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current * factor)))
   }, [])
 
   useEffect(() => {
@@ -163,31 +159,83 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY === 0 || event.ctrlKey || event.metaKey) return
       event.preventDefault()
-      const anchor = Math.max(0, Math.min(node.clientWidth, event.clientX - node.getBoundingClientRect().left))
-      changeZoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * 0.005), anchor)
+      changeZoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * 0.005))
     }
     node.addEventListener('wheel', onWheel, { passive: false })
     return () => node.removeEventListener('wheel', onWheel)
   }, [changeZoom, hasTracks])
 
-  useLayoutEffect(() => {
-    const node = viewportRef.current
-    const pending = pendingScroll.current
-    if (!node || !pending) return
-    node.scrollLeft = pending.time * zoom - pending.anchor
-    pendingScroll.current = null
-    setViewport({ width: node.clientWidth, offset: node.scrollLeft })
-  }, [zoom])
-
   const allClips = tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip })))
   const duration = Math.max(0, ...allClips.map(({ clip }) => clip.start + (decoded[clip.id]?.waveform?.duration ?? clip.duration ?? 0)))
-  const timelineDuration = Math.max(30, duration + 10)
+  const scrollDuration = Math.max(duration, pendingExtent, drag ? drag.start + drag.duration + viewport.width / zoom : 0)
   const buffers = allClips.flatMap(({ track, clip }) => {
     const buffer = decoded[clip.id]?.buffer
     return buffer ? [{ id: clip.id, trackId: track.id, start: clip.start, buffer, ...getTrackMix(track) }] : []
   })
   const ready = allClips.length > 0 && buffers.length === allClips.length && duration > 0
-  const transport = useSongTransport(buffers, duration, ready, JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])))
+  const transport = useSongTransport(buffers, scrollDuration, ready, JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])))
+  const { position, seek } = transport
+  const dragEnvironment = useRef({ zoom, seek })
+  dragEnvironment.current = { zoom, seek }
+  useLayoutEffect(() => {
+    const node = viewportRef.current
+    if (!node) return
+    if (position > scrollDuration) {
+      seek(scrollDuration)
+      return
+    }
+    node.scrollLeft = position * zoom
+    setViewport((current) => current.width === node.clientWidth && current.offset === node.scrollLeft
+      ? current
+      : { width: node.clientWidth, offset: node.scrollLeft })
+  }, [position, seek, zoom, viewport.width, scrollDuration, hasTracks])
+
+  useEffect(() => () => {
+    if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
+  }, [])
+
+  useEffect(() => {
+    if (!busy) setPendingExtent(0)
+  }, [busy, pendingExtent])
+
+  const updateDragPreview = (scroll: number) => {
+    const current = dragRef.current
+    if (!current) return
+    const preview = current.targetId ? {
+      sourceId: current.sourceId,
+      clipId: current.clipId,
+      targetId: current.targetId,
+      start: Math.max(0, current.initialStart + (current.x - current.startX + scroll - current.initialScroll) / dragEnvironment.current.zoom),
+      duration: current.duration,
+    } : null
+    previewRef.current = preview
+    setDrag(preview)
+  }
+
+  const autoScroll = (time: number) => {
+    dragFrame.current = null
+    const current = dragRef.current
+    const node = viewportRef.current
+    if (!current || !node || !current.direction || !current.targetId) return
+    if (current.lastFrame !== undefined) {
+      const { zoom: currentZoom, seek: currentSeek } = dragEnvironment.current
+      current.scroll = Math.max(0, current.scroll + current.direction * node.clientWidth * 0.5 * (time - current.lastFrame) / 1000)
+      updateDragPreview(current.scroll)
+      currentSeek(current.scroll / currentZoom)
+    }
+    current.lastFrame = time
+    dragFrame.current = requestAnimationFrame(autoScroll)
+  }
+
+  const stopDrag = () => {
+    if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
+    dragFrame.current = null
+    dragRef.current = null
+    previewRef.current = null
+    setDrag(null)
+  }
+
+  const viewStart = viewport.offset - viewport.width / 2
   const durations = Object.fromEntries(allClips.flatMap(({ clip }) => {
     const value = decoded[clip.id]?.waveform?.duration ?? clip.duration
     return value === undefined ? [] : [[clip.id, value]]
@@ -202,11 +250,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
     onMove(sourceId, targetId, clipId, Math.max(0, start), durations)
   }
   const interval = getTickInterval(zoom)
-  const firstTick = Math.max(0, Math.ceil(viewport.offset / zoom / interval))
-  const lastTick = Math.floor(Math.min(timelineDuration, (viewport.offset + viewport.width) / zoom) / interval)
+  const firstTick = Math.max(0, Math.ceil(viewStart / zoom / interval))
+  const lastTick = Math.floor((viewStart + viewport.width) / zoom / interval)
   const ticks = Array.from({ length: Math.max(0, lastTick - firstTick + 1) }, (_, index) => {
     const seconds = (firstTick + index) * interval
-    return { seconds, x: seconds * zoom - viewport.offset }
+    return { seconds, x: seconds * zoom - viewStart }
   })
 
   return (
@@ -216,11 +264,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
       <div className="audiobook-timeline-toolbar">
         <div>
           <strong>Zeitleiste</strong>
-          <p>Mit dem Mausrad zoomen, horizontal scrollen zum Verschieben.</p>
+          <p>Mit dem Mausrad zoomen, horizontal scrollen zum Ändern der Wiedergabeposition.</p>
         </div>
         <div className="audiobook-zoom-controls" aria-label="Zoom der Zeitleiste">
-          <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5, viewport.width / 2)}>−</button>
-          <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5, viewport.width / 2)}>+</button>
+          <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
+          <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5)}>+</button>
         </div>
       </div>
       <div className="audiobook-sticky-ruler">
@@ -231,12 +279,12 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
           tabIndex={0}
           aria-label="Wiedergabeposition auf der Zeitleiste"
           aria-valuemin={0}
-          aria-valuemax={duration}
+          aria-valuemax={scrollDuration}
           aria-valuenow={Number(transport.position.toFixed(2))}
           aria-valuetext={`${transport.position.toFixed(1)} Sekunden`}
           onClick={(event) => {
             const x = event.clientX - event.currentTarget.getBoundingClientRect().left
-            transport.seek((viewport.offset + x) / zoom)
+            transport.seek((viewStart + x) / zoom)
           }}
           onKeyDown={(event) => {
             if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -251,7 +299,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
           {ticks.map(({ seconds, x }) => (
             <span className="audiobook-tick" key={seconds} style={{ left: x }}>{formatSeconds(seconds, interval)}</span>
           ))}
-          <span className="audiobook-playhead" style={{ left: transport.position * zoom - viewport.offset }} aria-hidden="true" />
+          <span className="audiobook-playhead" style={{ left: '50%' }} aria-hidden="true" />
         </div>
       </div>
       <div className="audiobook-timeline-grid">
@@ -263,13 +311,62 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
       <div
         className="audiobook-timeline-viewport"
         ref={viewportRef}
-        onScroll={(event) => setViewport({ width: event.currentTarget.clientWidth, offset: event.currentTarget.scrollLeft })}
+        onScroll={(event) => {
+          const node = event.currentTarget
+          setViewport({ width: node.clientWidth, offset: node.scrollLeft })
+          if (Math.abs(node.scrollLeft - transport.position * zoom) > 0.5) {
+            transport.seek(node.scrollLeft / zoom)
+          }
+        }}
+        onPointerMove={(event) => {
+          const current = dragRef.current
+          const node = viewportRef.current
+          if (!current || !node || current.pointerId !== event.pointerId) return
+          const rect = node.getBoundingClientRect()
+          current.x = Math.max(rect.left, Math.min(rect.right - 1, event.clientX))
+          current.targetId = document.elementFromPoint(current.x, event.clientY)?.closest<HTMLElement>('.audiobook-wave-seek')?.dataset.trackId
+          const delta = current.x - current.startX
+          if (!current.moved && (Math.abs(delta) >= 4 || (current.targetId && current.targetId !== current.sourceId))) {
+            current.moved = true
+            if (transport.playing || transport.starting) transport.pause()
+          }
+          if (!current.moved) return
+          const edge = Math.min(DRAG_EDGE_WIDTH, rect.width / 4)
+          const direction = current.targetId ? (current.x < rect.left + edge ? -1 : current.x >= rect.right - edge ? 1 : 0) : 0
+          if (current.direction !== direction) {
+            current.direction = direction
+            current.lastFrame = undefined
+            current.scroll = node.scrollLeft
+          }
+          updateDragPreview(node.scrollLeft)
+          if (direction && dragFrame.current === null) dragFrame.current = requestAnimationFrame(autoScroll)
+          if (!direction && dragFrame.current !== null) {
+            cancelAnimationFrame(dragFrame.current)
+            dragFrame.current = null
+          }
+        }}
+        onPointerUp={(event) => {
+          const current = dragRef.current
+          if (!current || current.pointerId !== event.pointerId) return
+          const preview = previewRef.current
+          if (current.moved && preview) {
+            setPendingExtent(preview.start + preview.duration + viewport.width / zoom)
+            submitMove(preview.sourceId, preview.targetId, preview.clipId, preview.start)
+          }
+          stopDrag()
+        }}
+        onPointerCancel={(event) => {
+          if (dragRef.current?.pointerId === event.pointerId) stopDrag()
+        }}
+        onLostPointerCapture={(event) => {
+          if (dragRef.current?.pointerId === event.pointerId) stopDrag()
+        }}
         role="region"
         aria-label="Gemeinsame Zeitleiste"
         tabIndex={0}
       >
-        <div className="audiobook-timeline-inner" style={{ width: Math.max(viewport.width, timelineDuration * zoom + 1) }}>
-          <span className="audiobook-playhead audiobook-track-playhead" style={{ left: transport.position * zoom }} aria-hidden="true" />
+        <div className="audiobook-timeline-inner" style={{ width: viewport.width + scrollDuration * zoom }}>
+          <span className="audiobook-playhead audiobook-track-playhead" style={{ left: viewport.offset + viewport.width / 2 }} aria-hidden="true" />
           {tracks.map((track, index) => {
             const clips = getTrackClips(track)
             return (
@@ -287,13 +384,13 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                           const rect = event.currentTarget.getBoundingClientRect()
                           const x = event.detail === 0 ? 0 : event.clientX - rect.left
                           const y = event.detail === 0 ? 0 : Math.max(0, event.clientY - rect.top)
-                          setMenu({ trackId: track.id, time: Math.max(0, (viewport.offset + x) / zoom), x, y })
+                          setMenu({ trackId: track.id, time: Math.max(0, (viewStart + x) / zoom), y })
                         }}
                       />
                       {clips.map((clip) => {
                         const clipData = decoded[clip.id]
                         const clipDuration = clipData?.waveform?.duration ?? clip.duration ?? 0
-                        const left = clip.start * zoom - viewport.offset
+                        const left = clip.start * zoom - viewStart
                         const right = left + clipDuration * zoom
                         const visibleLeft = Math.max(0, left)
                         const visibleRight = Math.min(viewport.width, right)
@@ -313,37 +410,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                               if (busy || (event.pointerType === 'mouse' && event.button !== 0)) return
                               event.stopPropagation()
                               setMenu(null)
-                              event.currentTarget.setPointerCapture(event.pointerId)
-                              dragRef.current = { pointerId: event.pointerId, sourceId: track.id, clipId: clip.id, startX: event.clientX, initialStart: clip.start, initialScroll: viewportRef.current?.scrollLeft ?? 0, duration: clipDuration, moved: false }
-                            }}
-                            onPointerMove={(event) => {
-                              const current = dragRef.current
-                              if (!current || current.pointerId !== event.pointerId) return
-                              const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.audiobook-wave-seek')
-                              const targetId = target?.dataset.trackId
-                              const delta = event.clientX - current.startX
-                              if (Math.abs(delta) >= 4 || (targetId && targetId !== current.sourceId)) current.moved = true
-                              if (!current.moved) return
-                              const scroll = viewportRef.current?.scrollLeft ?? 0
-                              const preview = targetId ? { sourceId: current.sourceId, clipId: current.clipId, targetId, start: Math.max(0, current.initialStart + (delta + scroll - current.initialScroll) / zoom), duration: current.duration } : null
-                              previewRef.current = preview
-                              setDrag(preview)
-                            }}
-                            onPointerUp={(event) => {
-                              event.stopPropagation()
-                              const current = dragRef.current
-                              const preview = previewRef.current
-                              if (current?.pointerId === event.pointerId && current.moved && preview) {
-                                submitMove(preview.sourceId, preview.targetId, preview.clipId, preview.start)
-                              }
-                              dragRef.current = null
-                              previewRef.current = null
-                              setDrag(null)
-                            }}
-                            onPointerCancel={() => {
-                              dragRef.current = null
-                              previewRef.current = null
-                              setDrag(null)
+                              const node = viewportRef.current
+                              if (!node) return
+                              node.setPointerCapture(event.pointerId)
+                              dragRef.current = { pointerId: event.pointerId, sourceId: track.id, clipId: clip.id, startX: event.clientX, x: event.clientX, initialStart: clip.start, initialScroll: node.scrollLeft, scroll: node.scrollLeft, duration: clipDuration, moved: false, direction: 0 }
                             }}
                             onClick={(event) => {
                               event.stopPropagation()
@@ -367,10 +437,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                         )
                       })}
                       {drag?.targetId === track.id && (
-                        <div className="audiobook-clip-preview" style={{ left: drag.start * zoom - viewport.offset, width: drag.duration * zoom }} aria-hidden="true" />
+                        <div className="audiobook-clip-preview" style={{ left: drag.start * zoom - viewStart, width: drag.duration * zoom }} aria-hidden="true" />
                       )}
                       {menu?.trackId === track.id && (
-                        <div className="audiobook-import-menu" style={{ left: Math.min(menu.x, Math.max(0, viewport.width - 130)), top: Math.min(menu.y, 52) }} onClick={(event) => event.stopPropagation()}>
+                        <div className="audiobook-import-menu" style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(menu.y, 52) }} onClick={(event) => event.stopPropagation()}>
                           <label>
                             Importieren
                             <input type="file" disabled={busy || clips.some((clip) => !decoded[clip.id]?.waveform)} onChange={(event) => {

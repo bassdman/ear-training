@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AudioTrack } from './audioStorage'
@@ -35,6 +35,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  Reflect.deleteProperty(HTMLElement.prototype, 'setPointerCapture')
+  Reflect.deleteProperty(document, 'elementFromPoint')
 })
 
 describe('gemeinsame Zeitleiste', () => {
@@ -45,19 +47,18 @@ describe('gemeinsame Zeitleiste', () => {
     expect(screen.getByRole('group', { name: 'Einstellungen für Spur 2: Gitarre' })).toBeInTheDocument()
     const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
     const inner = viewport.firstElementChild as HTMLElement
-    expect(inner.style.width).toBe('1601px')
+    expect(inner.style.width).toBe('1600px')
     expect(screen.getByText('2 s')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Hineinzoomen' }))
-    expect(inner.style.width).toBe('2401px')
+    expect(inner.style.width).toBe('2200px')
     expect(screen.getByText('2 s')).toBeInTheDocument()
     fireEvent.wheel(viewport, { deltaY: -100, clientX: 100 })
-    expect(parseFloat(inner.style.width)).toBeGreaterThan(2401)
-    expect(screen.getByText('3 s')).toBeInTheDocument()
-    expect(screen.getByText('4 s')).toBeInTheDocument()
+    expect(parseFloat(inner.style.width)).toBeGreaterThan(2200)
+    expect(screen.getByText('1 s')).toBeInTheDocument()
     expect(container.querySelectorAll('canvas')).toHaveLength(2)
     viewport.scrollLeft = 500
     fireEvent.scroll(viewport)
-    expect(screen.getByText('6 s')).toBeInTheDocument()
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).not.toHaveTextContent('0.0 / 30.0 s')
     expect(container.querySelectorAll('.audiobook-wave-visible')).toHaveLength(2)
   })
 
@@ -83,23 +84,67 @@ describe('gemeinsame Zeitleiste', () => {
     const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
     const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
-    viewport.scrollLeft = 200
-    fireEvent.scroll(viewport)
-    fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { clientX: 120 })
-    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('8.0 / 30.0 s')
-    expect(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).toHaveAttribute('aria-valuenow', '8')
     const rulerPlayhead = container.querySelector<HTMLElement>('.audiobook-ruler .audiobook-playhead')
     const trackPlayhead = container.querySelector<HTMLElement>('.audiobook-timeline-inner > .audiobook-track-playhead')
-    expect(rulerPlayhead).toHaveStyle({ left: '120px' })
+    const clip = container.querySelector<HTMLElement>('.audiobook-clip')
+    expect(rulerPlayhead).toHaveStyle({ left: '50%' })
+    expect(trackPlayhead).toHaveStyle({ left: '200px' })
+    expect(clip).toHaveStyle({ left: '200px' })
+    viewport.scrollLeft = 200
+    fireEvent.scroll(viewport)
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('5.0 / 30.0 s')
+    expect(trackPlayhead).toHaveStyle({ left: '400px' })
+    expect(clip).toHaveStyle({ left: '0px' })
+    fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { clientX: 120 })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('3.0 / 30.0 s')
+    expect(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).toHaveAttribute('aria-valuenow', '3')
+    expect(rulerPlayhead).toHaveStyle({ left: '50%' })
     expect(trackPlayhead).toHaveStyle({ left: '320px' })
     expect(trackPlayhead).toHaveAttribute('aria-hidden', 'true')
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'ArrowRight' })
-    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('9.0 / 30.0 s')
-    expect(rulerPlayhead).toHaveStyle({ left: '160px' })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('4.0 / 30.0 s')
+    expect(rulerPlayhead).toHaveStyle({ left: '50%' })
     expect(trackPlayhead).toHaveStyle({ left: '360px' })
     fireEvent.click(screen.getByRole('button', { name: 'Hineinzoomen' }))
-    expect(trackPlayhead).toHaveStyle({ left: '540px' })
-    expect(parseFloat(rulerPlayhead?.style.left ?? '') + viewport.scrollLeft).toBe(540)
+    expect(trackPlayhead).toHaveStyle({ left: '440px' })
+    expect(viewport.scrollLeft).toBe(240)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'End' })
+    expect(viewport.scrollLeft).toBe(1800)
+    expect(trackPlayhead).toHaveStyle({ left: '2000px' })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('30.0 / 30.0 s')
+  })
+
+  it('bewegt während der Wiedergabe die Spuren unter der mittigen Positionslinie', async () => {
+    let frame: FrameRequestCallback | undefined
+    const clock = { time: 0 }
+    class TestContext {
+      state = 'running'
+      get currentTime() { return clock.time }
+      destination = {}
+      createBufferSource() { return { connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn(), buffer: null } }
+      createGain() { return { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() } }
+      close = vi.fn(async () => {})
+    }
+    vi.stubGlobal('AudioContext', TestContext)
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frame = callback; return 1 }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
+    await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    const clip = container.querySelector<HTMLElement>('.audiobook-clip')
+    const marker = container.querySelector<HTMLElement>('.audiobook-track-playhead')
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument())
+    act(() => {
+      clock.time = 2
+      frame?.(0)
+    })
+    expect(viewport.scrollLeft).toBe(80)
+    expect(clip).toHaveStyle({ left: '120px' })
+    expect(marker).toHaveStyle({ left: '280px' })
+    fireEvent.scroll(viewport)
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('2.0 / 30.0 s')
   })
 
   it('verschiebt Blöcke per Tastatur, ohne die Wiedergabeposition zu verändern', async () => {
@@ -113,6 +158,81 @@ describe('gemeinsame Zeitleiste', () => {
     expect(onMove).toHaveBeenLastCalledWith('one', 'one', 'one:legacy', 1, { 'one:legacy': 30, 'two:legacy': 30 })
     fireEvent.keyDown(clip, { key: 'ArrowDown' })
     expect(onMove).toHaveBeenLastCalledWith('one', 'two', 'one:legacy', 0, { 'one:legacy': 30, 'two:legacy': 30 })
+  })
+
+  it('scrollt beim Ziehen an beiden Rändern eine halbe Ansichtsbreite pro Sekunde und erlaubt Ziele hinter dem Songende', async () => {
+    class TestPointerEvent extends MouseEvent {
+      pointerId: number
+      pointerType: string
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init)
+        this.pointerId = init.pointerId ?? 1
+        this.pointerType = init.pointerType ?? 'mouse'
+      }
+    }
+    vi.stubGlobal('PointerEvent', TestPointerEvent)
+    Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', { configurable: true, value: vi.fn() })
+    let callback: FrameRequestCallback | undefined
+    vi.stubGlobal('requestAnimationFrame', vi.fn((frame: FrameRequestCallback) => { callback = frame; return 1 }))
+    const cancel = vi.fn(() => { callback = undefined })
+    vi.stubGlobal('cancelAnimationFrame', cancel)
+    const onMove = vi.fn()
+    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} onImport={vi.fn()} onMove={onMove} busy={false} />)
+    await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ left: 0, right: 400, width: 400, top: 0, bottom: 254, height: 254, x: 0, y: 0, toJSON: () => ({}) })
+    const row = container.querySelector<HTMLElement>('.audiobook-wave-seek')
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => row) })
+    const clip = screen.getByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
+    fireEvent.pointerDown(clip, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 210, clientY: 50 })
+    fireEvent.pointerMove(viewport, { pointerId: 1, pointerType: 'mouse', clientX: 390, clientY: 50 })
+    act(() => callback?.(0))
+    act(() => callback?.(1000))
+    expect(viewport.scrollLeft).toBe(200)
+    expect(container.querySelector<HTMLElement>('.audiobook-clip-preview')).toHaveStyle({ left: '380px' })
+    act(() => callback?.(6000))
+    expect(viewport.scrollLeft).toBe(1200)
+    act(() => callback?.(7000))
+    expect(viewport.scrollLeft).toBe(1400)
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('35.0 / 30.0 s')
+    expect(container.querySelector('.audiobook-clip')).toBeNull()
+
+    fireEvent.pointerMove(viewport, { pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 50 })
+    act(() => callback?.(8000))
+    act(() => callback?.(9000))
+    expect(viewport.scrollLeft).toBe(1200)
+    fireEvent.pointerUp(viewport, { pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 50 })
+    expect(onMove).toHaveBeenCalledWith('one', 'one', 'one:legacy', 25, { 'one:legacy': 30, 'two:legacy': 30 })
+    expect(cancel).toHaveBeenCalled()
+    expect(callback).toBeUndefined()
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('30.0 / 30.0 s')
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'Home' })
+    fireEvent.click(screen.getByRole('button', { name: 'Hineinzoomen' }))
+    const zoomedClip = screen.getByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
+    fireEvent.pointerDown(zoomedClip, { pointerId: 2, pointerType: 'touch', clientX: 210, clientY: 50 })
+    fireEvent.pointerMove(viewport, { pointerId: 2, pointerType: 'touch', clientX: 390, clientY: 50 })
+    act(() => callback?.(10000))
+    act(() => callback?.(11000))
+    expect(viewport.scrollLeft).toBe(200)
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('3.3 / 30.0 s')
+    fireEvent.pointerMove(viewport, { pointerId: 2, pointerType: 'touch', clientX: 200, clientY: 50 })
+    expect(callback).toBeUndefined()
+    fireEvent.pointerMove(viewport, { pointerId: 2, pointerType: 'touch', clientX: 390, clientY: 50 })
+    expect(callback).toBeDefined()
+    fireEvent.pointerCancel(viewport, { pointerId: 2, pointerType: 'touch' })
+    expect(callback).toBeUndefined()
+    expect(onMove).toHaveBeenCalledTimes(1)
+
+    fireEvent.pointerDown(zoomedClip, { pointerId: 3, pointerType: 'mouse', button: 0, clientX: 210, clientY: 50 })
+    fireEvent.pointerMove(viewport, { pointerId: 3, pointerType: 'mouse', clientX: 10, clientY: 50 })
+    act(() => callback?.(12000))
+    act(() => callback?.(13000))
+    act(() => callback?.(14000))
+    expect(viewport.scrollLeft).toBe(0)
+    fireEvent.lostPointerCapture(viewport, { pointerId: 3, pointerType: 'mouse' })
+    expect(callback).toBeUndefined()
+    expect(onMove).toHaveBeenCalledTimes(1)
   })
 
   it('bietet pro Spur eigene Lautstärke- und Mute-Steuerung an', async () => {
@@ -157,22 +277,23 @@ describe('gemeinsame Zeitleiste', () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1600)
     const { container } = render(<AudioTimeline tracks={clipTracks} onMixChange={vi.fn()} onImport={onImport} onMove={vi.fn()} busy={false} />)
     await waitFor(() => expect(container.querySelectorAll('.audiobook-clip')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { clientX: 1400 })
     const blocks = container.querySelectorAll<HTMLElement>('.audiobook-clip')
     expect(blocks[0].style.width).toBe('1200px')
     expect(blocks[1].style.width).toBe('600px')
-    expect(blocks[1].style.left).toBe('200px')
-    fireEvent.click(screen.getByRole('button', { name: 'Freier Bereich in Spur 2' }), { clientX: 1000, clientY: 20, detail: 1 })
+    expect(blocks[1].style.left).toBe('400px')
+    fireEvent.click(screen.getByRole('button', { name: 'Freier Bereich in Spur 2' }), { clientX: 1500, clientY: 20, detail: 1 })
     const input = screen.getByLabelText('Importieren')
     expect(input).not.toHaveAttribute('accept')
     const file = new File(['a'], 'neu.m4a', { type: 'video/mp4' })
     fireEvent.change(input, { target: { files: [file] } })
-    expect(onImport).toHaveBeenCalledWith('two', 25, { b: 15 }, file)
+    expect(onImport).toHaveBeenCalledWith('two', 32.5, { b: 15 }, file)
 
     const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
     viewport.scrollLeft = 200
     fireEvent.scroll(viewport)
     fireEvent.click(screen.getByRole('button', { name: 'Freier Bereich in Spur 2' }))
     fireEvent.change(screen.getByLabelText('Importieren'), { target: { files: [file] } })
-    expect(onImport).toHaveBeenLastCalledWith('two', 5, { b: 15 }, file)
+    expect(onImport).toHaveBeenLastCalledWith('two', 0, { b: 15 }, file)
   })
 })
