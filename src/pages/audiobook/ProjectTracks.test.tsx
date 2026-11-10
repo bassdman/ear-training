@@ -89,6 +89,26 @@ describe('ProjectTracks', () => {
     await audioStorage.deleteProjectTracks(projectId)
   })
 
+  it('verschiebt alte und neue Blöcke atomar zwischen Spuren und verhindert Überlappungen', async () => {
+    const projectId = crypto.randomUUID()
+    const source = await audioStorage.addTrack(projectId, new File(['alt'], 'alt.mp3', { type: 'audio/mpeg' }))
+    const target = await audioStorage.addEmptyTrack(projectId)
+    await audioStorage.addClip(target.id, { id: 'existing', name: 'vorhanden.mp3', audio: new Blob(['a']), start: 20, duration: 5 })
+    const id = `${source.id}:legacy`
+    await expect(audioStorage.moveClip(source.id, target.id, id, 15, { [id]: 10 })).rejects.toThrow('überlappt')
+    let rows = await audioStorage.readTracks(projectId)
+    expect(audioStorage.getTrackClips(rows.find((t) => t.id === source.id)!)).toHaveLength(1)
+    await audioStorage.moveClip(source.id, target.id, id, 5, { [id]: 10 })
+    rows = await audioStorage.readTracks(projectId)
+    expect(audioStorage.getTrackClips(rows.find((t) => t.id === source.id)!)).toHaveLength(0)
+    const moved = audioStorage.getTrackClips(rows.find((t) => t.id === target.id)!).find((clip) => clip.id === id)
+    expect(moved).toMatchObject({ name: 'alt.mp3', start: 5, duration: 10 })
+    await audioStorage.moveClip(target.id, target.id, id, 10, {})
+    rows = await audioStorage.readTracks(projectId)
+    expect(audioStorage.getTrackClips(rows.find((t) => t.id === target.id)!).find((clip) => clip.id === id)?.start).toBe(10)
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
   it('meldet Speicher- und Validierungsfehler', async () => {
     const projectId = crypto.randomUUID()
     const track = await audioStorage.addEmptyTrack(projectId)

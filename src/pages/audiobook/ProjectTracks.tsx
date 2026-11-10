@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, getTrackClips, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { addClip, addEmptyTrack, getTrackClips, moveClip, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -75,6 +75,31 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     }
   }
 
+  async function moveAudio(sourceId: string, targetId: string, clipId: string, start: number, durations: Record<string, number>) {
+    setBusy(true)
+    setError('')
+    try {
+      await moveClip(sourceId, targetId, clipId, start, durations)
+      setTracks((current) => {
+        if (!current) return current
+        const clip = current.flatMap(getTrackClips).find((item) => item.id === clipId)
+        if (!clip) return current
+        const updated = { ...clip, start, duration: clip.duration ?? durations[clip.id] }
+        return current.map((track) => {
+          if (track.id !== sourceId && track.id !== targetId) return track
+          const remaining = getTrackClips(track).filter((item) => item.id !== clipId)
+          return { ...track, clips: track.id === targetId ? [...remaining, updated] : remaining }
+        })
+      })
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message.includes('überlappt')
+        ? 'Der Audioblock kann dort nicht abgelegt werden: Ein Block überlappt oder seine Dauer ist unbekannt.'
+        : 'Der Audioblock konnte nicht verschoben werden. Bitte prüfe den Browserspeicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function changeTrackMix(id: string, patch: Partial<TrackMix>) {
     setTracks((current) => current && current.map((track) => track.id === id ? { ...track, ...patch } : track))
     const operation = writeQueue.current.then(() => updateTrackMix(id, patch))
@@ -91,7 +116,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} busy={busy} />
+          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} busy={busy} />
           <button type="button" className="audiobook-secondary audiobook-add-button" disabled={busy} onClick={() => void createTrack()}>
             <span aria-hidden="true">+</span> Spur hinzufügen
           </button>

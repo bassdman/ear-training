@@ -14,7 +14,7 @@ const tracks: AudioTrack[] = [
   { id: 'one', projectId: 'project', name: 'Gesang', audio: new Blob(['a']), createdAt: 1 },
   { id: 'two', projectId: 'project', name: 'Gitarre', audio: new Blob(['b']), createdAt: 2 },
 ]
-const importProps = { onImport: vi.fn(), busy: false }
+const importProps = { onImport: vi.fn(), onMove: vi.fn(), busy: false }
 
 beforeEach(() => {
   vi.mocked(decodeWaveform).mockReset()
@@ -85,11 +85,34 @@ describe('gemeinsame Zeitleiste', () => {
     const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
     viewport.scrollLeft = 200
     fireEvent.scroll(viewport)
-    fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 2: Gitarre' }), { clientX: 120 })
+    fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { clientX: 120 })
     expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('8.0 / 30.0 s')
-    expect(screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 1: Gesang' })).toHaveAttribute('aria-valuenow', '8')
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 1: Gesang' }), { key: 'ArrowRight' })
+    expect(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).toHaveAttribute('aria-valuenow', '8')
+    const rulerPlayhead = container.querySelector<HTMLElement>('.audiobook-ruler .audiobook-playhead')
+    const trackPlayhead = container.querySelector<HTMLElement>('.audiobook-timeline-inner > .audiobook-track-playhead')
+    expect(rulerPlayhead).toHaveStyle({ left: '120px' })
+    expect(trackPlayhead).toHaveStyle({ left: '320px' })
+    expect(trackPlayhead).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'ArrowRight' })
     expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('9.0 / 30.0 s')
+    expect(rulerPlayhead).toHaveStyle({ left: '160px' })
+    expect(trackPlayhead).toHaveStyle({ left: '360px' })
+    fireEvent.click(screen.getByRole('button', { name: 'Hineinzoomen' }))
+    expect(trackPlayhead).toHaveStyle({ left: '540px' })
+    expect(parseFloat(rulerPlayhead?.style.left ?? '') + viewport.scrollLeft).toBe(540)
+  })
+
+  it('verschiebt Blöcke per Tastatur, ohne die Wiedergabeposition zu verändern', async () => {
+    const onMove = vi.fn()
+    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} onImport={vi.fn()} onMove={onMove} busy={false} />)
+    await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
+    const clip = screen.getByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
+    fireEvent.click(clip)
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('0.0 / 30.0 s')
+    fireEvent.keyDown(clip, { key: 'ArrowRight' })
+    expect(onMove).toHaveBeenLastCalledWith('one', 'one', 'one:legacy', 1, { 'one:legacy': 30, 'two:legacy': 30 })
+    fireEvent.keyDown(clip, { key: 'ArrowDown' })
+    expect(onMove).toHaveBeenLastCalledWith('one', 'two', 'one:legacy', 0, { 'one:legacy': 30, 'two:legacy': 30 })
   })
 
   it('bietet pro Spur eigene Lautstärke- und Mute-Steuerung an', async () => {
@@ -107,8 +130,8 @@ describe('gemeinsame Zeitleiste', () => {
     rerender(<AudioTimeline tracks={[{ ...tracks[0], muted: true, volume: 0.35 }, tracks[1]]} onMixChange={onMixChange} {...importProps} />)
     expect(mute).toHaveAttribute('aria-pressed', 'true')
     expect(mute).toHaveClass('is-muted')
-    const firstRow = screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 1: Gesang' }).closest('.audiobook-wave-row')
-    const secondRow = screen.getByRole('slider', { name: 'Wiedergabeposition in Spur 2: Gitarre' }).closest('.audiobook-wave-row')
+    const firstRow = screen.getByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' }).closest('.audiobook-wave-row')
+    const secondRow = screen.getByRole('button', { name: 'Audioblock Gitarre in Spur 2 verschieben' }).closest('.audiobook-wave-row')
     expect(firstRow).toHaveClass('is-muted')
     expect(secondRow).not.toHaveClass('is-muted')
     expect(volume).toHaveValue('35')
@@ -132,17 +155,24 @@ describe('gemeinsame Zeitleiste', () => {
       { ...tracks[1], audio: undefined, clips: [second] },
     ]
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1600)
-    const { container } = render(<AudioTimeline tracks={clipTracks} onMixChange={vi.fn()} onImport={onImport} busy={false} />)
+    const { container } = render(<AudioTimeline tracks={clipTracks} onMixChange={vi.fn()} onImport={onImport} onMove={vi.fn()} busy={false} />)
     await waitFor(() => expect(container.querySelectorAll('.audiobook-clip')).toHaveLength(2))
     const blocks = container.querySelectorAll<HTMLElement>('.audiobook-clip')
     expect(blocks[0].style.width).toBe('1200px')
     expect(blocks[1].style.width).toBe('600px')
     expect(blocks[1].style.left).toBe('200px')
-    fireEvent.click(screen.getByRole('button', { name: 'Freier Bereich in Spur 2' }), { clientX: 1000, clientY: 20 })
+    fireEvent.click(screen.getByRole('button', { name: 'Freier Bereich in Spur 2' }), { clientX: 1000, clientY: 20, detail: 1 })
     const input = screen.getByLabelText('Importieren')
     expect(input).not.toHaveAttribute('accept')
     const file = new File(['a'], 'neu.m4a', { type: 'video/mp4' })
     fireEvent.change(input, { target: { files: [file] } })
     expect(onImport).toHaveBeenCalledWith('two', 25, { b: 15 }, file)
+
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    viewport.scrollLeft = 200
+    fireEvent.scroll(viewport)
+    fireEvent.click(screen.getByRole('button', { name: 'Freier Bereich in Spur 2' }))
+    fireEvent.change(screen.getByLabelText('Importieren'), { target: { files: [file] } })
+    expect(onImport).toHaveBeenLastCalledWith('two', 5, { b: 15 }, file)
   })
 })

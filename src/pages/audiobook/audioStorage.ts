@@ -149,6 +149,62 @@ export async function addClip(trackId: string, clip: AudioClip, durations: Recor
   }
 }
 
+export async function moveClip(
+  sourceId: string,
+  targetId: string,
+  clipId: string,
+  start: number,
+  durations: Record<string, number>,
+): Promise<void> {
+  if (!Number.isFinite(start) || start < 0) throw new Error('Ungültige Position')
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const sourceRequest = store.get(sourceId)
+      const targetRequest = sourceId === targetId ? sourceRequest : store.get(targetId)
+      let failure: Error | undefined
+      const applyMove = () => {
+        if (sourceRequest.readyState !== 'done' || targetRequest.readyState !== 'done') return
+        const source: AudioTrack | undefined = sourceRequest.result
+        const target: AudioTrack | undefined = targetRequest.result
+        const clip = source && getTrackClips(source).find((item) => item.id === clipId)
+        const duration = clip && (clip.duration ?? durations[clip.id])
+        if (!source || !target || source.projectId !== target.projectId || !clip || !duration || !Number.isFinite(duration)) {
+          failure = new Error('Spur oder Audioblock nicht verfügbar')
+          transaction.abort()
+          return
+        }
+        const existing = getTrackClips(target).filter((item) => item.id !== clipId)
+        if (existing.some((item) => {
+          const itemDuration = item.duration ?? durations[item.id]
+          return !itemDuration || !Number.isFinite(itemDuration)
+            || (start < item.start + itemDuration && start + duration > item.start)
+        })) {
+          failure = new Error('Audioblock überlappt oder Audiodauer unbekannt')
+          transaction.abort()
+          return
+        }
+        const updatedClip = { ...clip, start, duration }
+        if (sourceId === targetId) {
+          store.put({ ...source, clips: [...existing, updatedClip] })
+        } else {
+          store.put({ ...source, clips: getTrackClips(source).filter((item) => item.id !== clipId) })
+          store.put({ ...target, clips: [...existing, updatedClip] })
+        }
+      }
+      sourceRequest.onsuccess = applyMove
+      if (targetRequest !== sourceRequest) targetRequest.onsuccess = applyMove
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Transaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function updateTrackMix(id: string, patch: Partial<TrackMix>): Promise<void> {
   const db = await openDatabase()
   try {

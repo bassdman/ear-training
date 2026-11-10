@@ -9,10 +9,14 @@ Auf der Projektseite legt **+ Spur hinzufügen** eine leere Spur an. Ein Klick
 in ihren freien Bereich öffnet **Importieren**; die ausgewählte Audiodatei
 wird als Block an der angeklickten Zeitposition eingefügt. Pro Spur sind
 mehrere nicht überlappende Blöcke möglich. Die Breite zeigt ihre Dauer;
-das Verschieben von Blöcken ist noch nicht verfügbar. Die Spuren lassen sich
+Blöcke lassen sich mit Maus oder Touch zeitlich und zwischen Spuren verschieben.
+Per Tastatur verschieben die Pfeiltasten einen fokussierten Block um eine
+Sekunde oder auf die benachbarte Spur. Überlappungen sind nicht erlaubt.
+Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
-Ein Klick in eine Wellenform setzt die Wiedergabeposition aller Spuren;
+Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
+Eine rote Linie zeigt die aktuelle Position über alle Spuren hinweg.
 Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien werden
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
 Links neben jeder Wellenform öffnet das Lautsprechersymbol den Lautstärkeregler;
