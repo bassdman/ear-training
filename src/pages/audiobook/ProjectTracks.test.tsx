@@ -6,8 +6,17 @@ import * as audioStorage from './audioStorage'
 import { ProjectTracks } from './ProjectTracks'
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks }: { tracks: audioStorage.AudioTrack[] }) => (
-    <div>{tracks.map((track) => <span key={track.id}>{track.name}</span>)}</div>
+  AudioTimeline: ({ tracks, onMixChange }: {
+    tracks: audioStorage.AudioTrack[]
+    onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
+  }) => (
+    <div>{tracks.map((track) => (
+      <div key={track.id}>
+        <span>{track.name}</span>
+        <button onClick={() => onMixChange(track.id, { volume: 0.3 })}>Lautstärke {track.name}</button>
+        <button onClick={() => onMixChange(track.id, { muted: true })}>Mute {track.name}</button>
+      </div>
+    ))}</div>
   ),
 }))
 
@@ -46,6 +55,31 @@ describe('ProjectTracks', () => {
     expect(await audioStorage.readTracks(firstId)).toEqual([])
     expect(await audioStorage.readTracks(secondId)).toHaveLength(1)
     await audioStorage.deleteProjectTracks(secondId)
+  })
+
+  it('speichert schnell aufeinanderfolgende Spureinstellungen dauerhaft', async () => {
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addTrack(projectId, new File(['a'], 'mix.mp3', { type: 'audio/mpeg' }))
+    const view = render(<ProjectTracks projectId={projectId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Lautstärke mix.mp3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mute mix.mp3' }))
+    await waitFor(async () => {
+      expect(audioStorage.getTrackMix((await audioStorage.readTracks(projectId))[0])).toEqual({ volume: 0.3, muted: true })
+    })
+    view.unmount()
+    expect(audioStorage.getTrackMix((await audioStorage.readTracks(projectId))[0])).toEqual({ volume: 0.3, muted: true })
+    expect(audioStorage.getTrackMix({ ...track, volume: undefined, muted: undefined })).toEqual({ volume: 1, muted: false })
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('meldet Speicherfehler bei Spureinstellungen', async () => {
+    const projectId = crypto.randomUUID()
+    await audioStorage.addTrack(projectId, new File(['a'], 'mix.mp3', { type: 'audio/mpeg' }))
+    vi.spyOn(audioStorage, 'updateTrackMix').mockRejectedValue(new Error('Speicherfehler'))
+    render(<ProjectTracks projectId={projectId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Mute mix.mp3' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('konnte nicht gespeichert werden')
+    await audioStorage.deleteProjectTracks(projectId)
   })
 
   it('meldet Speicherfehler und zeigt keine ungespeicherte Spur', async () => {

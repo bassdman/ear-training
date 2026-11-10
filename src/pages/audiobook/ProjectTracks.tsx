@@ -1,12 +1,14 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 
-import { addTrack, readTracks, type AudioTrack } from './audioStorage'
+import { addTrack, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
 import { AudioTimeline } from './AudioTimeline'
 
 export function ProjectTracks({ projectId }: { projectId: string }) {
   const [tracks, setTracks] = useState<AudioTrack[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [mixError, setMixError] = useState('')
+  const writeQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     let active = true
@@ -45,14 +47,23 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     }
   }
 
+  function changeTrackMix(id: string, patch: Partial<TrackMix>) {
+    setTracks((current) => current && current.map((track) => track.id === id ? { ...track, ...patch } : track))
+    const operation = writeQueue.current.then(() => updateTrackMix(id, patch))
+    writeQueue.current = operation.catch(() => {
+      setMixError('Die Spureinstellung konnte nicht gespeichert werden. Sie gilt nur bis zum erneuten Öffnen.')
+    })
+  }
+
   return (
     <section aria-label="Audiospuren" className="audiobook-tracks">
       {error && <p className="audiobook-error" role="alert">{error}</p>}
+      {mixError && <p className="audiobook-error" role="alert">{mixError}</p>}
       {tracks === null ? (
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} />
+          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} />
           <div className="audiobook-add-track">
             <span className="audiobook-track-label">Spur {tracks.length + 1}</span>
             <label className={`audiobook-track-empty ${busy ? 'is-busy' : ''}`}>

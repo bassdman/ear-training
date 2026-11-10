@@ -1,10 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useSongTransport } from './useSongTransport'
+import { useSongTransport, type PlaybackTrack } from './useSongTransport'
 
 const sources: { start: ReturnType<typeof vi.fn>, stop: ReturnType<typeof vi.fn>, disconnect: ReturnType<typeof vi.fn>, connect: ReturnType<typeof vi.fn> }[] = []
 const contexts: TestContext[] = []
+const gains: { gain: { value: number }, connect: ReturnType<typeof vi.fn>, disconnect: ReturnType<typeof vi.fn> }[] = []
 let frame: FrameRequestCallback | undefined
 
 class TestContext {
@@ -18,13 +19,22 @@ class TestContext {
     sources.push(source)
     return source
   }
+  createGain() {
+    const gain = { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() }
+    gains.push(gain)
+    return gain
+  }
   constructor() { contexts.push(this) }
 }
 
-const buffers = [{ duration: 10 }, { duration: 4 }] as AudioBuffer[]
+const buffers: PlaybackTrack[] = [
+  { id: 'one', buffer: { duration: 10 } as AudioBuffer, volume: 1, muted: false },
+  { id: 'two', buffer: { duration: 4 } as AudioBuffer, volume: 1, muted: false },
+]
 
 beforeEach(() => {
   sources.length = 0
+  gains.length = 0
   contexts.length = 0
   frame = undefined
   vi.stubGlobal('AudioContext', TestContext)
@@ -111,5 +121,24 @@ describe('Songtransport', () => {
     await act(async () => { resume?.(); await pending })
     expect(sources).toHaveLength(0)
     expect(result.current.starting).toBe(false)
+  })
+
+  it('ändert Lautstärke und Mute live unabhängig und bewahrt die Lautstärke beim Entmuten', async () => {
+    const { result, rerender } = renderHook(({ tracks }) => useSongTransport(tracks, 10, true, 'one,two'), { initialProps: { tracks: buffers } })
+    await act(async () => result.current.play())
+    rerender({ tracks: [{ ...buffers[0], volume: 0.35 }, buffers[1]] })
+    expect(gains[0].gain.value).toBe(0.35)
+    expect(gains[1].gain.value).toBe(1)
+    expect(sources).toHaveLength(2)
+    rerender({ tracks: [{ ...buffers[0], volume: 0.35, muted: true }, buffers[1]] })
+    expect(gains[0].gain.value).toBe(0)
+    rerender({ tracks: [{ ...buffers[0], volume: 0.6, muted: true }, buffers[1]] })
+    expect(gains[0].gain.value).toBe(0)
+    rerender({ tracks: [{ ...buffers[0], volume: 0.6 }, buffers[1]] })
+    expect(gains[0].gain.value).toBe(0.6)
+    expect(result.current.playing).toBe(true)
+    act(() => result.current.seek(2))
+    expect(gains[2].gain.value).toBe(0.6)
+    expect(gains[3].gain.value).toBe(1)
   })
 })

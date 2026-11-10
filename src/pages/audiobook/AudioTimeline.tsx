@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import type { AudioTrack } from './audioStorage'
+import { getTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
 
@@ -27,8 +27,57 @@ function TrackDecoder({ track, onDecoded }: {
       if (active) onDecoded(track.id, { error: true })
     })
     return () => { active = false }
-  }, [track, onDecoded])
+  }, [track.id, track.audio, onDecoded])
   return null
+}
+
+function TrackControls({ track, index, onMixChange }: {
+  track: AudioTrack
+  index: number
+  onMixChange: (id: string, patch: Partial<TrackMix>) => void
+}) {
+  const [volumeOpen, setVolumeOpen] = useState(false)
+  const { volume, muted } = getTrackMix(track)
+  const name = `Spur ${index + 1}: ${track.name}`
+
+  return (
+    <div className="audiobook-track-controls" role="group" aria-label={`Einstellungen für ${name}`}>
+      <div className="audiobook-track-buttons">
+        <button
+          type="button"
+          className="audiobook-track-button"
+          aria-label={`Lautstärke für ${name}`}
+          aria-expanded={volumeOpen}
+          onClick={() => setVolumeOpen((open) => !open)}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9v6h4l5 4V5L7 9H3z" />
+            <path d="M16 9a5 5 0 0 1 0 6M19 6a9 9 0 0 1 0 12" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className={`audiobook-track-button audiobook-mute ${muted ? 'is-muted' : ''}`}
+          aria-label={`${name} stummschalten`}
+          aria-pressed={muted}
+          onClick={() => onMixChange(track.id, { muted: !muted })}
+        >M</button>
+      </div>
+      {volumeOpen && (
+        <label className="audiobook-volume">
+          <span>{Math.round(volume * 100)} %</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={Math.round(volume * 100)}
+            aria-label={`Lautstärke ${name}`}
+            onChange={(event) => onMixChange(track.id, { volume: Number(event.target.value) / 100 })}
+          />
+        </label>
+      )}
+    </div>
+  )
 }
 
 function Waveform({ data, width, offset, zoom }: {
@@ -66,7 +115,10 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
+export function AudioTimeline({ tracks, onMixChange }: {
+  tracks: AudioTrack[]
+  onMixChange: (id: string, patch: Partial<TrackMix>) => void
+}) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
   const [viewport, setViewport] = useState({ width: 0, offset: 0 })
@@ -123,7 +175,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
   const duration = Math.max(0, ...tracks.map((track) => decoded[track.id]?.waveform?.duration ?? 0))
   const buffers = tracks.flatMap((track) => {
     const buffer = decoded[track.id]?.buffer
-    return buffer ? [buffer] : []
+    return buffer ? [{ id: track.id, buffer, ...getTrackMix(track) }] : []
   })
   const ready = tracks.length > 0 && buffers.length === tracks.length && duration > 0
   const transport = useSongTransport(buffers, duration, ready, tracks.map((track) => track.id).join(','))
@@ -149,6 +201,13 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
           <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5, viewport.width / 2)}>+</button>
         </div>
       </div>
+      <div className="audiobook-timeline-grid">
+      <div className="audiobook-mixer">
+        <div className="audiobook-mixer-ruler" />
+        {tracks.map((track, index) => (
+          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} />
+        ))}
+      </div>
       <div
         className="audiobook-timeline-viewport"
         ref={viewportRef}
@@ -167,7 +226,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
           {tracks.map((track, index) => {
             const entry = decoded[track.id]
             return (
-              <div className="audiobook-wave-row" key={track.id}>
+              <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
                   <span className="audiobook-wave-name">Spur {index + 1}: {track.name}</span>
                   {entry?.waveform ? (
@@ -206,6 +265,7 @@ export function AudioTimeline({ tracks }: { tracks: AudioTrack[] }) {
             )
           })}
         </div>
+      </div>
       </div>
     </div>}
       <div className="audiobook-transport" aria-label="Wiedergabesteuerung">

@@ -11,6 +11,10 @@ Ein Klick in eine Wellenform setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
 Beim Hinzufügen einer Spur pausiert die Wiedergabe. Die Audiodateien werden
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
+Links neben jeder Wellenform öffnet das Lautsprechersymbol den Lautstärkeregler;
+**M** schaltet die jeweilige Spur stumm. Lautstärke und Stummschaltung gelten
+auch während der Wiedergabe und werden pro Spur lokal gespeichert. Bei aktiver
+Stummschaltung erscheinen die Spur grau und der Mute-Button rot.
 Die gemeinsame Zeitleiste zeigt Wellenformen und Sekundenmarkierungen.
 Das Mausrad über der Zeitleiste zoomt hinein oder heraus; horizontaler
 Bildlauf verschiebt alle Spuren gemeinsam. Alternativ lässt sich der Zoom
