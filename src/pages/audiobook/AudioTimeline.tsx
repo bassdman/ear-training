@@ -117,12 +117,13 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, busy }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, onDelete, busy }: {
   tracks: AudioTrack[]
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
   onMove: (sourceId: string, targetId: string, clipId: string, start: number, durations: Record<string, number>) => void
   onSplit: (trackId: string, clipId: string, at: number, duration: number) => void
+  onDelete: (trackId: string, clipId: string) => void
   busy: boolean
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
@@ -132,6 +133,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
   const [menu, setMenu] = useState<{ trackId: string, time: number, y: number } | null>(null)
   const [selectedClip, setSelectedClip] = useState<string | null>(null)
   const [clipMenu, setClipMenu] = useState<{ trackId: string, clipId: string, time: number, y: number } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
   const [pendingExtent, setPendingExtent] = useState(0)
   const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, x: number, initialStart: number, initialScroll: number, duration: number, moved: boolean, targetId?: string, direction: number, scroll: number, lastFrame?: number } | null>(null)
@@ -143,6 +145,13 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
   const onDecoded = useCallback((id: string, result: TimelineTrack) => {
     setDecoded((current) => ({ ...current, [id]: result }))
   }, [])
+  useEffect(() => {
+    const active = new Set(tracks.flatMap((track) => getTrackClips(track).map((clip) => clip.id)))
+    setDecoded((current) => {
+      const entries = Object.entries(current).filter(([id]) => active.has(id))
+      return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries)
+    })
+  }, [tracks])
   const decode = useCallback((audio: Blob) => {
     const cached = decodedAudio.current.get(audio)
     if (cached) return cached
@@ -266,6 +275,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
   }
   const activateClip = (trackId: string, clipId: string, time: number, y: number) => {
     setMenu(null)
+    setConfirmDelete(false)
     if (selectedClip === clipId) {
       setClipMenu({ trackId, clipId, time, y })
     } else {
@@ -480,15 +490,32 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                         const length = clip && durations[clip.id]
                         const canSplit = clip && length && position > clip.start && position < clip.start + length
                         return (
-                          <div className="audiobook-import-menu" style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(clipMenu.y, 52) }} onClick={(event) => event.stopPropagation()}>
-                            {canSplit && <button type="button" disabled={busy} onClick={() => {
-                              transport.pause()
-                              onSplit(track.id, clip.id, position, length)
-                              setClipMenu(null)
-                              setSelectedClip(null)
-                            }}>Schneiden</button>}
-                            {!canSplit && <span className="audiobook-menu-hint">Positionslinie innerhalb des Blocks setzen</span>}
-                            <button type="button" aria-label="Blockmenü schließen" onClick={() => setClipMenu(null)}>×</button>
+                          <div className="audiobook-import-menu audiobook-clip-menu" style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 230)), top: Math.min(clipMenu.y, 8), maxWidth: viewport.width }} onClick={(event) => event.stopPropagation()}>
+                            {confirmDelete ? (
+                              <>
+                                <span className="audiobook-menu-hint">Audioblock wirklich löschen?</span>
+                                <button type="button" disabled={busy} onClick={() => {
+                                  transport.pause()
+                                  onDelete(track.id, clipMenu.clipId)
+                                  setConfirmDelete(false)
+                                  setClipMenu(null)
+                                  setSelectedClip(null)
+                                }}>Endgültig löschen</button>
+                                <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Abbrechen</button>
+                              </>
+                            ) : (
+                              <>
+                                {canSplit && <button type="button" disabled={busy} onClick={() => {
+                                  transport.pause()
+                                  onSplit(track.id, clip.id, position, length)
+                                  setClipMenu(null)
+                                  setSelectedClip(null)
+                                }}>Schneiden</button>}
+                                {!canSplit && <span className="audiobook-menu-hint">Positionslinie innerhalb des Blocks setzen</span>}
+                                <button type="button" disabled={busy} onClick={() => setConfirmDelete(true)}>Löschen</button>
+                                <button type="button" aria-label="Blockmenü schließen" onClick={() => setClipMenu(null)}>×</button>
+                              </>
+                            )}
                           </div>
                         )
                       })()}

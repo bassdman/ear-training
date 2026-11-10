@@ -95,7 +95,7 @@
 .audiobook-timeline-grid,
 .audiobook-sticky-ruler {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 60px minmax(0, 1fr);
   border-top: 1px solid var(--theme-border);
 }
 
@@ -124,7 +124,7 @@
 }
 
 .audiobook-track-buttons {
-  display: flex;
+  display: grid;
   gap: 6px;
 }
 
@@ -320,6 +320,10 @@
   border-radius: 6px;
   background: white;
   box-shadow: 0 3px 12px rgb(34 34 34 / 18%);
+}
+
+.audiobook-clip-menu {
+  flex-wrap: wrap;
 }
 
 .audiobook-import-menu label {

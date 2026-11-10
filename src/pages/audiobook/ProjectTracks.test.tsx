@@ -10,15 +10,16 @@ vi.mock('./waveform', () => ({
 }))
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks, onMixChange, onImport }: {
+  AudioTimeline: ({ tracks, onMixChange, onImport, onDelete }: {
     tracks: audioStorage.AudioTrack[]
     onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
     onImport: (id: string, start: number, durations: Record<string, number>, file: File) => void
+    onDelete: (trackId: string, clipId: string) => void
   }) => (
     <div>{tracks.map((track) => (
       <div key={track.id}>
         <span>{track.name || 'Leere Spur'}</span>
-        {audioStorage.getTrackClips(track).map((clip) => <span key={clip.id}>{clip.name}</span>)}
+        {audioStorage.getTrackClips(track).map((clip) => <span key={clip.id}>{clip.name}<button onClick={() => onDelete(track.id, clip.id)}>Lösche {clip.name}</button></span>)}
         <button onClick={() => onMixChange(track.id, { volume: 0.3 })}>Lautstärke {track.name}</button>
         <button onClick={() => onMixChange(track.id, { muted: true })}>Mute {track.name}</button>
         <input aria-label={`Import ${track.id}`} type="file" onChange={(event) => {
@@ -101,6 +102,7 @@ describe('ProjectTracks', () => {
     await audioStorage.moveClip(source.id, target.id, id, 5, { [id]: 10 })
     rows = await audioStorage.readTracks(projectId)
     expect(audioStorage.getTrackClips(rows.find((t) => t.id === source.id)!)).toHaveLength(0)
+    expect(rows.find((t) => t.id === source.id)?.audio).toBeUndefined()
     const moved = audioStorage.getTrackClips(rows.find((t) => t.id === target.id)!).find((clip) => clip.id === id)
     expect(moved).toMatchObject({ name: 'alt.mp3', start: 5, duration: 10 })
     await audioStorage.moveClip(target.id, target.id, id, 10, {})
@@ -150,6 +152,62 @@ describe('ProjectTracks', () => {
     await audioStorage.deleteProjectTracks(projectId)
     expect((await readRaw()).audio).toHaveLength(0)
     db.close()
+  })
+
+  it('löscht einzelne geteilte Blöcke transaktional und entfernt die Audiodatei erst beim letzten Verweis', async () => {
+    const projectId = crypto.randomUUID()
+    const source = await audioStorage.addTrack(projectId, new File(['audio'], 'alt.wav'))
+    const target = await audioStorage.addEmptyTrack(projectId)
+    const legacyId = `${source.id}:legacy`
+    await audioStorage.splitClip(source.id, legacyId, 4, 10)
+    const [first, second] = audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === source.id)!)
+    await audioStorage.moveClip(source.id, target.id, second.id, 4, {})
+    await audioStorage.deleteClip(source.id, first.id)
+    let rows = await audioStorage.readTracks(projectId)
+    expect(audioStorage.getTrackClips(rows.find((track) => track.id === source.id)!)).toHaveLength(0)
+    expect(audioStorage.getTrackClips(rows.find((track) => track.id === target.id)!)[0]).toMatchObject({ id: second.id, sourceStart: 4, duration: 6 })
+
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ear-training-audiobook', 2)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const audioExists = () => new Promise<boolean>((resolve, reject) => {
+      const request = db.transaction('audio').objectStore('audio').get(first.audioId!)
+      request.onsuccess = () => resolve(request.result !== undefined)
+      request.onerror = () => reject(request.error)
+    })
+    expect(await audioExists()).toBe(true)
+    await expect(audioStorage.deleteClip(target.id, 'missing')).rejects.toThrow('nicht gefunden')
+    expect(await audioExists()).toBe(true)
+    await audioStorage.deleteClip(target.id, second.id)
+    expect(await audioExists()).toBe(false)
+    rows = await audioStorage.readTracks(projectId)
+    expect(rows.flatMap(audioStorage.getTrackClips)).toHaveLength(0)
+    db.close()
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('löscht Legacy- und eingebettete Blöcke dauerhaft und meldet Speicherfehler', async () => {
+    const projectId = crypto.randomUUID()
+    const legacy = await audioStorage.addTrack(projectId, new File(['alt'], 'alt.wav'))
+    const inline = await audioStorage.addEmptyTrack(projectId)
+    await audioStorage.addClip(inline.id, { id: 'embedded', name: 'neu.wav', audio: new Blob(['neu']), start: 0, duration: 10 })
+    render(<ProjectTracks projectId={projectId} />)
+    const button = await screen.findByRole('button', { name: 'Lösche neu.wav' })
+    const failure = vi.spyOn(audioStorage, 'deleteClip').mockRejectedValueOnce(new Error('Speicherfehler'))
+    fireEvent.click(button)
+    expect(await screen.findByRole('alert')).toHaveTextContent('konnte nicht gelöscht werden')
+    expect(screen.getByRole('button', { name: 'Lösche neu.wav' })).toBeInTheDocument()
+    failure.mockRestore()
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Lösche neu.wav' })).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Lösche alt.wav' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Lösche alt.wav' })).not.toBeInTheDocument())
+    const rows = await audioStorage.readTracks(projectId)
+    expect(rows.flatMap(audioStorage.getTrackClips)).toHaveLength(0)
+    expect(rows.find((track) => track.id === legacy.id)?.audio).toBeUndefined()
+    await audioStorage.deleteProjectTracks(projectId)
   })
 
   it('meldet Speicher- und Validierungsfehler', async () => {

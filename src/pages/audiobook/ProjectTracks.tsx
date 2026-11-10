@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, getTrackClips, moveClip, readTracks, splitClip, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { addClip, addEmptyTrack, deleteClip, getTrackClips, moveClip, readTracks, splitClip, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -113,6 +113,21 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     }
   }
 
+  async function deleteAudio(trackId: string, clipId: string) {
+    setBusy(true)
+    setError('')
+    try {
+      await deleteClip(trackId, clipId)
+      setTracks((current) => current && current.map((track) => track.id === trackId
+        ? { ...track, audio: undefined, clips: getTrackClips(track).filter((clip) => clip.id !== clipId) }
+        : track))
+    } catch {
+      setError('Der Audioblock konnte nicht gelöscht werden. Bitte prüfe den Browserspeicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function changeTrackMix(id: string, patch: Partial<TrackMix>) {
     setTracks((current) => current && current.map((track) => track.id === id ? { ...track, ...patch } : track))
     const operation = writeQueue.current.then(() => updateTrackMix(id, patch))
@@ -129,7 +144,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} busy={busy} />
+          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} busy={busy} />
           <button type="button" className="audiobook-secondary audiobook-add-button" disabled={busy} onClick={() => void createTrack()}>
             <span aria-hidden="true">+</span> Spur hinzufügen
           </button>

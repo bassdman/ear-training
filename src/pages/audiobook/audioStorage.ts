@@ -195,7 +195,8 @@ export async function addClip(trackId: string, clip: AudioClip, durations: Recor
           transaction.abort()
           return
         }
-        store.put({ ...track, clips: [...existing, clip] })
+        const { audio: _legacyAudio, ...rest } = track
+        store.put({ ...rest, clips: [...existing, clip] })
       }
       transaction.oncomplete = () => resolve()
       transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Transaktion abgebrochen'))
@@ -244,11 +245,13 @@ export async function moveClip(
           return
         }
         const updatedClip = { ...clip, start, duration }
+        const { audio: _sourceAudio, ...sourceRest } = source
         if (sourceId === targetId) {
-          store.put({ ...source, clips: [...existing, updatedClip] })
+          store.put({ ...sourceRest, clips: [...existing, updatedClip] })
         } else {
-          store.put({ ...source, clips: storedClips(source).filter((item) => item.id !== clipId) })
-          store.put({ ...target, clips: [...existing, updatedClip] })
+          const { audio: _targetAudio, ...targetRest } = target
+          store.put({ ...sourceRest, clips: storedClips(source).filter((item) => item.id !== clipId) })
+          store.put({ ...targetRest, clips: [...existing, updatedClip] })
         }
       }
       sourceRequest.onsuccess = applyMove
@@ -295,6 +298,46 @@ export async function splitClip(trackId: string, clipId: string, at: number, dur
         const second: StoredClip = { ...reference, id: createProjectId(), audioId, start: at, sourceStart: (clip.sourceStart ?? 0) + firstLength, duration: length - firstLength }
         const { audio: _legacyAudio, ...rest } = track
         store.put({ ...rest, clips: clips.flatMap((item) => item.id === clipId ? [first, second] : [item]) })
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function deleteClip(trackId: string, clipId: string): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.get(trackId)
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const track: StoredTrack | undefined = request.result
+        const clips = track ? storedClips(track) : []
+        const clip = clips.find((item) => item.id === clipId)
+        if (!track || !clip) {
+          failure = new Error('Spur oder Audioblock nicht gefunden')
+          transaction.abort()
+          return
+        }
+        const remaining = clips.filter((item) => item.id !== clipId)
+        const { audio: _legacyAudio, ...rest } = track
+        store.put({ ...rest, clips: remaining })
+        if (clip.audioId) {
+          const audioId = clip.audioId
+          const projects = store.index(PROJECT_INDEX).getAll(track.projectId)
+          projects.onsuccess = () => {
+            const tracks: StoredTrack[] = projects.result
+            if (!tracks.some((item) => storedClips(item).some((other) => other.audioId === audioId))) {
+              transaction.objectStore(AUDIO_STORE).delete(audioId)
+            }
+          }
+        }
       }
       transaction.oncomplete = () => resolve()
       transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))

@@ -20,6 +20,8 @@ Liegt die rote Positionslinie innerhalb des Blocks, teilt **Schneiden** ihn
 an dieser Stelle in zwei separat verschiebbare Blöcke derselben Spur.
 Die Originalaufnahme wird dabei nur einmal gespeichert; die Blöcke verweisen
 mit ihren jeweiligen Quellbereichen darauf. Beim Schneiden pausiert die Wiedergabe.
+Im selben Menü lassen sich einzelne Blöcke nach Bestätigung löschen. Die
+gemeinsame Audiodatei bleibt erhalten, solange noch ein Block sie verwendet.
 Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
