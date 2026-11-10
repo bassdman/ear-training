@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { addTrack, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { addClip, addEmptyTrack, getTrackClips, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
+import { decodeWaveform } from './waveform'
 
 const AUDIO_EXTENSION = /\.(aac|aif|aiff|amr|caf|flac|m4a|m4b|mp3|mp4|mpga|oga|ogg|opus|wav|wave|webm)$/i
 
@@ -22,10 +24,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     return () => { active = false }
   }, [projectId])
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
+  async function importAudio(trackId: string, start: number, durations: Record<string, number>, file: File) {
     if (!file.type.startsWith('audio/') && file.type !== '' && !AUDIO_EXTENSION.test(file.name)) {
       setError('Bitte wähle eine Audiodatei aus.')
       return
@@ -38,12 +37,39 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     setBusy(true)
     setError('')
     try {
-      const track = await addTrack(projectId, file)
-      setTracks((current) => current && [...current, track].sort(
-        (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id),
-      ))
+      const { waveform } = await decodeWaveform(file)
+      const track = tracks?.find((item) => item.id === trackId)
+      if (!track) throw new Error('Spur nicht gefunden')
+      if (!Number.isFinite(waveform.duration) || waveform.duration <= 0) throw new Error('Ungültige Audiodauer')
+      const overlapping = getTrackClips(track).some((clip) =>
+        start < clip.start + (durations[clip.id] ?? clip.duration ?? 0) && start + waveform.duration > clip.start,
+      )
+      if (overlapping) {
+        setError('Der Audioblock würde einen vorhandenen Block überlappen. Bitte wähle eine andere Position.')
+        return
+      }
+      const clip = { id: createProjectId(), name: file.name, audio: file, start, duration: waveform.duration }
+      await addClip(trackId, clip, durations)
+      setTracks((current) => current && current.map((item) => item.id === trackId
+        ? { ...item, clips: [...getTrackClips(item), clip] }
+        : item))
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message === 'Audioblock überlappt'
+        ? 'Der Audioblock würde einen vorhandenen Block überlappen. Bitte wähle eine andere Position.'
+        : 'Die Audiodatei konnte nicht importiert werden. Bitte prüfe das Format und den verfügbaren Browserspeicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createTrack() {
+    setBusy(true)
+    setError('')
+    try {
+      const track = await addEmptyTrack(projectId)
+      setTracks((current) => current && [...current, track])
     } catch {
-      setError('Die Audiodatei konnte nicht gespeichert werden. Bitte prüfe den verfügbaren Browserspeicher.')
+      setError('Die Spur konnte nicht gespeichert werden. Bitte prüfe den Browserspeicher.')
     } finally {
       setBusy(false)
     }
@@ -65,14 +91,10 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} />
-          <div className="audiobook-add-track">
-            <span className="audiobook-track-label">Spur {tracks.length + 1}</span>
-            <label className={`audiobook-track-empty ${busy ? 'is-busy' : ''}`}>
-              {busy ? 'Audio wird gespeichert ...' : 'Neues Audio hinzufügen'}
-              <input type="file" disabled={busy} onChange={(event) => void handleFileChange(event)} />
-            </label>
-          </div>
+          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} busy={busy} />
+          <button type="button" className="audiobook-secondary audiobook-add-button" disabled={busy} onClick={() => void createTrack()}>
+            <span aria-hidden="true">+</span> Spur hinzufügen
+          </button>
         </>
       )}
     </section>

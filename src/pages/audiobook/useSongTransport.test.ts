@@ -141,4 +141,21 @@ describe('Songtransport', () => {
     expect(gains[2].gain.value).toBe(0.6)
     expect(gains[3].gain.value).toBe(1)
   })
+
+  it('plant zeitversetzte Blöcke und setzt sie beim Springen korrekt fort', async () => {
+    const clips = [
+      { ...buffers[0], id: 'clip-a', trackId: 'spur', start: 5 },
+      { ...buffers[1], id: 'clip-b', trackId: 'spur', start: 20 },
+    ]
+    const { result, rerender } = renderHook(({ tracks }) => useSongTransport(tracks, 24, true, 'clips'), { initialProps: { tracks: clips } })
+    await act(async () => result.current.play())
+    expect(sources[0].start).toHaveBeenCalledWith(5, 0)
+    expect(sources[1].start).toHaveBeenCalledWith(20, 0)
+    rerender({ tracks: clips.map((clip) => ({ ...clip, muted: true })) })
+    expect(gains[0].gain.value).toBe(0)
+    expect(gains[1].gain.value).toBe(0)
+    act(() => result.current.seek(8))
+    expect(sources[2].start).toHaveBeenCalledWith(0, 3)
+    expect(sources[3].start).toHaveBeenCalledWith(12, 0)
+  })
 })

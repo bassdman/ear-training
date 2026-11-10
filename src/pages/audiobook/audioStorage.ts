@@ -8,10 +8,24 @@ export type AudioTrack = {
   id: string
   projectId: string
   name: string
-  audio: Blob
+  audio?: Blob
+  clips?: AudioClip[]
   createdAt: number
   volume?: number
   muted?: boolean
+}
+
+export type AudioClip = {
+  id: string
+  name: string
+  audio: Blob
+  start: number
+  duration?: number
+}
+
+export function getTrackClips(track: AudioTrack): AudioClip[] {
+  if (track.clips) return track.clips
+  return track.audio ? [{ id: `${track.id}:legacy`, name: track.name, audio: track.audio, start: 0 }] : []
 }
 
 export type TrackMix = { volume: number, muted: boolean }
@@ -87,6 +101,52 @@ export async function addTrack(projectId: string, file: File): Promise<AudioTrac
   }
   await withStore('readwrite', (store) => store.add(track))
   return track
+}
+
+export async function addEmptyTrack(projectId: string): Promise<AudioTrack> {
+  const track: AudioTrack = {
+    id: createProjectId(), projectId, name: '', clips: [],
+    createdAt: Date.now(), volume: 1, muted: false,
+  }
+  await withStore('readwrite', (store) => store.add(track))
+  return track
+}
+
+export async function addClip(trackId: string, clip: AudioClip, durations: Record<string, number> = {}): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.get(trackId)
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const track: AudioTrack | undefined = request.result
+        if (!track) {
+          failure = new Error('Spur nicht gefunden')
+          transaction.abort()
+          return
+        }
+        const existing = getTrackClips(track)
+        const unknown = existing.some((item) => item.duration === undefined && durations[item.id] === undefined)
+        const overlaps = existing.some((item) =>
+          clip.start < item.start + (item.duration ?? durations[item.id] ?? 0)
+          && clip.start + (clip.duration ?? 0) > item.start,
+        )
+        if (unknown || overlaps) {
+          failure = new Error(overlaps ? 'Audioblock überlappt' : 'Audiodauer unbekannt')
+          transaction.abort()
+          return
+        }
+        store.put({ ...track, clips: [...existing, clip] })
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Transaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
 }
 
 export async function updateTrackMix(id: string, patch: Partial<TrackMix>): Promise<void> {

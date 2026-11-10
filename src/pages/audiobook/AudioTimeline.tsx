@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { getTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { getTrackClips, getTrackMix, type AudioClip, type AudioTrack, type TrackMix } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
 
@@ -15,19 +15,19 @@ type TimelineTrack = {
   error?: boolean
 }
 
-function TrackDecoder({ track, onDecoded }: {
-  track: AudioTrack
+function TrackDecoder({ clip, onDecoded }: {
+  clip: AudioClip
   onDecoded: (id: string, result: TimelineTrack) => void
 }) {
   useEffect(() => {
     let active = true
-    void decodeWaveform(track.audio).then(({ waveform, buffer }) => {
-      if (active) onDecoded(track.id, { waveform, buffer })
+    void decodeWaveform(clip.audio).then(({ waveform, buffer }) => {
+      if (active) onDecoded(clip.id, { waveform, buffer })
     }).catch(() => {
-      if (active) onDecoded(track.id, { error: true })
+      if (active) onDecoded(clip.id, { error: true })
     })
     return () => { active = false }
-  }, [track.id, track.audio, onDecoded])
+  }, [clip.id, clip.audio, onDecoded])
   return null
 }
 
@@ -38,7 +38,7 @@ function TrackControls({ track, index, onMixChange }: {
 }) {
   const [volumeOpen, setVolumeOpen] = useState(false)
   const { volume, muted } = getTrackMix(track)
-  const name = `Spur ${index + 1}: ${track.name}`
+  const name = track.name ? `Spur ${index + 1}: ${track.name}` : `Spur ${index + 1}`
 
   return (
     <div className="audiobook-track-controls" role="group" aria-label={`Einstellungen für ${name}`}>
@@ -115,15 +115,18 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, busy }: {
   tracks: AudioTrack[]
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
+  onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
+  busy: boolean
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
   const [viewport, setViewport] = useState({ width: 0, offset: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
   const pendingScroll = useRef<{ time: number, anchor: number } | null>(null)
+  const [menu, setMenu] = useState<{ trackId: string, time: number, x: number, y: number } | null>(null)
   const hasTracks = tracks.length > 0
 
   const onDecoded = useCallback((id: string, result: TimelineTrack) => {
@@ -172,16 +175,18 @@ export function AudioTimeline({ tracks, onMixChange }: {
     setViewport({ width: node.clientWidth, offset: node.scrollLeft })
   }, [zoom])
 
-  const duration = Math.max(0, ...tracks.map((track) => decoded[track.id]?.waveform?.duration ?? 0))
-  const buffers = tracks.flatMap((track) => {
-    const buffer = decoded[track.id]?.buffer
-    return buffer ? [{ id: track.id, buffer, ...getTrackMix(track) }] : []
+  const allClips = tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip })))
+  const duration = Math.max(0, ...allClips.map(({ clip }) => clip.start + (decoded[clip.id]?.waveform?.duration ?? clip.duration ?? 0)))
+  const timelineDuration = Math.max(30, duration + 10)
+  const buffers = allClips.flatMap(({ track, clip }) => {
+    const buffer = decoded[clip.id]?.buffer
+    return buffer ? [{ id: clip.id, trackId: track.id, start: clip.start, buffer, ...getTrackMix(track) }] : []
   })
-  const ready = tracks.length > 0 && buffers.length === tracks.length && duration > 0
-  const transport = useSongTransport(buffers, duration, ready, tracks.map((track) => track.id).join(','))
+  const ready = allClips.length > 0 && buffers.length === allClips.length && duration > 0
+  const transport = useSongTransport(buffers, duration, ready, allClips.map(({ clip }) => clip.id).join(','))
   const interval = getTickInterval(zoom)
   const firstTick = Math.max(0, Math.ceil(viewport.offset / zoom / interval))
-  const lastTick = Math.floor(Math.min(duration, (viewport.offset + viewport.width) / zoom) / interval)
+  const lastTick = Math.floor(Math.min(timelineDuration, (viewport.offset + viewport.width) / zoom) / interval)
   const ticks = Array.from({ length: Math.max(0, lastTick - firstTick + 1) }, (_, index) => {
     const seconds = (firstTick + index) * interval
     return { seconds, x: seconds * zoom - viewport.offset }
@@ -189,7 +194,7 @@ export function AudioTimeline({ tracks, onMixChange }: {
 
   return (
     <>
-      {tracks.map((track) => <TrackDecoder key={track.id} track={track} onDecoded={onDecoded} />)}
+      {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} />)}
       {hasTracks && <div className="audiobook-timeline-section">
       <div className="audiobook-timeline-toolbar">
         <div>
@@ -216,7 +221,7 @@ export function AudioTimeline({ tracks, onMixChange }: {
         aria-label="Gemeinsame Zeitleiste"
         tabIndex={0}
       >
-        <div className="audiobook-timeline-inner" style={{ width: Math.max(viewport.width, duration * zoom + 1) }}>
+        <div className="audiobook-timeline-inner" style={{ width: Math.max(viewport.width, timelineDuration * zoom + 1) }}>
           <div className="audiobook-ruler" style={{ width: viewport.width }} aria-label="Zeitachse in Sekunden">
             {ticks.map(({ seconds, x }) => (
               <span className="audiobook-tick" key={seconds} style={{ left: x }}>{formatSeconds(seconds, interval)}</span>
@@ -224,42 +229,88 @@ export function AudioTimeline({ tracks, onMixChange }: {
             <span className="audiobook-playhead" style={{ left: transport.position * zoom - viewport.offset }} />
           </div>
           {tracks.map((track, index) => {
-            const entry = decoded[track.id]
+            const clips = getTrackClips(track)
             return (
               <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
-                  <span className="audiobook-wave-name">Spur {index + 1}: {track.name}</span>
-                  {entry?.waveform ? (
                     <div
                       className="audiobook-wave-seek"
-                      role="slider"
+                      role="button"
                       tabIndex={0}
-                      aria-label={`Wiedergabeposition in Spur ${index + 1}`}
-                      aria-valuemin={0}
-                      aria-valuemax={duration}
-                      aria-valuenow={Number(transport.position.toFixed(2))}
-                      aria-valuetext={`${transport.position.toFixed(1)} Sekunden`}
+                      aria-label={`Freier Bereich in Spur ${index + 1}`}
                       onClick={(event) => {
                         const x = event.clientX - event.currentTarget.getBoundingClientRect().left
-                        transport.seek((viewport.offset + x) / zoom)
+                        setMenu({ trackId: track.id, time: Math.max(0, (viewport.offset + x) / zoom), x, y: Math.max(0, event.clientY - event.currentTarget.getBoundingClientRect().top) })
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                        if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
-                          transport.seek(transport.position + (event.key === 'ArrowLeft' ? -1 : 1))
-                        } else if (event.key === 'Home' || event.key === 'End') {
-                          event.preventDefault()
-                          transport.seek(event.key === 'Home' ? 0 : duration)
+                          setMenu({ trackId: track.id, time: viewport.offset / zoom, x: 0, y: 0 })
                         }
                       }}
                     >
-                      <Waveform data={entry.waveform} width={viewport.width} offset={viewport.offset} zoom={zoom} />
+                      {clips.map((clip) => {
+                        const clipData = decoded[clip.id]
+                        const clipDuration = clipData?.waveform?.duration ?? clip.duration ?? 0
+                        const left = clip.start * zoom - viewport.offset
+                        const right = left + clipDuration * zoom
+                        const visibleLeft = Math.max(0, left)
+                        const visibleRight = Math.min(viewport.width, right)
+                        if (clipData?.error) return <p className="audiobook-wave-status" role="alert" key={clip.id}>Audiodatei „{clip.name}“ konnte nicht geladen werden.</p>
+                        if (!clipData?.waveform) return <p className="audiobook-wave-status" role="status" key={clip.id}>Wellenform wird geladen ...</p>
+                        if (visibleRight <= visibleLeft) return null
+                        return (
+                          <div
+                            key={clip.id}
+                            className="audiobook-clip"
+                            style={{ left: visibleLeft, width: visibleRight - visibleLeft }}
+                            role="slider"
+                            tabIndex={0}
+                            aria-label={`Wiedergabeposition in Spur ${index + 1}: ${clip.name}`}
+                            aria-valuemin={0}
+                            aria-valuemax={duration}
+                            aria-valuenow={Number(transport.position.toFixed(2))}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              const x = event.clientX - event.currentTarget.getBoundingClientRect().left + visibleLeft
+                              setMenu(null)
+                              transport.seek((viewport.offset + x) / zoom)
+                            }}
+                            onKeyDown={(event) => {
+                              event.stopPropagation()
+                              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                                event.preventDefault()
+                                transport.seek(transport.position + (event.key === 'ArrowLeft' ? -1 : 1))
+                              } else if (event.key === 'Home' || event.key === 'End') {
+                                event.preventDefault()
+                                transport.seek(event.key === 'Home' ? 0 : duration)
+                              }
+                            }}
+                          >
+                            <span className="audiobook-clip-name">{clip.name}</span>
+                            <Waveform data={clipData.waveform} width={visibleRight - visibleLeft} offset={(visibleLeft - left)} zoom={zoom} />
+                          </div>
+                        )
+                      })}
+                      {menu?.trackId === track.id && (
+                        <div className="audiobook-import-menu" style={{ left: Math.min(menu.x, Math.max(0, viewport.width - 130)), top: Math.min(menu.y, 52) }} onClick={(event) => event.stopPropagation()}>
+                          <label>
+                            Importieren
+                            <input type="file" disabled={busy || clips.some((clip) => !decoded[clip.id]?.waveform)} onChange={(event) => {
+                              const file = event.target.files?.[0]
+                              event.target.value = ''
+                              if (file) {
+                                const durations = Object.fromEntries(clips.map((clip) => [clip.id, decoded[clip.id]?.waveform?.duration ?? 0]))
+                                onImport(track.id, menu.time, durations, file)
+                                setMenu(null)
+                              }
+                            }} />
+                          </label>
+                          <button type="button" aria-label="Importmenü schließen" onClick={() => setMenu(null)}>×</button>
+                        </div>
+                      )}
                       <span className="audiobook-playhead" style={{ left: transport.position * zoom - viewport.offset }} />
                     </div>
-                  ) :
-                    <p className="audiobook-wave-status" role={entry?.error ? 'alert' : 'status'}>
-                      {entry?.error ? 'Audiodatei konnte nicht geladen werden. Das Lied kann nicht abgespielt werden.' : 'Wellenform wird geladen ...'}
-                    </p>}
                 </div>
               </div>
             )

@@ -5,11 +5,15 @@
 Über **Audiobook** auf der Startseite lassen sich Projekte für Lieder und
 Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
-Auf der Projektseite lassen sich Audiodateien als einzelne Spuren hinzufügen
-und über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
+Auf der Projektseite legt **+ Spur hinzufügen** eine leere Spur an. Ein Klick
+in ihren freien Bereich öffnet **Importieren**; die ausgewählte Audiodatei
+wird als Block an der angeklickten Zeitposition eingefügt. Pro Spur sind
+mehrere nicht überlappende Blöcke möglich. Die Breite zeigt ihre Dauer;
+das Verschieben von Blöcken ist noch nicht verfügbar. Die Spuren lassen sich
+über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
 Ein Klick in eine Wellenform setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
-Beim Hinzufügen einer Spur pausiert die Wiedergabe. Die Audiodateien werden
+Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien werden
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
 Links neben jeder Wellenform öffnet das Lautsprechersymbol den Lautstärkeregler;
 **M** schaltet die jeweilige Spur stumm. Lautstärke und Stummschaltung gelten

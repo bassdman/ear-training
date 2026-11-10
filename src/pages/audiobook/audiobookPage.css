@@ -204,10 +204,6 @@
   background: #e8e8e8;
 }
 
-.audiobook-wave-row.is-muted .audiobook-wave-name {
-  color: var(--theme-muted);
-}
-
 .audiobook-wave-row.is-muted .audiobook-waveform {
   filter: grayscale(1);
 }
@@ -217,19 +213,6 @@
   overflow: hidden;
 }
 
-.audiobook-wave-name {
-  display: block;
-  height: 30px;
-  box-sizing: border-box;
-  padding: 5px 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--theme-ink);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
 .audiobook-waveform {
   display: block;
 }
@@ -237,6 +220,78 @@
 .audiobook-wave-seek {
   position: relative;
   cursor: crosshair;
+  height: 126px;
+}
+
+.audiobook-clip {
+  position: absolute;
+  top: 0;
+  height: 126px;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid #aeb9de;
+  border-radius: 4px;
+  background: #e4e9f8;
+}
+
+.audiobook-wave-row.is-muted .audiobook-clip {
+  background: #dadada;
+  border-color: #aaa;
+}
+
+.audiobook-clip-name {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.65rem;
+  color: var(--theme-muted);
+}
+
+.audiobook-clip .audiobook-waveform {
+  margin-top: 15px;
+}
+
+.audiobook-import-menu {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 3px 12px rgb(34 34 34 / 18%);
+}
+
+.audiobook-import-menu label {
+  position: relative;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.audiobook-import-menu input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.audiobook-import-menu label:focus-within {
+  outline: 2px solid var(--theme-primary);
+}
+
+.audiobook-page .audiobook-import-menu button {
+  padding: 6px;
+  border: 0;
+  background: transparent;
+}
+
+.audiobook-add-button {
+  justify-self: start;
 }
 
 .audiobook-wave-seek:focus-visible {

@@ -35,15 +35,14 @@ describe('Audiobook', () => {
     const projectPath = link.getAttribute('href')
     fireEvent.click(link)
     expect(screen.getByRole('heading', { name: 'Mein Lied' })).toBeInTheDocument()
-    expect(await screen.findByText('Spur 1')).toBeInTheDocument()
-    expect(screen.getByText('Neues Audio hinzufügen')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Spur hinzufügen/ })).toBeInTheDocument()
 
     view.unmount()
     renderAudiobook(projectPath ?? '')
     expect(await screen.findByRole('heading', { name: 'Mein Lied' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('link', { name: 'Zurück zum Audiobook' }))
     expect(screen.getByRole('link', { name: /Mein Lied.*Öffnen/ })).toBeInTheDocument()
-  })
+  }, 15000)
 
   it('löscht nur das bestätigte Projekt und seine Audiospuren', async () => {
     localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([

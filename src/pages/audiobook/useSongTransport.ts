@@ -5,6 +5,8 @@ export type PlaybackTrack = {
   buffer: AudioBuffer
   volume: number
   muted: boolean
+  start?: number
+  trackId?: string
 }
 
 export function useSongTransport(tracks: PlaybackTrack[], duration: number, ready: boolean, trackKey: string) {
@@ -14,7 +16,7 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   const [error, setError] = useState('')
   const contextRef = useRef<AudioContext | null>(null)
   const sourcesRef = useRef<{ source: AudioBufferSourceNode, gain: GainNode }[]>([])
-  const gainsRef = useRef(new Map<string, GainNode>())
+  const gainsRef = useRef(new Map<string, GainNode[]>())
   const positionRef = useRef(0)
   const startedAtRef = useRef(0)
   const playingRef = useRef(false)
@@ -25,8 +27,8 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   useEffect(() => {
     tracksRef.current = tracks
     for (const track of tracks) {
-      const gain = gainsRef.current.get(track.id)
-      if (gain) gain.gain.value = track.muted ? 0 : track.volume
+      const gains = gainsRef.current.get(track.trackId ?? track.id)
+      if (gains) for (const gain of gains) gain.gain.value = track.muted ? 0 : track.volume
     }
   }, [tracks])
 
@@ -60,20 +62,21 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
 
   const startSources = useCallback((context: AudioContext, offset: number) => {
     const sources: { source: AudioBufferSourceNode, gain: GainNode }[] = []
-    const gains = new Map<string, GainNode>()
+    const gains = new Map<string, GainNode[]>()
     try {
       const startTime = context.currentTime
-      for (const { id, buffer, volume, muted } of tracksRef.current) {
-        if (offset >= buffer.duration) continue
+      for (const { id, trackId, buffer, volume, muted, start = 0 } of tracksRef.current) {
+        if (offset >= start + buffer.duration) continue
         const source = context.createBufferSource()
         const gain = context.createGain()
         sources.push({ source, gain })
-        gains.set(id, gain)
+        const key = trackId ?? id
+        gains.set(key, [...(gains.get(key) ?? []), gain])
         source.buffer = buffer
         gain.gain.value = muted ? 0 : volume
         source.connect(gain)
         gain.connect(context.destination)
-        source.start(startTime, offset)
+        source.start(startTime + Math.max(0, start - offset), Math.max(0, offset - start))
       }
       sourcesRef.current = sources
       gainsRef.current = gains
