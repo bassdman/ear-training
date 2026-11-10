@@ -7,6 +7,8 @@ export type PlaybackTrack = {
   muted: boolean
   start?: number
   trackId?: string
+  sourceStart?: number
+  duration?: number
 }
 
 export function useSongTransport(tracks: PlaybackTrack[], duration: number, ready: boolean, trackKey: string) {
@@ -65,8 +67,8 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     const gains = new Map<string, GainNode[]>()
     try {
       const startTime = context.currentTime
-      for (const { id, trackId, buffer, volume, muted, start = 0 } of tracksRef.current) {
-        if (offset >= start + buffer.duration) continue
+      for (const { id, trackId, buffer, volume, muted, start = 0, sourceStart = 0, duration: clipDuration = buffer.duration - sourceStart } of tracksRef.current) {
+        if (offset >= start + clipDuration) continue
         const source = context.createBufferSource()
         const gain = context.createGain()
         sources.push({ source, gain })
@@ -76,7 +78,8 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
         gain.gain.value = muted ? 0 : volume
         source.connect(gain)
         gain.connect(context.destination)
-        source.start(startTime + Math.max(0, start - offset), Math.max(0, offset - start))
+        const elapsed = Math.max(0, offset - start)
+        source.start(startTime + Math.max(0, start - offset), sourceStart + elapsed, clipDuration - elapsed)
       }
       sourcesRef.current = sources
       gainsRef.current = gains

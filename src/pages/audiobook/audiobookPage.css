@@ -271,6 +271,15 @@
   cursor: grabbing;
 }
 
+.audiobook-clip.is-selected {
+  border: 2px solid var(--theme-primary);
+}
+
+.audiobook-menu-hint {
+  padding: 8px;
+  font-size: 0.8rem;
+}
+
 .audiobook-clip-preview {
   position: absolute;
   top: 0;

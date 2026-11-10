@@ -109,6 +109,49 @@ describe('ProjectTracks', () => {
     await audioStorage.deleteProjectTracks(projectId)
   })
 
+  it('schneidet ohne Audiodaten zu duplizieren und erhält Quellbereiche beim Verschieben und Löschen', async () => {
+    const projectId = crypto.randomUUID()
+    const source = await audioStorage.addTrack(projectId, new File(['audio'], 'alt.wav', { type: 'audio/wav' }))
+    const target = await audioStorage.addEmptyTrack(projectId)
+    const id = `${source.id}:legacy`
+    await expect(audioStorage.splitClip(source.id, id, 0, 10)).rejects.toThrow('Schnittposition')
+    await expect(audioStorage.splitClip(source.id, id, 10, 10)).rejects.toThrow('Schnittposition')
+    await audioStorage.splitClip(source.id, id, 4, 10)
+    let rows = await audioStorage.readTracks(projectId)
+    let clips = audioStorage.getTrackClips(rows.find((t) => t.id === source.id)!)
+    expect(clips).toHaveLength(2)
+    expect(clips[0]).toMatchObject({ start: 0, duration: 4 })
+    expect(clips[1]).toMatchObject({ start: 4, sourceStart: 4, duration: 6, audioId: clips[0].audioId })
+    expect(clips[0].audio).toBe(clips[1].audio)
+    const secondId = clips[1].id
+    await audioStorage.moveClip(source.id, target.id, secondId, 20, {})
+    await audioStorage.splitClip(target.id, secondId, 22, 6)
+    rows = await audioStorage.readTracks(projectId)
+    clips = audioStorage.getTrackClips(rows.find((t) => t.id === target.id)!)
+    expect(clips.map(({ start, sourceStart, duration }) => ({ start, sourceStart, duration }))).toEqual([
+      { start: 20, sourceStart: 4, duration: 2 },
+      { start: 22, sourceStart: 6, duration: 4 },
+    ])
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ear-training-audiobook', 2)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const readRaw = () => new Promise<{ tracks: { clips: { audio?: Blob, audioId?: string }[] }[], audio: { projectId: string }[] }>((resolve, reject) => {
+      const tx = db.transaction(['tracks', 'audio'], 'readonly')
+      const trackRequest = tx.objectStore('tracks').index('projectId').getAll(projectId)
+      const audioRequest = tx.objectStore('audio').getAll()
+      tx.oncomplete = () => resolve({ tracks: trackRequest.result, audio: audioRequest.result.filter((item: { projectId: string }) => item.projectId === projectId) })
+      tx.onabort = () => reject(tx.error)
+    })
+    const raw = await readRaw()
+    expect(raw.audio).toHaveLength(1)
+    expect(raw.tracks.flatMap((track) => track.clips).every((clip) => !clip.audio && clip.audioId)).toBe(true)
+    await audioStorage.deleteProjectTracks(projectId)
+    expect((await readRaw()).audio).toHaveLength(0)
+    db.close()
+  })
+
   it('meldet Speicher- und Validierungsfehler', async () => {
     const projectId = crypto.randomUUID()
     const track = await audioStorage.addEmptyTrack(projectId)

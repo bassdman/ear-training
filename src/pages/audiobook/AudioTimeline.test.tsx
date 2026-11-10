@@ -14,7 +14,7 @@ const tracks: AudioTrack[] = [
   { id: 'one', projectId: 'project', name: 'Gesang', audio: new Blob(['a']), createdAt: 1 },
   { id: 'two', projectId: 'project', name: 'Gitarre', audio: new Blob(['b']), createdAt: 2 },
 ]
-const importProps = { onImport: vi.fn(), onMove: vi.fn(), busy: false }
+const importProps = { onImport: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), busy: false }
 
 beforeEach(() => {
   vi.mocked(decodeWaveform).mockReset()
@@ -149,7 +149,7 @@ describe('gemeinsame Zeitleiste', () => {
 
   it('verschiebt Blöcke per Tastatur, ohne die Wiedergabeposition zu verändern', async () => {
     const onMove = vi.fn()
-    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} onImport={vi.fn()} onMove={onMove} busy={false} />)
+    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} onImport={vi.fn()} onMove={onMove} onSplit={vi.fn()} busy={false} />)
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
     const clip = screen.getByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
     fireEvent.click(clip)
@@ -158,6 +158,36 @@ describe('gemeinsame Zeitleiste', () => {
     expect(onMove).toHaveBeenLastCalledWith('one', 'one', 'one:legacy', 1, { 'one:legacy': 30, 'two:legacy': 30 })
     fireEvent.keyDown(clip, { key: 'ArrowDown' })
     expect(onMove).toHaveBeenLastCalledWith('one', 'two', 'one:legacy', 0, { 'one:legacy': 30, 'two:legacy': 30 })
+  })
+
+  it('markiert einen Block und bietet Schneiden nur innerhalb seiner Grenzen an', async () => {
+    const onSplit = vi.fn()
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onSplit={onSplit} />)
+    const clip = await screen.findByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
+    fireEvent.keyDown(clip, { key: 'Enter' })
+    expect(clip).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Schneiden' })).not.toBeInTheDocument()
+    fireEvent.keyDown(clip, { key: 'Enter' })
+    expect(screen.getByText('Positionslinie innerhalb des Blocks setzen')).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'ArrowRight' })
+    fireEvent.click(screen.getByRole('button', { name: 'Schneiden' }))
+    expect(onSplit).toHaveBeenCalledWith('one', 'one:legacy', 1, 30)
+    expect(clip).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('zeichnet geschnittene Blöcke mit ihren Quelldauern und dekodiert gemeinsame Audiodaten nur einmal', async () => {
+    const audio = new Blob(['shared'])
+    const splitTracks: AudioTrack[] = [{
+      ...tracks[0], audio: undefined, clips: [
+        { id: 'a', name: 'Schnitt', audio, start: 0, duration: 5, sourceStart: 0 },
+        { id: 'b', name: 'Schnitt', audio, start: 5, duration: 25, sourceStart: 5 },
+      ],
+    }]
+    const { container } = render(<AudioTimeline tracks={splitTracks} onMixChange={vi.fn()} {...importProps} />)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'ArrowRight' })
+    await waitFor(() => expect(container.querySelectorAll('.audiobook-clip')).toHaveLength(2))
+    expect(container.querySelector<HTMLElement>('.audiobook-clip')?.style.width).toBe('200px')
+    expect(decodeWaveform).toHaveBeenCalledTimes(1)
   })
 
   it('scrollt beim Ziehen an beiden Rändern eine halbe Ansichtsbreite pro Sekunde und erlaubt Ziele hinter dem Songende', async () => {
@@ -177,7 +207,7 @@ describe('gemeinsame Zeitleiste', () => {
     const cancel = vi.fn(() => { callback = undefined })
     vi.stubGlobal('cancelAnimationFrame', cancel)
     const onMove = vi.fn()
-    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} onImport={vi.fn()} onMove={onMove} busy={false} />)
+    const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} onImport={vi.fn()} onMove={onMove} onSplit={vi.fn()} busy={false} />)
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
     const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
     vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ left: 0, right: 400, width: 400, top: 0, bottom: 254, height: 254, x: 0, y: 0, toJSON: () => ({}) })
@@ -275,7 +305,7 @@ describe('gemeinsame Zeitleiste', () => {
       { ...tracks[1], audio: undefined, clips: [second] },
     ]
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1600)
-    const { container } = render(<AudioTimeline tracks={clipTracks} onMixChange={vi.fn()} onImport={onImport} onMove={vi.fn()} busy={false} />)
+    const { container } = render(<AudioTimeline tracks={clipTracks} onMixChange={vi.fn()} onImport={onImport} onMove={vi.fn()} onSplit={vi.fn()} busy={false} />)
     await waitFor(() => expect(container.querySelectorAll('.audiobook-clip')).toHaveLength(2))
     fireEvent.click(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { clientX: 1400 })
     const blocks = container.querySelectorAll<HTMLElement>('.audiobook-clip')

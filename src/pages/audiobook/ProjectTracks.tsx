@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, getTrackClips, moveClip, readTracks, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { addClip, addEmptyTrack, getTrackClips, moveClip, readTracks, splitClip, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -100,6 +100,19 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     }
   }
 
+  async function splitAudio(trackId: string, clipId: string, at: number, duration: number) {
+    setBusy(true)
+    setError('')
+    try {
+      await splitClip(trackId, clipId, at, duration)
+      setTracks(await readTracks(projectId))
+    } catch {
+      setError('Der Audioblock konnte nicht geschnitten werden. Bitte prüfe die Schnittposition und den Browserspeicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function changeTrackMix(id: string, patch: Partial<TrackMix>) {
     setTracks((current) => current && current.map((track) => track.id === id ? { ...track, ...patch } : track))
     const operation = writeQueue.current.then(() => updateTrackMix(id, patch))
@@ -116,7 +129,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} busy={busy} />
+          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} busy={busy} />
           <button type="button" className="audiobook-secondary audiobook-add-button" disabled={busy} onClick={() => void createTrack()}>
             <span aria-hidden="true">+</span> Spur hinzufügen
           </button>

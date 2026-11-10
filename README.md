@@ -15,6 +15,11 @@ einer halben sichtbaren Zeitleistenbreite pro Sekunde, auch über das bisherige
 Songende hinaus. Beim Verschieben pausiert die Wiedergabe.
 Per Tastatur verschieben die Pfeiltasten einen fokussierten Block um eine
 Sekunde oder auf die benachbarte Spur. Überlappungen sind nicht erlaubt.
+Ein Klick markiert einen Audioblock; ein weiterer Klick öffnet sein Optionsmenü.
+Liegt die rote Positionslinie innerhalb des Blocks, teilt **Schneiden** ihn
+an dieser Stelle in zwei separat verschiebbare Blöcke derselben Spur.
+Die Originalaufnahme wird dabei nur einmal gespeichert; die Blöcke verweisen
+mit ihren jeweiligen Quellbereichen darauf. Beim Schneiden pausiert die Wiedergabe.
 Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;

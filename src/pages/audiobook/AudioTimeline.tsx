@@ -16,19 +16,20 @@ type TimelineTrack = {
   error?: boolean
 }
 
-function TrackDecoder({ clip, onDecoded }: {
+function TrackDecoder({ clip, onDecoded, decode }: {
   clip: AudioClip
   onDecoded: (id: string, result: TimelineTrack) => void
+  decode: typeof decodeWaveform
 }) {
   useEffect(() => {
     let active = true
-    void decodeWaveform(clip.audio).then(({ waveform, buffer }) => {
+    void decode(clip.audio).then(({ waveform, buffer }) => {
       if (active) onDecoded(clip.id, { waveform, buffer })
     }).catch(() => {
       if (active) onDecoded(clip.id, { error: true })
     })
     return () => { active = false }
-  }, [clip.id, clip.audio, onDecoded])
+  }, [clip.id, clip.audio, onDecoded, decode])
   return null
 }
 
@@ -116,11 +117,12 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, busy }: {
   tracks: AudioTrack[]
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
   onMove: (sourceId: string, targetId: string, clipId: string, start: number, durations: Record<string, number>) => void
+  onSplit: (trackId: string, clipId: string, at: number, duration: number) => void
   busy: boolean
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
@@ -128,15 +130,28 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
   const [viewport, setViewport] = useState({ width: 0, offset: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ trackId: string, time: number, y: number } | null>(null)
+  const [selectedClip, setSelectedClip] = useState<string | null>(null)
+  const [clipMenu, setClipMenu] = useState<{ trackId: string, clipId: string, time: number, y: number } | null>(null)
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
   const [pendingExtent, setPendingExtent] = useState(0)
   const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, x: number, initialStart: number, initialScroll: number, duration: number, moved: boolean, targetId?: string, direction: number, scroll: number, lastFrame?: number } | null>(null)
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
+  const decodedAudio = useRef(new WeakMap<Blob, ReturnType<typeof decodeWaveform>>())
   const hasTracks = tracks.length > 0
 
   const onDecoded = useCallback((id: string, result: TimelineTrack) => {
     setDecoded((current) => ({ ...current, [id]: result }))
+  }, [])
+  const decode = useCallback((audio: Blob) => {
+    const cached = decodedAudio.current.get(audio)
+    if (cached) return cached
+    const result = decodeWaveform(audio).catch((cause: unknown) => {
+      decodedAudio.current.delete(audio)
+      throw cause
+    })
+    decodedAudio.current.set(audio, result)
+    return result
   }, [])
 
   useEffect(() => {
@@ -166,11 +181,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
   }, [changeZoom, hasTracks])
 
   const allClips = tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip })))
-  const duration = Math.max(0, ...allClips.map(({ clip }) => clip.start + (decoded[clip.id]?.waveform?.duration ?? clip.duration ?? 0)))
+  const duration = Math.max(0, ...allClips.map(({ clip }) => clip.start + (clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0)))
   const scrollDuration = Math.max(duration, pendingExtent, drag ? drag.start + drag.duration + viewport.width / zoom : 0)
   const buffers = allClips.flatMap(({ track, clip }) => {
     const buffer = decoded[clip.id]?.buffer
-    return buffer ? [{ id: clip.id, trackId: track.id, start: clip.start, buffer, ...getTrackMix(track) }] : []
+    return buffer ? [{ id: clip.id, trackId: track.id, start: clip.start, sourceStart: clip.sourceStart, duration: clip.duration, buffer, ...getTrackMix(track) }] : []
   })
   const ready = allClips.length > 0 && buffers.length === allClips.length && duration > 0
   const transport = useSongTransport(buffers, scrollDuration, ready, JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])))
@@ -237,7 +252,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
 
   const viewStart = viewport.offset - viewport.width / 2
   const durations = Object.fromEntries(allClips.flatMap(({ clip }) => {
-    const value = decoded[clip.id]?.waveform?.duration ?? clip.duration
+    const value = clip.duration ?? decoded[clip.id]?.waveform?.duration
     return value === undefined ? [] : [[clip.id, value]]
   }))
   const submitMove = (sourceId: string, targetId: string, clipId: string, start: number) => {
@@ -249,6 +264,15 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
     if (sourceId === targetId && Math.abs(clip.start - start) < 0.001) return
     onMove(sourceId, targetId, clipId, Math.max(0, start), durations)
   }
+  const activateClip = (trackId: string, clipId: string, time: number, y: number) => {
+    setMenu(null)
+    if (selectedClip === clipId) {
+      setClipMenu({ trackId, clipId, time, y })
+    } else {
+      setSelectedClip(clipId)
+      setClipMenu(null)
+    }
+  }
   const interval = getTickInterval(zoom)
   const firstTick = Math.max(0, Math.ceil(viewStart / zoom / interval))
   const lastTick = Math.floor((viewStart + viewport.width) / zoom / interval)
@@ -259,7 +283,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
 
   return (
     <>
-      {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} />)}
+      {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
       {hasTracks && <div className="audiobook-timeline-section">
       <div className="audiobook-timeline-toolbar">
         <div>
@@ -328,6 +352,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
           const delta = current.x - current.startX
           if (!current.moved && (Math.abs(delta) >= 4 || (current.targetId && current.targetId !== current.sourceId))) {
             current.moved = true
+            setClipMenu(null)
             if (transport.playing || transport.starting) transport.pause()
           }
           if (!current.moved) return
@@ -352,6 +377,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
           if (current.moved && preview) {
             setPendingExtent(preview.start + preview.duration + viewport.width / zoom)
             submitMove(preview.sourceId, preview.targetId, preview.clipId, preview.start)
+          } else if (!current.moved) {
+            const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.audiobook-wave-seek')
+            const rect = row?.getBoundingClientRect()
+            if (rect && row?.dataset.trackId === current.sourceId) activateClip(current.sourceId, current.clipId, (viewStart + event.clientX - rect.left) / zoom, Math.max(0, event.clientY - rect.top))
           }
           stopDrag()
         }}
@@ -384,12 +413,14 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                           const rect = event.currentTarget.getBoundingClientRect()
                           const x = event.detail === 0 ? 0 : event.clientX - rect.left
                           const y = event.detail === 0 ? 0 : Math.max(0, event.clientY - rect.top)
+                          setSelectedClip(null)
+                          setClipMenu(null)
                           setMenu({ trackId: track.id, time: Math.max(0, (viewStart + x) / zoom), y })
                         }}
                       />
                       {clips.map((clip) => {
                         const clipData = decoded[clip.id]
-                        const clipDuration = clipData?.waveform?.duration ?? clip.duration ?? 0
+                        const clipDuration = clip.duration ?? clipData?.waveform?.duration ?? 0
                         const left = clip.start * zoom - viewStart
                         const right = left + clipDuration * zoom
                         const visibleLeft = Math.max(0, left)
@@ -400,12 +431,13 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                         return (
                           <div
                             key={clip.id}
-                            className="audiobook-clip"
+                            className={`audiobook-clip ${selectedClip === clip.id ? 'is-selected' : ''}`}
                             style={{ left: visibleLeft, width: visibleRight - visibleLeft }}
                             role="button"
                             tabIndex={0}
                             aria-label={`Audioblock ${clip.name} in Spur ${index + 1} verschieben`}
                             aria-description="Mit Pfeiltasten zeitlich oder zwischen Spuren verschieben."
+                            aria-pressed={selectedClip === clip.id}
                             onPointerDown={(event) => {
                               if (busy || (event.pointerType === 'mouse' && event.button !== 0)) return
                               event.stopPropagation()
@@ -417,11 +449,15 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                             }}
                             onClick={(event) => {
                               event.stopPropagation()
+                              if (event.detail === 0) activateClip(track.id, clip.id, clip.start, 0)
                             }}
                             onKeyDown={(event) => {
                               event.stopPropagation()
                               if (busy) return
-                              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                activateClip(track.id, clip.id, clip.start, 0)
+                              } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                                 event.preventDefault()
                                 submitMove(track.id, track.id, clip.id, Math.max(0, clip.start + (event.key === 'ArrowLeft' ? -1 : 1)))
                               } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -432,13 +468,30 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                             }}
                           >
                             <span className="audiobook-clip-name">{clip.name}</span>
-                            <Waveform data={clipData.waveform} width={visibleRight - visibleLeft} offset={(visibleLeft - left)} zoom={zoom} />
+                            <Waveform data={clipData.waveform} width={visibleRight - visibleLeft} offset={(visibleLeft - left) + (clip.sourceStart ?? 0) * zoom} zoom={zoom} />
                           </div>
                         )
                       })}
                       {drag?.targetId === track.id && (
                         <div className="audiobook-clip-preview" style={{ left: drag.start * zoom - viewStart, width: drag.duration * zoom }} aria-hidden="true" />
                       )}
+                      {clipMenu?.trackId === track.id && (() => {
+                        const clip = clips.find((item) => item.id === clipMenu.clipId)
+                        const length = clip && durations[clip.id]
+                        const canSplit = clip && length && position > clip.start && position < clip.start + length
+                        return (
+                          <div className="audiobook-import-menu" style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(clipMenu.y, 52) }} onClick={(event) => event.stopPropagation()}>
+                            {canSplit && <button type="button" disabled={busy} onClick={() => {
+                              transport.pause()
+                              onSplit(track.id, clip.id, position, length)
+                              setClipMenu(null)
+                              setSelectedClip(null)
+                            }}>Schneiden</button>}
+                            {!canSplit && <span className="audiobook-menu-hint">Positionslinie innerhalb des Blocks setzen</span>}
+                            <button type="button" aria-label="Blockmenü schließen" onClick={() => setClipMenu(null)}>×</button>
+                          </div>
+                        )
+                      })()}
                       {menu?.trackId === track.id && (
                         <div className="audiobook-import-menu" style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(menu.y, 52) }} onClick={(event) => event.stopPropagation()}>
                           <label>
@@ -447,7 +500,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, busy }: {
                               const file = event.target.files?.[0]
                               event.target.value = ''
                               if (file) {
-                                const durations = Object.fromEntries(clips.map((clip) => [clip.id, decoded[clip.id]?.waveform?.duration ?? 0]))
+                                const durations = Object.fromEntries(clips.map((clip) => [clip.id, clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0]))
                                 onImport(track.id, menu.time, durations, file)
                                 setMenu(null)
                               }
