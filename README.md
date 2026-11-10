@@ -5,9 +5,12 @@
 Über **Audiobook** auf der Startseite lassen sich Projekte für Lieder und
 Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
-Beim Löschen der Browserdaten können sie verloren gehen. Die Projektseite
-zeigt zunächst nur eine leere Spur; Audio hinzufügen und abspielen ist noch
-nicht verfügbar.
+Auf der Projektseite lassen sich Audiodateien als einzelne Spuren hinzufügen
+und über die Wiedergabesteuerung des Browsers abspielen. Die Audiodateien
+werden lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
+Die unterstützten Audioformate hängen vom Browser ab; synchronisierte
+Wiedergabe und Bearbeitung sind noch nicht verfügbar. Beim Löschen der
+Browserdaten können Projekte und Audiodaten verloren gehen.
 
 ## Stimm-Tuner
 

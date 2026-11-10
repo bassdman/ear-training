@@ -61,6 +61,24 @@
   box-shadow: 0 5px 18px rgb(34 34 34 / 8%);
 }
 
+.audiobook-tracks {
+  display: grid;
+  gap: 12px;
+}
+
+.audiobook-track-content {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.audiobook-track-content audio {
+  width: 100%;
+}
+
 .audiobook-create {
   padding: 20px;
 }
@@ -210,4 +228,27 @@
   border-radius: 6px;
   color: var(--theme-muted);
   text-align: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.audiobook-track-empty:focus-within {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 2px;
+}
+
+.audiobook-track-empty:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+.audiobook-track-empty.is-busy {
+  cursor: wait;
+}
+
+.audiobook-track-empty input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }

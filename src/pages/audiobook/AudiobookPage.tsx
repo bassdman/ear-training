@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { createProjectId, readProjects, writeProjects, type AudiobookProject } from './storage'
+import { deleteProjectTracks } from './audioStorage'
+import { ProjectTracks } from './ProjectTracks'
 import './audiobookPage.css'
 
 export function AudiobookPage() {
@@ -54,6 +56,20 @@ export function AudiobookPage() {
       const current = await readProjects()
       const updated = current.filter((project) => project.id !== id)
       await writeProjects(updated)
+      try {
+        await deleteProjectTracks(id)
+      } catch {
+        try {
+          await writeProjects(current)
+        } catch {
+          setProjects(updated)
+          setDeleteId(null)
+          setError('Das Projekt wurde gelöscht, aber seine Audiodaten konnten nicht entfernt werden.')
+          return
+        }
+        setError('Die Audiodaten konnten nicht gelöscht werden. Das Projekt wurde beibehalten.')
+        return
+      }
       setProjects(updated)
       setDeleteId(null)
       if (projectId === id) navigate('/audiobook')
@@ -83,10 +99,7 @@ export function AudiobookPage() {
           !error && <p>Lade Projekte ...</p>
         ) : projectId ? (
           project ? (
-            <section className="audiobook-track" aria-label="Spur">
-              <span className="audiobook-track-label">Spur 1</span>
-              <div className="audiobook-track-empty">Neues Audio hinzufügen</div>
-            </section>
+            <ProjectTracks key={project.id} projectId={project.id} />
           ) : (
             <p>Dieses Projekt wurde nicht gefunden.</p>
           )

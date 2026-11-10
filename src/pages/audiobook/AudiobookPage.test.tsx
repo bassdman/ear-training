@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import 'fake-indexeddb/auto'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AudiobookPage } from './AudiobookPage'
 import { AUDIOBOOK_STORAGE_KEY } from './storage'
+import { addTrack, readTracks } from './audioStorage'
+import * as audioStorage from './audioStorage'
 
 function renderAudiobook(path = '/audiobook') {
   return render(
@@ -32,7 +35,7 @@ describe('Audiobook', () => {
     const projectPath = link.getAttribute('href')
     fireEvent.click(link)
     expect(screen.getByRole('heading', { name: 'Mein Lied' })).toBeInTheDocument()
-    expect(screen.getByText('Spur 1')).toBeInTheDocument()
+    expect(await screen.findByText('Spur 1')).toBeInTheDocument()
     expect(screen.getByText('Neues Audio hinzufügen')).toBeInTheDocument()
 
     view.unmount()
@@ -42,11 +45,13 @@ describe('Audiobook', () => {
     expect(screen.getByRole('link', { name: /Mein Lied.*Öffnen/ })).toBeInTheDocument()
   })
 
-  it('löscht nur das bestätigte Projekt und behält andere Projekte', async () => {
+  it('löscht nur das bestätigte Projekt und seine Audiospuren', async () => {
     localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([
       { id: 'one', name: 'Erstes Lied' },
       { id: 'two', name: 'Zweites Lied' },
     ]))
+    await addTrack('one', new File(['a'], 'a.mp3', { type: 'audio/mpeg' }))
+    await addTrack('two', new File(['b'], 'b.mp3', { type: 'audio/mpeg' }))
     renderAudiobook()
     fireEvent.click(await screen.findByRole('button', { name: 'Erstes Lied löschen' }))
     fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
@@ -56,6 +61,20 @@ describe('Audiobook', () => {
     await waitFor(() => expect(screen.queryByRole('link', { name: /Erstes Lied/ })).not.toBeInTheDocument())
     expect(screen.getByRole('link', { name: /Zweites Lied/ })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(AUDIOBOOK_STORAGE_KEY) ?? '')).toEqual([{ id: 'two', name: 'Zweites Lied' }])
+    expect(await readTracks('one')).toEqual([])
+    expect(await readTracks('two')).toHaveLength(1)
+    await audioStorage.deleteProjectTracks('two')
+  })
+
+  it('behält das Projekt, wenn die Audiodaten nicht gelöscht werden können', async () => {
+    localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'one', name: 'Lied' }]))
+    vi.spyOn(audioStorage, 'deleteProjectTracks').mockRejectedValue(new Error('Datenbankfehler'))
+    renderAudiobook()
+    fireEvent.click(await screen.findByRole('button', { name: 'Lied löschen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Endgültig löschen' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Das Projekt wurde beibehalten')
+    expect(screen.getByRole('link', { name: /Lied.*Öffnen/ })).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(AUDIOBOOK_STORAGE_KEY) ?? '')).toEqual([{ id: 'one', name: 'Lied' }])
   })
 
   it('weist leere Namen ab', async () => {
