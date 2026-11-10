@@ -8,6 +8,7 @@ import { TunerPage } from './pages/tuner/TunerPage'
 import { TrainerPage } from './pages/TrainerPage'
 import { ExerciseSettings } from './components/ExcerciseSettings'
 import { ConverterPage } from './pages/converter/ConverterPage'
+import { AudiobookPage } from './pages/audiobook/AudiobookPage'
 import './websiteTheme.css'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
       <Route path="/intonation-training" element={<IntonationTrainingPage />} />
       <Route path="/tuner" element={<TunerPage />} />
       <Route path="/converter" element={<ConverterPage />} />
+      <Route path="/audiobook/:projectId?" element={<AudiobookPage />} />
       <Route
         path="/campaign"
         element={

@@ -15,13 +15,12 @@ export function HomePage() {
 
         <section className="home-grid" aria-label="Trainingsmodi">
           <article className="home-card">
-            <h2>Kampagne</h2>
+            <h2>Audiobook</h2>
             <p>
-              Starte über deinen Stimmtyp, lege den Einstiegspunkt fest und verfolge den
-              sichtbaren Pfad über 80 Schritte.
+              Sammle deine Lieder und Aufnahmen in eigenen Projekten.
             </p>
-            <Link className="home-link" to="/campaign">
-              Zur Kampagne
+            <Link className="home-link" to="/audiobook">
+              Zum Audiobook
             </Link>
           </article>
 

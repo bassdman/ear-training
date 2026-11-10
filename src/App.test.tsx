@@ -25,6 +25,8 @@ describe('App', () => {
       </MemoryRouter>,
     )
     expect(screen.getByRole('link', { name: 'Zum Tuner' })).toHaveAttribute('href', '/tuner')
+    expect(screen.getByRole('link', { name: 'Zum Audiobook' })).toHaveAttribute('href', '/audiobook')
+    expect(screen.queryByRole('link', { name: 'Zur Kampagne' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Intonationsübungen' })).not.toBeInTheDocument()
   })
 

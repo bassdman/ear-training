@@ -1,5 +1,14 @@
 # React + TypeScript + Vite
 
+## Audiobook
+
+Über **Audiobook** auf der Startseite lassen sich Projekte für Lieder und
+Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
+werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
+Beim Löschen der Browserdaten können sie verloren gehen. Die Projektseite
+zeigt zunächst nur eine leere Spur; Audio hinzufügen und abspielen ist noch
+nicht verfügbar.
+
 ## Stimm-Tuner
 
 Auf der Startseite führt **Stimm-Tuner** zum Tonhöhenverlauf. Das
