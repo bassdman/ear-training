@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { getTrackClips, getTrackMix, type AudioClip, type AudioTrack, type TrackMix } from './audioStorage'
+import { getTrackClips, getTrackMix, getTrackType, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
 
@@ -9,6 +9,7 @@ const MAX_ZOOM = 200
 const INITIAL_ZOOM = 40
 const WAVE_HEIGHT = 96
 const DRAG_EDGE_WIDTH = 48
+const TRACK_LABELS: Record<TrackType, string> = { vocal: 'Vocal', instrumental: 'Instrumental', mixed: 'Mixed' }
 
 type TimelineTrack = {
   waveform?: WaveformData
@@ -44,6 +45,7 @@ function TrackControls({ track, index, onMixChange }: {
 
   return (
     <div className="audiobook-track-controls" role="group" aria-label={`Einstellungen für ${name}`}>
+      <span className="audiobook-track-type">{TRACK_LABELS[getTrackType(track)]}</span>
       <div className="audiobook-track-buttons">
         <button
           type="button"
@@ -409,7 +411,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
           {tracks.map((track, index) => {
             const clips = getTrackClips(track)
             return (
-              <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} key={track.id}>
+              <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} data-track-type={getTrackType(track)} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
                     <div
                       className="audiobook-wave-seek"

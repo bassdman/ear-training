@@ -40,6 +40,24 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('kennzeichnet Spurarten und erhält die graue Darstellung bei Stummschaltung', async () => {
+    const typedTracks: AudioTrack[] = [
+      { ...tracks[0], type: 'vocal' },
+      { ...tracks[1], type: 'instrumental', muted: true },
+      { id: 'three', projectId: 'project', name: '', clips: [], createdAt: 3 },
+    ]
+    const { container } = render(<AudioTimeline tracks={typedTracks} onMixChange={vi.fn()} {...importProps} />)
+    await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
+    const rows = container.querySelectorAll('.audiobook-wave-row')
+    expect(rows[0]).toHaveAttribute('data-track-type', 'vocal')
+    expect(rows[1]).toHaveAttribute('data-track-type', 'instrumental')
+    expect(rows[1]).toHaveClass('is-muted')
+    expect(rows[2]).toHaveAttribute('data-track-type', 'mixed')
+    expect(screen.getByText('Vocal')).toBeInTheDocument()
+    expect(screen.getByText('Instrumental')).toBeInTheDocument()
+    expect(screen.getByText('Mixed')).toBeInTheDocument()
+  })
+
   it('zeigt alle Spuren und skaliert Wellenformen und Sekundenmarkierungen gemeinsam', async () => {
     const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))

@@ -128,6 +128,15 @@
   gap: 6px;
 }
 
+.audiobook-track-type {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--theme-muted);
+  font-size: 0.6rem;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
 .audiobook-page .audiobook-track-button {
   display: inline-flex;
   align-items: center;
@@ -216,6 +225,24 @@
   border-top: 1px solid var(--theme-border);
 }
 
+.audiobook-wave-row[data-track-type="instrumental"] {
+  --track-background: #e0efff;
+  --clip-background: #c9e2fc;
+  background: var(--track-background);
+}
+
+.audiobook-wave-row[data-track-type="vocal"] {
+  --track-background: #f0e3ff;
+  --clip-background: #e5cffc;
+  background: var(--track-background);
+}
+
+.audiobook-wave-row[data-track-type="mixed"] {
+  --track-background: #e8e9ff;
+  --clip-background: #d7d9fc;
+  background: var(--track-background);
+}
+
 .audiobook-wave-row.is-muted {
   background: #e8e8e8;
 }
@@ -262,7 +289,7 @@
   box-sizing: border-box;
   border: 1px solid #aeb9de;
   border-radius: 4px;
-  background: #e4e9f8;
+  background: var(--clip-background);
   cursor: grab;
   touch-action: none;
 }
@@ -350,8 +377,11 @@
   background: transparent;
 }
 
-.audiobook-add-button {
+.audiobook-add-buttons {
   justify-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .audiobook-playhead {

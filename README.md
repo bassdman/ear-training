@@ -5,7 +5,11 @@
 Über **Audiobook** auf der Startseite lassen sich Projekte für Lieder und
 Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
-Auf der Projektseite legt **+ Spur hinzufügen** eine leere Spur an. Ein Klick
+Auf der Projektseite legen die drei Schaltflächen eine leere Vocal-,
+Instrumental- oder Mixed-Spur an. Vocalspuren sind für Gesang, Instrumentalspuren
+für Instrumente und Mixed-Spuren für Aufnahmen mit beidem gedacht. Die Spurart
+wird gespeichert und farblich angezeigt; vorhandene Spuren gelten als Mixed.
+Die spätere Tonhöhenanzeige für Vocalspuren ist noch nicht implementiert. Ein Klick
 in ihren freien Bereich öffnet **Importieren**; die ausgewählte Audiodatei
 wird als Block an der angeklickten Zeitposition eingefügt. Pro Spur sind
 mehrere nicht überlappende Blöcke möglich. Die Breite zeigt ihre Dauer;

@@ -5,6 +5,8 @@ const STORE_NAME = 'tracks'
 const AUDIO_STORE = 'audio'
 const PROJECT_INDEX = 'projectId'
 
+export type TrackType = 'vocal' | 'instrumental' | 'mixed'
+
 export type AudioTrack = {
   id: string
   projectId: string
@@ -14,6 +16,7 @@ export type AudioTrack = {
   createdAt: number
   volume?: number
   muted?: boolean
+  type?: TrackType
 }
 
 export type AudioClip = {
@@ -37,6 +40,10 @@ function storedClips(track: StoredTrack): StoredClip[] {
 export function getTrackClips(track: AudioTrack): AudioClip[] {
   if (track.clips) return track.clips
   return track.audio ? [{ id: `${track.id}:legacy`, name: track.name, audio: track.audio, start: 0 }] : []
+}
+
+export function getTrackType(track: Pick<AudioTrack, 'type'>): TrackType {
+  return track.type ?? 'mixed'
 }
 
 export type TrackMix = { volume: number, muted: boolean }
@@ -134,7 +141,7 @@ export async function readTracks(projectId: string): Promise<AudioTrack[]> {
             }
             clips.push({ ...clip, audio })
           }
-          hydrated.push({ ...track, clips: track.clips ? clips : undefined })
+          hydrated.push({ ...track, type: getTrackType(track), clips: track.clips ? clips : undefined })
         }
         resolve(sortTracks(hydrated))
       }
@@ -160,9 +167,9 @@ export async function addTrack(projectId: string, file: File): Promise<AudioTrac
   return track
 }
 
-export async function addEmptyTrack(projectId: string): Promise<AudioTrack> {
+export async function addEmptyTrack(projectId: string, type: TrackType = 'mixed'): Promise<AudioTrack> {
   const track: AudioTrack = {
-    id: createProjectId(), projectId, name: '', clips: [],
+    id: createProjectId(), projectId, name: '', clips: [], type,
     createdAt: Date.now(), volume: 1, muted: false,
   }
   await withStore('readwrite', (store) => store.add(track))

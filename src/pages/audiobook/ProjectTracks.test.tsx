@@ -37,7 +37,7 @@ describe('ProjectTracks', () => {
   it('legt eine leere Spur an und speichert importierte Blöcke mit Position', async () => {
     const projectId = crypto.randomUUID()
     const view = render(<ProjectTracks projectId={projectId} />)
-    fireEvent.click(await screen.findByRole('button', { name: /Spur hinzufügen/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Mixed-Spur' }))
     expect(await screen.findByText('Leere Spur')).toBeInTheDocument()
     const [track] = await audioStorage.readTracks(projectId)
     const input = screen.getByLabelText(`Import ${track.id}`)
@@ -49,6 +49,26 @@ describe('ProjectTracks', () => {
     view.unmount()
     render(<ProjectTracks projectId={projectId} />)
     expect(await screen.findByText('Sprachmemo.M4A')).toBeInTheDocument()
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('legt alle drei Spurarten an und erhält sie beim erneuten Öffnen', async () => {
+    const projectId = crypto.randomUUID()
+    const view = render(<ProjectTracks projectId={projectId} />)
+    for (const [label, type] of [
+      ['Vocalspur', 'vocal'],
+      ['Instrumentalspur', 'instrumental'],
+      ['Mixed-Spur', 'mixed'],
+    ] as const) {
+      fireEvent.click(await screen.findByRole('button', { name: label }))
+      await waitFor(async () => expect((await audioStorage.readTracks(projectId)).some((track) => track.type === type)).toBe(true))
+    }
+    const tracks = await audioStorage.readTracks(projectId)
+    expect(tracks.map((track) => track.type).sort()).toEqual(['instrumental', 'mixed', 'vocal'])
+    view.unmount()
+    render(<ProjectTracks projectId={projectId} />)
+    await waitFor(() => expect(screen.getAllByText('Leere Spur')).toHaveLength(3))
+    expect((await audioStorage.readTracks(projectId)).map((track) => track.type).sort()).toEqual(['instrumental', 'mixed', 'vocal'])
     await audioStorage.deleteProjectTracks(projectId)
   })
 
@@ -67,6 +87,8 @@ describe('ProjectTracks', () => {
   it('erhält alte Projekte und speichert Mischereinstellungen', async () => {
     const projectId = crypto.randomUUID()
     const track = await audioStorage.addTrack(projectId, new File(['a'], 'alt.mp3', { type: 'audio/mpeg' }))
+    expect(track.type).toBeUndefined()
+    expect((await audioStorage.readTracks(projectId))[0].type).toBe('mixed')
     render(<ProjectTracks projectId={projectId} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Lautstärke alt.mp3' }))
     fireEvent.click(screen.getByRole('button', { name: 'Mute alt.mp3' }))

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, deleteClip, getTrackClips, moveClip, readTracks, splitClip, updateTrackMix, type AudioTrack, type TrackMix } from './audioStorage'
+import { addClip, addEmptyTrack, deleteClip, getTrackClips, moveClip, readTracks, splitClip, updateTrackMix, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -62,11 +62,11 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     }
   }
 
-  async function createTrack() {
+  async function createTrack(type: TrackType) {
     setBusy(true)
     setError('')
     try {
-      const track = await addEmptyTrack(projectId)
+      const track = await addEmptyTrack(projectId, type)
       setTracks((current) => current && [...current, track])
     } catch {
       setError('Die Spur konnte nicht gespeichert werden. Bitte prüfe den Browserspeicher.')
@@ -145,9 +145,17 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
       ) : (
         <>
           <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} busy={busy} />
-          <button type="button" className="audiobook-secondary audiobook-add-button" disabled={busy} onClick={() => void createTrack()}>
-            <span aria-hidden="true">+</span> Spur hinzufügen
-          </button>
+          <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
+            <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('vocal')}>
+              <span aria-hidden="true">+</span> Vocalspur
+            </button>
+            <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('instrumental')}>
+              <span aria-hidden="true">+</span> Instrumentalspur
+            </button>
+            <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('mixed')}>
+              <span aria-hidden="true">+</span> Mixed-Spur
+            </button>
+          </div>
         </>
       )}
     </section>

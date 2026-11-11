@@ -35,7 +35,7 @@ describe('Audiobook', () => {
     const projectPath = link.getAttribute('href')
     fireEvent.click(link)
     expect(screen.getByRole('heading', { name: 'Mein Lied' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /Spur hinzufügen/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Mixed-Spur' })).toBeInTheDocument()
 
     view.unmount()
     renderAudiobook(projectPath ?? '')
