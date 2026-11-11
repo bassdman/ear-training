@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { appendPoint } from '../history'
+import { createOctaveFilter } from '../octaveFilter'
 import { createPitchAnalyzer, type PitchPoint } from '../pitch'
 import { DEFAULT_TUNER_SETTINGS, type TunerSettings } from '../settings'
 
@@ -31,6 +32,7 @@ export function useLiveTuner(settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
   const originRef = useRef(0)
   const lastFrameRef = useRef(0)
   const settingsRef = useRef(settings)
+  const octaveFilterRef = useRef(createOctaveFilter(settings.octaveSkipFrames))
 
   useEffect(() => {
     settingsRef.current = settings
@@ -58,6 +60,7 @@ export function useLiveTuner(settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
   }, [release])
 
   const clear = useCallback(() => {
+    octaveFilterRef.current.reset()
     originRef.current = performance.now()
     lastFrameRef.current = 0
     setState((current) => ({ ...current, points: [], timeMs: 0 }))
@@ -65,6 +68,7 @@ export function useLiveTuner(settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
 
   const start = useCallback(async () => {
     release()
+    octaveFilterRef.current.reset()
     const generation = generationRef.current
     setState({ ...INITIAL_STATE, status: 'starting' })
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -96,6 +100,7 @@ export function useLiveTuner(settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
 
       const analyser = context.createAnalyser()
       let activeSettings = settingsRef.current
+      octaveFilterRef.current = createOctaveFilter(activeSettings.octaveSkipFrames)
       analyser.fftSize = activeSettings.analysisFftSize
       context.createMediaStreamSource(stream).connect(analyser)
       let samples = new Float32Array(analyser.fftSize)
@@ -129,12 +134,14 @@ export function useLiveTuner(settings: TunerSettings = DEFAULT_TUNER_SETTINGS) {
                   samples = new Float32Array(analyser.fftSize)
                 }
                 analyzePitch = createPitchAnalyzer(samples.length, currentSettings)
+                octaveFilterRef.current = createOctaveFilter(currentSettings.octaveSkipFrames)
                 activeSettings = currentSettings
               }
               analyser.getFloatTimeDomainData(samples)
               frequency = analyzePitch(samples, context.sampleRate)
             }
             const timeMs = Math.max(0, now - originRef.current)
+            frequency = octaveFilterRef.current.filter(frequency, timeMs, currentSettings.maxSampleGapMs)
             setState((current) => ({
               ...current,
               points: appendPoint(current.points, { timeMs, frequency }, currentSettings),

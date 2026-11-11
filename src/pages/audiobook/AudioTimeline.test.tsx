@@ -58,6 +58,35 @@ describe('gemeinsame Zeitleiste', () => {
     expect(within(bar).getByRole('button', { name: 'Abspielen' })).toBeEnabled()
   })
 
+  it('spult im Übungsmodus über das Stimmgerät und setzt die Wiedergabe fort', async () => {
+    const start = vi.fn()
+    class TestContext {
+      state = 'running'
+      currentTime = 0
+      destination = {}
+      createBufferSource() { return { connect: vi.fn(), disconnect: vi.fn(), start, stop: vi.fn(), buffer: null } }
+      createGain() { return { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() } }
+      close = vi.fn(async () => {})
+    }
+    vi.stubGlobal('AudioContext', TestContext)
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} readOnly />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    const chart = screen.getByRole('slider', { name: 'Wiedergabeposition im Stimmgerät' })
+    fireEvent.keyDown(chart, { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('1.0 / 30.0 s')
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument())
+    fireEvent.keyDown(chart, { key: 'ArrowRight' })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('2.0 / 30.0 s')
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
+    expect(start).toHaveBeenLastCalledWith(0, 2, 28)
+    fireEvent.keyDown(chart, { key: 'End' })
+    expect(screen.getByLabelText('Aktuelle Wiedergabeposition')).toHaveTextContent('30.0 / 30.0 s')
+    expect(screen.getByRole('button', { name: 'Abspielen' })).toBeInTheDocument()
+  })
+
   it('schließt geöffnete Bearbeitungsmenüs beim Wechsel der Ansicht', async () => {
     const { rerender } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
     const clip = await screen.findByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })

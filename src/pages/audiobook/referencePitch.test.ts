@@ -1,12 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import * as pitch from '../../features/tuner/pitch'
 import { analyzeReferencePitch } from './referencePitch'
 
 describe('Referenztonhöhen', () => {
   it('erkennt einen Ton und setzt die Zeitpunkte an den Clipbeginn', () => {
     const sampleRate = 16000
     const samples = Float32Array.from({ length: sampleRate }, (_, i) => 0.3 * Math.sin(2 * Math.PI * 220 * i / sampleRate))
-    const points = analyzeReferencePitch({ id: 'clip', samples, sampleRate, start: 12.5 })
+    const points = analyzeReferencePitch({ id: 'clip', samples, sampleRate, start: 12.5, octaveSkipFrames: 2 })
     expect(points).toHaveLength(20)
     expect(points[0].timeMs).toBe(12500)
     expect(points[10].timeMs).toBe(13000)
@@ -14,8 +15,34 @@ describe('Referenztonhöhen', () => {
   })
 
   it('erkennt Stille als Lücke und weist ungültige Audiodaten zurück', () => {
-    const points = analyzeReferencePitch({ id: 'clip', samples: new Float32Array(8000), sampleRate: 8000, start: 0 })
+    const points = analyzeReferencePitch({ id: 'clip', samples: new Float32Array(8000), sampleRate: 8000, start: 0, octaveSkipFrames: 2 })
     expect(points.every((point) => point.frequency === null)).toBe(true)
-    expect(() => analyzeReferencePitch({ id: 'clip', samples: new Float32Array(1), sampleRate: 0, start: 0 })).toThrow()
+    expect(() => analyzeReferencePitch({ id: 'clip', samples: new Float32Array(1), sampleRate: 0, start: 0, octaveSkipFrames: 2 })).toThrow()
+  })
+
+  it('filtert Oktavsprünge in der Referenz und bestätigt anhaltende Wechsel', () => {
+    const frequencies = [220, 440, 220, 440, 440, 440, null, 220]
+    const analyzer = vi.spyOn(pitch, 'createPitchAnalyzer').mockReturnValue(() => frequencies.shift() ?? null)
+    try {
+      const points = analyzeReferencePitch({ id: 'clip', samples: new Float32Array(400), sampleRate: 1000, start: 5, octaveSkipFrames: 2 })
+      expect(points.map((point) => point.frequency)).toEqual([220, null, 220, null, null, 440, null, 220])
+    } finally {
+      analyzer.mockRestore()
+    }
+  })
+
+  it.each([
+    [0, [220, 440, 440, 440]],
+    [1, [220, null, 440, 440]],
+    [3, [220, null, null, null]],
+  ])('wendet %i übersprungene Frames auf die Referenz an', (octaveSkipFrames, expected) => {
+    const frequencies = [220, 440, 440, 440]
+    const analyzer = vi.spyOn(pitch, 'createPitchAnalyzer').mockReturnValue(() => frequencies.shift() ?? null)
+    try {
+      const points = analyzeReferencePitch({ id: 'clip', samples: new Float32Array(200), sampleRate: 1000, start: 0, octaveSkipFrames })
+      expect(points.map((point) => point.frequency)).toEqual(expected)
+    } finally {
+      analyzer.mockRestore()
+    }
   })
 })

@@ -7,6 +7,7 @@ export type TunerSettings = {
   analysisIntervalMs: number
   maxSampleGapMs: number
   windowMs: number
+  octaveSkipFrames: number
 }
 
 export const DEFAULT_TUNER_SETTINGS: Readonly<TunerSettings> = {
@@ -18,6 +19,7 @@ export const DEFAULT_TUNER_SETTINGS: Readonly<TunerSettings> = {
   analysisIntervalMs: 50,
   maxSampleGapMs: 250,
   windowMs: 5000,
+  octaveSkipFrames: 2,
 }
 
 export const TUNER_SETTINGS_STORAGE_KEY = 'ear-training-tuner-settings-v1'
@@ -43,6 +45,9 @@ export function validateTunerSettings(value: TunerSettings): string | null {
     || analysisIntervalMs > 600000 || maxSampleGapMs > 600000 || windowMs > 600000) {
     return 'Zeiten müssen ganze Millisekunden zwischen 1 und 600000 sein; der Lückenabstand muss größer als das Analyseintervall sein.'
   }
+  if (!Number.isInteger(value.octaveSkipFrames) || value.octaveSkipFrames < 0 || value.octaveSkipFrames > 100) {
+    return 'Übersprungene Oktav-Frames müssen eine ganze Zahl zwischen 0 und 100 sein.'
+  }
   return null
 }
 
@@ -55,6 +60,7 @@ export function readTunerSettings(): { settings: TunerSettings, error: string | 
       throw new Error('Ungültiges Einstellungsformat')
     }
     const values = Object.fromEntries(Object.entries(parsed))
+    if (!Object.hasOwn(values, 'octaveSkipFrames')) values.octaveSkipFrames = DEFAULT_TUNER_SETTINGS.octaveSkipFrames
     const keys = Object.keys(DEFAULT_TUNER_SETTINGS) as (keyof TunerSettings)[]
     if (keys.some((key) => typeof values[key] !== 'number')) throw new Error('Unvollständige Einstellungen')
     const settings = { ...DEFAULT_TUNER_SETTINGS }

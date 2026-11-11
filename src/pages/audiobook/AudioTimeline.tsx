@@ -335,7 +335,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   return (
     <>
       {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
-      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} />}
+      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} duration={duration} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} onSeek={(time) => {
+        setSeekVersion((current) => current + 1)
+        transport.seek(time)
+      }} />}
       {hasTracks && !readOnly && <div className="audiobook-timeline-section">
       <div className="audiobook-timeline-toolbar">
         <div>

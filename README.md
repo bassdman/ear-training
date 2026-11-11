@@ -17,12 +17,21 @@ Referenz ausgewählt werden. Mit **Mikrofon starten** in der unteren
 Wiedergabeleiste wird der eigene Gesang
 erfasst und während der Wiedergabe blau über der Referenz angezeigt; die
 mittlere Linie markiert die aktuelle Songposition. Beim Springen wird der
-bisherige Mikrofonverlauf zurückgesetzt. Die Mikrofonanalyse verwendet die
+bisherige Mikrofonverlauf zurückgesetzt. Durch horizontales Ziehen des
+Stimmgerät-Diagramms oder mit den Pfeiltasten auf dem fokussierten Diagramm
+lässt sich die Wiedergabeposition auch während der Wiedergabe ändern.
+Die Mikrofonanalyse verwendet die
 Einstellungen des Stimm-Tuners, die Referenzanalyse dessen Standardwerte.
 Die Analyse wird beim erneuten Öffnen der Übungsansicht neu erzeugt und ist
 abhängig von Aufnahme und Stimmqualität nicht immer eindeutig. Für den
 Vergleich empfiehlt sich ein Kopfhörer, damit die Wiedergabe nicht vom
 Mikrofon als eigener Gesang erfasst wird.
+Einzelne erkannte Oktavsprünge werden sowohl beim Mikrofon als auch in der
+Vocal-Referenz als Lücke ausgelassen. In den Stimmgerät-Einstellungen lässt sich
+die Anzahl übersprungener Frames zwischen 0 und 100 einstellen (Standard: 2;
+0 deaktiviert den Filter). Ein anhaltender Oktavwechsel erscheint bei der
+nächsten passenden Messung. Änderungen analysieren die Vocal-Referenz erneut;
+nach einer Gesangspause beginnt die Erkennung ohne Vergleich zum vorherigen Ton.
 Auf der Projektseite legen die drei Schaltflächen eine leere Vocal-,
 Instrumental- oder Mixed-Spur an. Vocalspuren sind für Gesang, Instrumentalspuren
 für Instrumente und Mixed-Spuren für Aufnahmen mit beidem gedacht. Die Spurart

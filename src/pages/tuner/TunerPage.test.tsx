@@ -102,6 +102,17 @@ describe('TunerPage', () => {
     expect(screen.getByRole('button', { name: 'Einstellungen öffnen' })).toHaveFocus()
   })
 
+  it('speichert die Anzahl übersprungener Oktav-Frames und lehnt ungültige Werte ab', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Einstellungen öffnen' }))
+    const input = screen.getByLabelText('Oktavsprung: Frames überspringen')
+    fireEvent.change(input, { target: { value: '0' } })
+    expect(mocks.useLiveTuner).toHaveBeenLastCalledWith({ ...DEFAULT_TUNER_SETTINGS, octaveSkipFrames: 0 })
+    fireEvent.change(input, { target: { value: '101' } })
+    expect(screen.getByRole('alert')).toHaveTextContent('zwischen 0 und 100')
+    expect(JSON.parse(localStorage.getItem(TUNER_SETTINGS_STORAGE_KEY) ?? '').octaveSkipFrames).toBe(0)
+  })
+
   it('meldet Speicherfehler im geöffneten Menü', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })

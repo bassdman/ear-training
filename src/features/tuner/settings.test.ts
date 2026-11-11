@@ -13,8 +13,15 @@ describe('Tuner-Einstellungen', () => {
       { minVolumeRms: -1 }, { minPitchClarity: 1.1 }, { minFrequencyHz: 1200 },
       { maxFrequencyHz: 24001 }, { analysisFftSize: 1000 }, { analysisIntervalMs: 250 },
       { maxSampleGapMs: 50 }, { windowMs: 0 }, { windowMs: Number.NaN },
+      { octaveSkipFrames: -1 }, { octaveSkipFrames: 101 }, { octaveSkipFrames: 1.5 },
     ]) expect(validateTunerSettings({ ...DEFAULT_TUNER_SETTINGS, ...change })).not.toBeNull()
     expect(validateTunerSettings({ ...DEFAULT_TUNER_SETTINGS })).toBeNull()
+  })
+
+  it('übernimmt ältere Einstellungen ohne Oktavfilterwert', () => {
+    const { octaveSkipFrames: _, ...oldSettings } = DEFAULT_TUNER_SETTINGS
+    localStorage.setItem(TUNER_SETTINGS_STORAGE_KEY, JSON.stringify({ ...oldSettings, minVolumeRms: 0.02 }))
+    expect(readTunerSettings()).toEqual({ settings: { ...DEFAULT_TUNER_SETTINGS, minVolumeRms: 0.02 }, error: null })
   })
 
   it('meldet beschädigte gespeicherte Werte und verwendet Standardwerte', () => {

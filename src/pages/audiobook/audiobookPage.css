@@ -175,6 +175,24 @@
 
 .exercise-tuner-chart {
   height: 300px;
+  max-width: 400px;
+  margin: auto;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.exercise-tuner-chart:active {
+  cursor: grabbing;
+}
+
+.exercise-tuner-chart:focus-visible {
+  outline: 2px solid #80d5ff;
+  outline-offset: 3px;
+}
+
+.exercise-tuner-seek-hint {
+  text-align: center;
+  font-size: 0.85rem;
 }
 
 .exercise-tuner-chart .tuner-chart {

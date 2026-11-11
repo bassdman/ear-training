@@ -13,6 +13,7 @@ describe('Live-Tuner', () => {
   let frame: FrameRequestCallback | undefined
   let time = 100
   let initialContextState: 'running' | 'suspended' = 'running'
+  let frequency = 440
 
   beforeEach(() => {
     track.stop.mockClear()
@@ -22,6 +23,7 @@ describe('Live-Tuner', () => {
     resume.mockClear()
     time = 100
     initialContextState = 'running'
+    frequency = 440
     vi.spyOn(performance, 'now').mockImplementation(() => time)
     vi.stubGlobal('isSecureContext', true)
     Object.defineProperty(navigator, 'mediaDevices', {
@@ -45,7 +47,7 @@ describe('Live-Tuner', () => {
         return {
           fftSize: 2048,
           getFloatTimeDomainData(samples: Float32Array) {
-            for (let i = 0; i < samples.length; i++) samples[i] = 0.3 * Math.sin(2 * Math.PI * 440 * i / 48000)
+            for (let i = 0; i < samples.length; i++) samples[i] = 0.3 * Math.sin(2 * Math.PI * frequency * i / 48000)
           },
         }
       }
@@ -75,11 +77,35 @@ describe('Live-Tuner', () => {
     unmount()
   })
 
+  it('unterdrückt kurze Oktavsprünge und erkennt anhaltende Wechsel', async () => {
+    const { result } = renderHook(() => useLiveTuner())
+    await act(async () => { await result.current.start() })
+    time = 200
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
+    frequency = 880
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeNull()
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeNull()
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(880, 0)
+    act(() => result.current.clear())
+    frequency = 440
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
+  })
+
   it('übernimmt geänderte Analyseparameter während der Aufnahme ohne Neustart', async () => {
     const initial = { ...DEFAULT_TUNER_SETTINGS }
     const { result, rerender } = renderHook(({ settings }) => useLiveTuner(settings), {
       initialProps: { settings: initial },
     })
+
     await act(async () => { await result.current.start() })
     time = 200
     act(() => frame?.(time))
@@ -91,6 +117,29 @@ describe('Live-Tuner', () => {
     expect(result.current.status).toBe('listening')
     expect(getUserMedia).toHaveBeenCalledOnce()
     expect(track.stop).not.toHaveBeenCalled()
+  })
+
+  it('übernimmt die Anzahl übersprungener Frames beim Start und während der Aufnahme', async () => {
+    const initial = { ...DEFAULT_TUNER_SETTINGS }
+    const { result, rerender } = renderHook(({ settings }) => useLiveTuner(settings), { initialProps: { settings: initial } })
+    rerender({ settings: { ...initial, octaveSkipFrames: 0 } })
+    await act(async () => { await result.current.start() })
+    time = 200
+    act(() => frame?.(time))
+    frequency = 880
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(880, 0)
+    rerender({ settings: { ...initial, octaveSkipFrames: 1 } })
+    time += 50
+    act(() => frame?.(time))
+    frequency = 440
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeNull()
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
   })
 
   it('aktiviert einen angehaltenen AudioContext vor dem Berechtigungsdialog', async () => {
