@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { TooltipMenu, TooltipMenuButton, TooltipMenuFile, TooltipMenuRange } from '../../components/TooltipMenu'
 import { getTrackClips, getTrackMix, getTrackType, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
@@ -34,31 +35,22 @@ function TrackDecoder({ clip, onDecoded, decode }: {
   return null
 }
 
-function TrackControls({ track, index, onMixChange }: {
+function TrackControls({ track, index, onMixChange, onDelete, busy }: {
   track: AudioTrack
   index: number
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
+  onDelete: (id: string) => void
+  busy: boolean
 }) {
-  const [volumeOpen, setVolumeOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { volume, muted } = getTrackMix(track)
   const name = track.name ? `Spur ${index + 1}: ${track.name}` : `Spur ${index + 1}`
 
   return (
-    <div className="audiobook-track-controls" role="group" aria-label={`Einstellungen für ${name}`}>
+    <div className={`audiobook-track-controls ${menuOpen ? 'has-menu' : ''}`} role="group" aria-label={`Einstellungen für ${name}`}>
       <span className="audiobook-track-type">{TRACK_LABELS[getTrackType(track)]}</span>
       <div className="audiobook-track-buttons">
-        <button
-          type="button"
-          className="audiobook-track-button"
-          aria-label={`Lautstärke für ${name}`}
-          aria-expanded={volumeOpen}
-          onClick={() => setVolumeOpen((open) => !open)}
-        >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9v6h4l5 4V5L7 9H3z" />
-            <path d="M16 9a5 5 0 0 1 0 6M19 6a9 9 0 0 1 0 12" />
-          </svg>
-        </button>
         <button
           type="button"
           className={`audiobook-track-button audiobook-mute ${muted ? 'is-muted' : ''}`}
@@ -66,19 +58,43 @@ function TrackControls({ track, index, onMixChange }: {
           aria-pressed={muted}
           onClick={() => onMixChange(track.id, { muted: !muted })}
         >M</button>
+        <button
+          type="button"
+          className="audiobook-track-button"
+          aria-label={`Optionen für ${name}`}
+          aria-expanded={menuOpen}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => { setMenuOpen((open) => !open); setConfirmDelete(false) }}
+        >...</button>
       </div>
-      {volumeOpen && (
-        <label className="audiobook-volume">
-          <span>{Math.round(volume * 100)} %</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(volume * 100)}
-            aria-label={`Lautstärke ${name}`}
-            onChange={(event) => onMixChange(track.id, { volume: Number(event.target.value) / 100 })}
-          />
-        </label>
+      {menuOpen && (
+        <TooltipMenu
+          className="audiobook-track-menu"
+          onClose={() => { setMenuOpen(false); setConfirmDelete(false) }}
+        >
+          {confirmDelete ? (
+            <>
+              <span>Spur und alle ihre Audioblöcke löschen?</span>
+              <div className="audiobook-track-menu-actions">
+                <TooltipMenuButton className="audiobook-track-delete" disabled={busy} onClick={() => { onDelete(track.id); setMenuOpen(false); setConfirmDelete(false) }}>Endgültig löschen</TooltipMenuButton>
+                <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(false)}>Abbrechen</TooltipMenuButton>
+              </div>
+            </>
+          ) : (
+            <>
+              <TooltipMenuRange
+                label={`Lautstärke: ${Math.round(volume * 100)} %`}
+                className="audiobook-volume"
+                min={0}
+                max={100}
+                value={Math.round(volume * 100)}
+                aria-label={`Lautstärke ${name}`}
+                onChange={(event) => onMixChange(track.id, { volume: Number(event.currentTarget.value) / 100 })}
+              />
+              <TooltipMenuButton className="audiobook-track-delete" disabled={busy} onClick={() => setConfirmDelete(true)}>Spur löschen</TooltipMenuButton>
+            </>
+          )}
+        </TooltipMenu>
       )}
     </div>
   )
@@ -119,13 +135,14 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, onDelete, busy }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, onDelete, onDeleteTrack, busy }: {
   tracks: AudioTrack[]
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
   onMove: (sourceId: string, targetId: string, clipId: string, start: number, durations: Record<string, number>) => void
   onSplit: (trackId: string, clipId: string, at: number, duration: number) => void
   onDelete: (trackId: string, clipId: string) => void
+  onDeleteTrack: (trackId: string) => void
   busy: boolean
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
@@ -341,7 +358,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
       <div className="audiobook-timeline-grid">
       <div className="audiobook-mixer">
         {tracks.map((track, index) => (
-          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} />
+          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} />
         ))}
       </div>
       <div
@@ -492,51 +509,53 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                         const length = clip && durations[clip.id]
                         const canSplit = clip && length && position > clip.start && position < clip.start + length
                         return (
-                          <div className="audiobook-import-menu audiobook-clip-menu" style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 230)), top: Math.min(clipMenu.y, 8), maxWidth: viewport.width }} onClick={(event) => event.stopPropagation()}>
+                          <TooltipMenu
+                            className="audiobook-import-menu audiobook-clip-menu"
+                            style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 230)), top: Math.min(clipMenu.y, 8), maxWidth: viewport.width }}
+                            onClose={() => { setClipMenu(null); setConfirmDelete(false) }}
+                          >
                             {confirmDelete ? (
                               <>
                                 <span className="audiobook-menu-hint">Audioblock wirklich löschen?</span>
-                                <button type="button" disabled={busy} onClick={() => {
+                                <TooltipMenuButton disabled={busy} onClick={() => {
                                   transport.pause()
                                   onDelete(track.id, clipMenu.clipId)
                                   setConfirmDelete(false)
                                   setClipMenu(null)
                                   setSelectedClip(null)
-                                }}>Endgültig löschen</button>
-                                <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Abbrechen</button>
+                                }}>Endgültig löschen</TooltipMenuButton>
+                                <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(false)}>Abbrechen</TooltipMenuButton>
                               </>
                             ) : (
                               <>
-                                {canSplit && <button type="button" disabled={busy} onClick={() => {
+                                {canSplit ? (
+                                  <TooltipMenuButton disabled={busy} onClick={() => {
                                   transport.pause()
                                   onSplit(track.id, clip.id, position, length)
                                   setClipMenu(null)
                                   setSelectedClip(null)
-                                }}>Schneiden</button>}
-                                {!canSplit && <span className="audiobook-menu-hint">Positionslinie innerhalb des Blocks setzen</span>}
-                                <button type="button" disabled={busy} onClick={() => setConfirmDelete(true)}>Löschen</button>
-                                <button type="button" aria-label="Blockmenü schließen" onClick={() => setClipMenu(null)}>×</button>
+                                  }}>Schneiden</TooltipMenuButton>
+                                ) : <span className="audiobook-menu-hint">Positionslinie innerhalb des Blocks setzen</span>}
+                                <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(true)}>Löschen</TooltipMenuButton>
+                                <TooltipMenuButton aria-label="Blockmenü schließen" onClick={() => setClipMenu(null)}>×</TooltipMenuButton>
                               </>
                             )}
-                          </div>
+                          </TooltipMenu>
                         )
                       })()}
                       {menu?.trackId === track.id && (
-                        <div className="audiobook-import-menu" style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(menu.y, 52) }} onClick={(event) => event.stopPropagation()}>
-                          <label>
-                            Importieren
-                            <input type="file" disabled={busy || clips.some((clip) => !decoded[clip.id]?.waveform)} onChange={(event) => {
-                              const file = event.target.files?.[0]
-                              event.target.value = ''
-                              if (file) {
-                                const durations = Object.fromEntries(clips.map((clip) => [clip.id, clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0]))
-                                onImport(track.id, menu.time, durations, file)
-                                setMenu(null)
-                              }
-                            }} />
-                          </label>
-                          <button type="button" aria-label="Importmenü schließen" onClick={() => setMenu(null)}>×</button>
-                        </div>
+                        <TooltipMenu
+                          className="audiobook-import-menu"
+                          style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(menu.y, 52) }}
+                          onClose={() => setMenu(null)}
+                        >
+                          <TooltipMenuFile label="Importieren" disabled={busy || clips.some((clip) => !decoded[clip.id]?.waveform)} onChange={(file) => {
+                            const durations = Object.fromEntries(clips.map((clip) => [clip.id, clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0]))
+                            onImport(track.id, menu.time, durations, file)
+                            setMenu(null)
+                          }} />
+                          <TooltipMenuButton aria-label="Importmenü schließen" onClick={() => setMenu(null)}>×</TooltipMenuButton>
+                        </TooltipMenu>
                       )}
                     </div>
                 </div>

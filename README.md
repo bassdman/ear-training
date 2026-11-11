@@ -34,8 +34,10 @@ Eine fest mittige rote Linie zeigt die aktuelle Position über alle Spuren hinwe
 bei der Wiedergabe bewegen sich die Spuren darunter nach links.
 Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien werden
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
-Links neben jeder Wellenform öffnet das Lautsprechersymbol den Lautstärkeregler;
-**M** schaltet die jeweilige Spur stumm. Lautstärke und Stummschaltung gelten
+Links neben jeder Wellenform schaltet **M** die jeweilige Spur stumm. Über
+**...** lassen sich die Lautstärke einstellen und die Spur mit allen ihren
+Audioblöcken nach Bestätigung löschen. Gemeinsam genutzte Audiodaten bleiben
+erhalten, solange sie in anderen Spuren verwendet werden. Lautstärke und Stummschaltung gelten
 auch während der Wiedergabe und werden pro Spur lokal gespeichert. Bei aktiver
 Stummschaltung erscheinen die Spur grau und der Mute-Button rot.
 Die gemeinsame Zeitleiste zeigt Wellenformen und Sekundenmarkierungen.
@@ -69,6 +71,24 @@ gelten sofort und werden im lokalen Browser-Speicher abgelegt. Eine
 kleinere Mindestlautstärke erkennt leisere Signale; eine kleinere
 Mindestklarheit akzeptiert unklarere Signale. Die Standardwerte können im
 Menü wiederhergestellt werden.
+
+## Tooltipmenüs
+
+`TooltipMenu` nimmt seine Inhalte als JSX und eine `onClose`-Funktion entgegen.
+`TooltipMenuButton`, `TooltipMenuRange`, `TooltipMenuNumber` und
+`TooltipMenuFile` sind wiederverwendbare Unterelemente; Hinweise und Gruppen
+können als normale HTML-Elemente eingefügt werden. Range und Number verwenden
+die üblichen Input-Props und `onChange`-Events. Der Datei-Callback erhält die
+ausgewählte Datei; die Auswahl wird zurückgesetzt, damit dieselbe Datei erneut
+ausgewählt werden kann.
+
+```tsx
+<TooltipMenu onClose={closeMenu}>
+  <TooltipMenuButton onClick={runAction}>Aktion</TooltipMenuButton>
+  <TooltipMenuRange label="Lautstärke" min={0} max={100} value={volume}
+    onChange={(event) => setVolume(Number(event.currentTarget.value))} />
+</TooltipMenu>
+```
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

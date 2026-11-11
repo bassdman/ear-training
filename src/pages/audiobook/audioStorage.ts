@@ -315,6 +315,20 @@ export async function splitClip(trackId: string, clipId: string, at: number, dur
   }
 }
 
+function deleteUnreferencedAudio(store: IDBObjectStore, audioStore: IDBObjectStore, projectId: string, ids: Set<string>) {
+  if (!ids.size) return
+  const request = store.index(PROJECT_INDEX).getAll(projectId)
+  request.onsuccess = () => {
+    const tracks: StoredTrack[] = request.result
+    for (const track of tracks) {
+      for (const clip of storedClips(track)) {
+        if (clip.audioId) ids.delete(clip.audioId)
+      }
+    }
+    for (const id of ids) audioStore.delete(id)
+  }
+}
+
 export async function deleteClip(trackId: string, clipId: string): Promise<void> {
   const db = await openDatabase()
   try {
@@ -336,15 +350,36 @@ export async function deleteClip(trackId: string, clipId: string): Promise<void>
         const { audio: _legacyAudio, ...rest } = track
         store.put({ ...rest, clips: remaining })
         if (clip.audioId) {
-          const audioId = clip.audioId
-          const projects = store.index(PROJECT_INDEX).getAll(track.projectId)
-          projects.onsuccess = () => {
-            const tracks: StoredTrack[] = projects.result
-            if (!tracks.some((item) => storedClips(item).some((other) => other.audioId === audioId))) {
-              transaction.objectStore(AUDIO_STORE).delete(audioId)
-            }
-          }
+          deleteUnreferencedAudio(store, transaction.objectStore(AUDIO_STORE), track.projectId, new Set([clip.audioId]))
         }
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function deleteTrack(trackId: string): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.get(trackId)
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const track: StoredTrack | undefined = request.result
+        if (!track) {
+          failure = new Error('Spur nicht gefunden')
+          transaction.abort()
+          return
+        }
+        const ids = new Set(storedClips(track).flatMap((clip) => clip.audioId ? [clip.audioId] : []))
+        store.delete(trackId)
+        deleteUnreferencedAudio(store, transaction.objectStore(AUDIO_STORE), track.projectId, ids)
       }
       transaction.oncomplete = () => resolve()
       transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))

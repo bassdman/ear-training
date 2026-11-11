@@ -10,11 +10,12 @@ vi.mock('./waveform', () => ({
 }))
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks, onMixChange, onImport, onDelete }: {
+  AudioTimeline: ({ tracks, onMixChange, onImport, onDelete, onDeleteTrack }: {
     tracks: audioStorage.AudioTrack[]
     onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
     onImport: (id: string, start: number, durations: Record<string, number>, file: File) => void
     onDelete: (trackId: string, clipId: string) => void
+    onDeleteTrack: (trackId: string) => void
   }) => (
     <div>{tracks.map((track) => (
       <div key={track.id}>
@@ -22,6 +23,7 @@ vi.mock('./AudioTimeline', () => ({
         {audioStorage.getTrackClips(track).map((clip) => <span key={clip.id}>{clip.name}<button onClick={() => onDelete(track.id, clip.id)}>Lösche {clip.name}</button></span>)}
         <button onClick={() => onMixChange(track.id, { volume: 0.3 })}>Lautstärke {track.name}</button>
         <button onClick={() => onMixChange(track.id, { muted: true })}>Mute {track.name}</button>
+        <button onClick={() => onDeleteTrack(track.id)}>Spur löschen {track.id}</button>
         <input aria-label={`Import ${track.id}`} type="file" onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) onImport(track.id, 12, Object.fromEntries(audioStorage.getTrackClips(track).map((clip) => [clip.id, clip.duration ?? 10])), file)
@@ -208,6 +210,71 @@ describe('ProjectTracks', () => {
     expect(rows.flatMap(audioStorage.getTrackClips)).toHaveLength(0)
     db.close()
     await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('löscht Spuren samt Clips und erhält gemeinsam genutztes Audio bis zur letzten Spur', async () => {
+    const projectId = crypto.randomUUID()
+    const source = await audioStorage.addTrack(projectId, new File(['audio'], 'alt.wav'))
+    const target = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    const legacyId = `${source.id}:legacy`
+    await audioStorage.splitClip(source.id, legacyId, 4, 10)
+    const [first, second] = audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === source.id)!)
+    await audioStorage.moveClip(source.id, target.id, second.id, 4, {})
+    await audioStorage.deleteTrack(source.id)
+    const remaining = await audioStorage.readTracks(projectId)
+    expect(remaining).toHaveLength(1)
+    expect(audioStorage.getTrackClips(remaining[0])[0]).toMatchObject({ id: second.id, audioId: first.audioId, sourceStart: 4 })
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ear-training-audiobook', 2)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const audioExists = () => new Promise<boolean>((resolve, reject) => {
+      const request = db.transaction('audio').objectStore('audio').get(first.audioId!)
+      request.onsuccess = () => resolve(request.result !== undefined)
+      request.onerror = () => reject(request.error)
+    })
+    expect(await audioExists()).toBe(true)
+    await audioStorage.deleteTrack(target.id)
+    expect(await audioExists()).toBe(false)
+    await expect(audioStorage.deleteTrack(target.id)).rejects.toThrow('Spur nicht gefunden')
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(0)
+    db.close()
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('meldet Fehler beim Spurlöschen und entfernt sie nach erfolgreichem Speichern', async () => {
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId)
+    const view = render(<ProjectTracks projectId={projectId} />)
+    const button = await screen.findByRole('button', { name: `Spur löschen ${track.id}` })
+    const failure = vi.spyOn(audioStorage, 'deleteTrack').mockRejectedValueOnce(new Error('Speicherfehler'))
+    fireEvent.click(button)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Spur konnte nicht gelöscht werden')
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(1)
+    failure.mockRestore()
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.queryByRole('button', { name: `Spur löschen ${track.id}` })).not.toBeInTheDocument())
+    view.unmount()
+    render(<ProjectTracks projectId={projectId} />)
+    expect(await screen.findByRole('button', { name: 'Mixed-Spur' })).toBeInTheDocument()
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(0)
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('entfernt eine Spur mit mehreren eingebetteten Clips, ohne andere Projekte zu verändern', async () => {
+    const projectId = crypto.randomUUID()
+    const otherProject = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId)
+    const other = await audioStorage.addTrack(otherProject, new File(['other'], 'andere.wav'))
+    await audioStorage.addClip(track.id, { id: 'first', name: 'a.wav', audio: new Blob(['a']), start: 0, duration: 5 })
+    await audioStorage.addClip(track.id, { id: 'second', name: 'b.wav', audio: new Blob(['b']), start: 5, duration: 5 })
+    await audioStorage.deleteTrack(track.id)
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(0)
+    const [remaining] = await audioStorage.readTracks(otherProject)
+    expect(remaining.id).toBe(other.id)
+    expect(audioStorage.getTrackClips(remaining)).toHaveLength(1)
+    await audioStorage.deleteProjectTracks(otherProject)
   })
 
   it('löscht Legacy- und eingebettete Blöcke dauerhaft und meldet Speicherfehler', async () => {

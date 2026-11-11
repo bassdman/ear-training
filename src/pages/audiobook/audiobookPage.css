@@ -117,10 +117,45 @@
 }
 
 .audiobook-track-controls {
+  position: relative;
   height: 127px;
   box-sizing: border-box;
   border-top: 1px solid var(--theme-border);
   padding: 8px;
+}
+
+.audiobook-track-controls.has-menu {
+  z-index: 3;
+}
+
+.audiobook-track-menu {
+  left: 52px;
+  top: 28px;
+  width: min(230px, calc(100vw - 90px));
+  box-sizing: border-box;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  font-size: 0.8rem;
+}
+
+.audiobook-track-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.audiobook-page .audiobook-track-menu button {
+  padding: 7px;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  text-align: left;
+}
+
+.audiobook-page .audiobook-track-menu .audiobook-track-delete {
+  border-color: #efc0c0;
+  background: #fff0f0;
+  color: #a52e2e;
 }
 
 .audiobook-track-buttons {
@@ -339,14 +374,8 @@
 }
 
 .audiobook-import-menu {
-  position: absolute;
-  z-index: 3;
   display: flex;
   align-items: center;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background: white;
-  box-shadow: 0 3px 12px rgb(34 34 34 / 18%);
 }
 
 .audiobook-clip-menu {

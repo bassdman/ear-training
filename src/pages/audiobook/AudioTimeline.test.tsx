@@ -14,7 +14,7 @@ const tracks: AudioTrack[] = [
   { id: 'one', projectId: 'project', name: 'Gesang', audio: new Blob(['a']), createdAt: 1 },
   { id: 'two', projectId: 'project', name: 'Gitarre', audio: new Blob(['b']), createdAt: 2 },
 ]
-const importProps = { onImport: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), busy: false }
+const importProps = { onImport: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), busy: false }
 
 beforeEach(() => {
   vi.mocked(decodeWaveform).mockReset()
@@ -193,6 +193,26 @@ describe('gemeinsame Zeitleiste', () => {
     expect(clip).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('öffnet Spuroptionen, bestätigt das Löschen und schließt Menüs mit Escape', async () => {
+    const onDeleteTrack = vi.fn()
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onDeleteTrack={onDeleteTrack} />)
+    const options = screen.getByRole('button', { name: 'Optionen für Spur 1: Gesang' })
+    expect(screen.queryByRole('slider', { name: 'Lautstärke Spur 1: Gesang' })).not.toBeInTheDocument()
+    fireEvent.click(options)
+    expect(options).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('slider', { name: 'Lautstärke Spur 1: Gesang' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Spur löschen' }))
+    expect(screen.getByText('Spur und alle ihre Audioblöcke löschen?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(onDeleteTrack).not.toHaveBeenCalled()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(options).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(options)
+    fireEvent.click(screen.getByRole('button', { name: 'Spur löschen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Endgültig löschen' }))
+    expect(onDeleteTrack).toHaveBeenCalledExactlyOnceWith('one')
+  }, 15000)
+
   it('bietet Löschen auch außerhalb der Schnittposition an und löscht erst nach Bestätigung', async () => {
     const onDelete = vi.fn()
     render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onDelete={onDelete} />)
@@ -308,7 +328,7 @@ describe('gemeinsame Zeitleiste', () => {
     expect(mute).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(mute)
     expect(onMixChange).toHaveBeenLastCalledWith('one', { muted: true })
-    fireEvent.click(screen.getByRole('button', { name: 'Lautstärke für Spur 1: Gesang' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Optionen für Spur 1: Gesang' }))
     const volume = screen.getByRole('slider', { name: 'Lautstärke Spur 1: Gesang' })
     fireEvent.change(volume, { target: { value: '35' } })
     expect(onMixChange).toHaveBeenLastCalledWith('one', { volume: 0.35 })

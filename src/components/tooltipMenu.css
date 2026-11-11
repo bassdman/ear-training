@@ -1,0 +1,8 @@
+.tooltip-menu {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 3px 12px rgb(34 34 34 / 18%);
+}
