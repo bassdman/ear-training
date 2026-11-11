@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AudioTrack } from './audioStorage'
@@ -40,24 +40,22 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
-  it('zeigt Spuren im Übungsmodus ohne Bearbeitungsmöglichkeiten', async () => {
+  it('spielt im Übungsmodus ohne Spuransicht und zeigt das Mikrofon in der Wiedergabeleiste', async () => {
     const onMove = vi.fn()
     const onImport = vi.fn()
     const onMixChange = vi.fn()
     const { container } = render(<AudioTimeline tracks={tracks} onMixChange={onMixChange} {...importProps} onMove={onMove} onImport={onImport} readOnly />)
-    await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))
-    const clip = screen.getByRole('img', { name: 'Audioblock Gesang in Spur 1' })
-    expect(clip).not.toHaveAttribute('tabindex')
-    fireEvent.click(clip)
-    fireEvent.keyDown(clip, { key: 'ArrowRight' })
-    fireEvent.pointerDown(clip, { pointerId: 1, pointerType: 'mouse', button: 0 })
-    fireEvent.click(container.querySelectorAll('.audiobook-wave-seek')[0])
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    expect(container.querySelector('.audiobook-timeline-section')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('canvas')).toHaveLength(0)
     expect(onMove).not.toHaveBeenCalled()
     expect(onImport).not.toHaveBeenCalled()
     expect(onMixChange).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: /Freier Bereich|Optionen für Spur|stummschalten|Kopieren|Löschen/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled()
-    expect(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).toBeInTheDocument()
+    expect(screen.queryByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).not.toBeInTheDocument()
+    const bar = screen.getByLabelText('Wiedergabesteuerung')
+    expect(within(bar).getByRole('button', { name: 'Mikrofon starten' })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: 'Abspielen' })).toBeEnabled()
   })
 
   it('schließt geöffnete Bearbeitungsmenüs beim Wechsel der Ansicht', async () => {
@@ -69,6 +67,7 @@ describe('gemeinsame Zeitleiste', () => {
     rerender(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} readOnly />)
     expect(screen.queryByRole('button', { name: 'Kopieren' })).not.toBeInTheDocument()
     rerender(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Kopieren' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })).toHaveAttribute('aria-pressed', 'false')
   })

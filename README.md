@@ -6,12 +6,15 @@
 Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
 Im Projekt führt die oben haftende Navigation zurück zur Projektliste oder
-zwischen **Edit** und **Exercise**. Exercise zeigt die gespeicherten Spuren
-schreibgeschützt mit Zeitleiste und Wiedergabe. Änderungen an Spuren und
-Audioblöcken sind nur unter Edit möglich.
+zwischen **Edit** und **Exercise**. Exercise spielt die gespeicherten Spuren
+ab, ohne die Spuren oder die Editor-Zeitleiste anzuzeigen. Änderungen an
+Spuren und Audioblöcken sind nur unter Edit möglich.
+Über **...** in der Projektleiste lässt sich der Projektname ändern; die
+Spuren und die Projektadresse bleiben dabei erhalten.
 Beim Öffnen von Exercise werden die Tonhöhen aller Vocalspuren lokal im
 Hintergrund analysiert. Im Stimmgerät kann eine Vocalspur als orangefarbene
-Referenz ausgewählt werden. Mit **Mikrofon starten** wird der eigene Gesang
+Referenz ausgewählt werden. Mit **Mikrofon starten** in der unteren
+Wiedergabeleiste wird der eigene Gesang
 erfasst und während der Wiedergabe blau über der Referenz angezeigt; die
 mittlere Linie markiert die aktuelle Songposition. Beim Springen wird der
 bisherige Mikrofonverlauf zurückgesetzt. Die Mikrofonanalyse verwendet die

@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useMatch, useNavigate, useParams } from 'react-router-dom'
 
+import { TooltipMenu, TooltipMenuButton } from '../../components/TooltipMenu'
 import { createProjectId, readProjects, writeProjects, type AudiobookProject } from './storage'
 import { deleteProjectTracks } from './audioStorage'
 import { ProjectTracks } from './ProjectTracks'
@@ -15,6 +16,12 @@ export function AudiobookPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameError, setRenameError] = useState('')
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const renameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let active = true
@@ -81,25 +88,95 @@ export function AudiobookPage() {
     }
   }
 
+  useEffect(() => {
+    setProjectMenuOpen(false)
+    setRenaming(false)
+    setRenameError('')
+  }, [projectId])
+
+  useEffect(() => {
+    if (renaming) {
+      renameInputRef.current?.focus()
+      renameInputRef.current?.select()
+    }
+  }, [renaming])
+
+  async function renameProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmed = renameValue.trim()
+    if (!trimmed) {
+      setRenameError('Bitte gib einen Projektnamen ein.')
+      return
+    }
+    if (!projectId || busy) return
+    setBusy(true)
+    setRenameError('')
+    try {
+      const current = await readProjects()
+      if (!current.some((item) => item.id === projectId)) {
+        setRenameError('Das Projekt wurde nicht gefunden und konnte nicht umbenannt werden.')
+        return
+      }
+      const updated = current.map((item) => item.id === projectId ? { ...item, name: trimmed } : item)
+      await writeProjects(updated)
+      setProjects(updated)
+      setRenaming(false)
+      menuButtonRef.current?.focus()
+    } catch {
+      setRenameError('Der Projektname konnte nicht gespeichert werden. Bitte prüfe den lokalen Speicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const project = projects?.find((item) => item.id === projectId)
 
   return (
     <main className={`audiobook-page ${projectId ? 'audiobook-page-project' : ''}`}>
       <div className="audiobook-shell">
         {projectId ? (
-          <nav className="audiobook-project-nav" aria-label="Projektansichten">
-            <Link className="audiobook-project-back" to="/audiobook" aria-label="Zurück zum Audiobook">←</Link>
-            <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise ? 'page' : undefined}>Edit</Link>
-            <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/exercise`} aria-current={isExercise ? 'page' : undefined}>Exercise</Link>
-          </nav>
+          <div className="audiobook-project-navigation">
+            <header className="audiobook-project-topbar">
+              <Link className="audiobook-project-back" to="/audiobook" aria-label="Zurück zum Audiobook">←</Link>
+              <h1 title={project?.name}>{project?.name ?? 'Projekt'}</h1>
+              {project && <div className="audiobook-project-menu-anchor">
+                <button ref={menuButtonRef} type="button" className="audiobook-project-menu-trigger" aria-label="Projektoptionen" aria-expanded={projectMenuOpen} onPointerDown={(event) => event.stopPropagation()} onClick={() => setProjectMenuOpen((open) => !open)}>...</button>
+                {projectMenuOpen && <TooltipMenu className="audiobook-project-menu" onClose={() => setProjectMenuOpen(false)}>
+                  <TooltipMenuButton onClick={() => { setRenameValue(project.name); setRenameError(''); setRenaming(true); setProjectMenuOpen(false) }}>Projektnamen ändern</TooltipMenuButton>
+                </TooltipMenu>}
+              </div>}
+            </header>
+            <nav className="audiobook-project-nav" aria-label="Projektansichten">
+              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise ? 'page' : undefined}>Edit</Link>
+              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/exercise`} aria-current={isExercise ? 'page' : undefined}>Exercise</Link>
+            </nav>
+          </div>
         ) : (
           <Link className="audiobook-back" to="/">Zur Startseite</Link>
         )}
-        <header className="audiobook-header">
+        {!projectId && <header className="audiobook-header">
           <p className="audiobook-kicker">Songstudio</p>
-          <h1>{projectId ? (project?.name ?? 'Projekt') : 'Audiobook'}</h1>
-          {!projectId && <p>Hier verwaltest du deine Lieder und Aufnahmen als Projekte.</p>}
-        </header>
+          <h1>Audiobook</h1>
+          <p>Hier verwaltest du deine Lieder und Aufnahmen als Projekte.</p>
+        </header>}
+
+        {project && renaming && (
+          <form className="audiobook-rename" onSubmit={(event) => void renameProject(event)} onKeyDown={(event) => {
+            if (event.key === 'Escape' && !busy) {
+              setRenaming(false)
+              setRenameError('')
+              menuButtonRef.current?.focus()
+            }
+          }}>
+            <label htmlFor="audiobook-rename-project">Projektname</label>
+            <div className="audiobook-create-row">
+              <input ref={renameInputRef} id="audiobook-rename-project" value={renameValue} maxLength={120} disabled={busy} onChange={(event) => setRenameValue(event.target.value)} />
+              <button type="submit" className="audiobook-primary" disabled={busy}>Speichern</button>
+              <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => { setRenaming(false); setRenameError(''); menuButtonRef.current?.focus() }}>Abbrechen</button>
+            </div>
+            {renameError && <p className="audiobook-error" role="alert">{renameError}</p>}
+          </form>
+        )}
 
         {error && <p className="audiobook-error" role="alert">{error}</p>}
         {projects === null ? (

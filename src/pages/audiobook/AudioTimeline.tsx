@@ -161,6 +161,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
   const [pendingExtent, setPendingExtent] = useState(0)
   const [seekVersion, setSeekVersion] = useState(0)
+  const [microphoneTarget, setMicrophoneTarget] = useState<HTMLDivElement | null>(null)
   const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, x: number, initialStart: number, initialScroll: number, duration: number, moved: boolean, targetId?: string, direction: number, scroll: number, lastFrame?: number } | null>(null)
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
@@ -196,7 +197,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     const observer = new ResizeObserver(update)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [hasTracks])
+  }, [hasTracks, readOnly])
 
   const changeZoom = useCallback((factor: number) => {
     setZoom((current) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current * factor)))
@@ -212,7 +213,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     }
     node.addEventListener('wheel', onWheel, { passive: false })
     return () => node.removeEventListener('wheel', onWheel)
-  }, [changeZoom, hasTracks])
+  }, [changeZoom, hasTracks, readOnly])
 
   const allClips = tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip })))
   const duration = Math.max(0, ...allClips.map(({ clip }) => clip.start + (clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0)))
@@ -227,17 +228,17 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const dragEnvironment = useRef({ zoom, seek })
   dragEnvironment.current = { zoom, seek }
   useLayoutEffect(() => {
-    const node = viewportRef.current
-    if (!node) return
     if (position > scrollDuration) {
       seek(scrollDuration)
       return
     }
+    const node = viewportRef.current
+    if (!node) return
     node.scrollLeft = position * zoom
     setViewport((current) => current.width === node.clientWidth && current.offset === node.scrollLeft
       ? current
       : { width: node.clientWidth, offset: node.scrollLeft })
-  }, [position, seek, zoom, viewport.width, scrollDuration, hasTracks])
+  }, [position, seek, zoom, viewport.width, scrollDuration, hasTracks, readOnly])
 
   useEffect(() => () => {
     if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
@@ -334,8 +335,8 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   return (
     <>
       {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
-      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} playing={transport.playing} seekVersion={seekVersion} />}
-      {hasTracks && <div className="audiobook-timeline-section">
+      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} />}
+      {hasTracks && !readOnly && <div className="audiobook-timeline-section">
       <div className="audiobook-timeline-toolbar">
         <div>
           <strong>Zeitleiste</strong>
@@ -383,9 +384,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       <div className="audiobook-timeline-grid">
       <div className="audiobook-mixer">
         {tracks.map((track, index) => (
-          readOnly
-            ? <div key={track.id} className="audiobook-track-controls" role="group" aria-label={`Spur ${index + 1}: ${TRACK_LABELS[getTrackType(track)]}`}><span className="audiobook-track-type">{TRACK_LABELS[getTrackType(track)]}</span></div>
-            : <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} />
+          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} />
         ))}
       </div>
       <div
@@ -459,10 +458,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
               <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} data-track-type={getTrackType(track)} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
                     <div
-                      className={`audiobook-wave-seek ${readOnly ? 'is-read-only' : ''}`}
+                      className="audiobook-wave-seek"
                       data-track-id={track.id}
                     >
-                      {!readOnly && <button
+                      <button
                         type="button"
                         className="audiobook-empty-area"
                         aria-label={`Freier Bereich in Spur ${index + 1}`}
@@ -474,7 +473,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                           setClipMenu(null)
                           setMenu({ trackId: track.id, time: Math.max(0, (viewStart + x) / zoom), y })
                         }}
-                      />}
+                      />
                       {clips.map((clip) => {
                         const clipData = decoded[clip.id]
                         const clipDuration = clip.duration ?? clipData?.waveform?.duration ?? 0
@@ -488,15 +487,15 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                         return (
                           <div
                             key={clip.id}
-                            className={`audiobook-clip ${readOnly ? 'is-read-only' : ''} ${selectedClip === clip.id && !readOnly ? 'is-selected' : ''}`}
+                            className={`audiobook-clip ${selectedClip === clip.id ? 'is-selected' : ''}`}
                             style={{ left: visibleLeft, width: visibleRight - visibleLeft }}
-                            role={readOnly ? 'img' : 'button'}
-                            tabIndex={readOnly ? undefined : 0}
-                            aria-label={readOnly ? `Audioblock ${clip.name} in Spur ${index + 1}` : `Audioblock ${clip.name} in Spur ${index + 1} verschieben`}
-                            aria-description={readOnly ? undefined : 'Mit Pfeiltasten zeitlich oder zwischen Spuren verschieben.'}
-                            aria-pressed={readOnly ? undefined : selectedClip === clip.id}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Audioblock ${clip.name} in Spur ${index + 1} verschieben`}
+                            aria-description="Mit Pfeiltasten zeitlich oder zwischen Spuren verschieben."
+                            aria-pressed={selectedClip === clip.id}
                             onPointerDown={(event) => {
-                              if (readOnly || busy || (event.pointerType === 'mouse' && event.button !== 0)) return
+                              if (busy || (event.pointerType === 'mouse' && event.button !== 0)) return
                               event.stopPropagation()
                               setMenu(null)
                               const node = viewportRef.current
@@ -506,11 +505,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                             }}
                             onClick={(event) => {
                               event.stopPropagation()
-                              if (!readOnly && event.detail === 0) activateClip(track.id, clip.id, clip.start)
+                              if (event.detail === 0) activateClip(track.id, clip.id, clip.start)
                             }}
                             onKeyDown={(event) => {
                               event.stopPropagation()
-                              if (readOnly || busy) return
+                              if (busy) return
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault()
                                 activateClip(track.id, clip.id, clip.start)
@@ -532,7 +531,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                       {drag?.targetId === track.id && (
                         <div className="audiobook-clip-preview" style={{ left: drag.start * zoom - viewStart, width: drag.duration * zoom }} aria-hidden="true" />
                       )}
-                      {!readOnly && clipMenu?.trackId === track.id && (() => {
+                      {clipMenu?.trackId === track.id && (() => {
                         const clip = clips.find((item) => item.id === clipMenu.clipId)
                         const length = clip && durations[clip.id]
                         const canSplit = clip && length && position > clip.start && position < clip.start + length
@@ -575,7 +574,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                           </TooltipMenu>
                         )
                       })()}
-                      {!readOnly && menu?.trackId === track.id && (
+                      {menu?.trackId === track.id && (
                         <TooltipMenu
                           className="audiobook-import-menu"
                           style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 150)), top: Math.min(menu.y, 52), maxWidth: viewport.width }}
@@ -611,7 +610,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
           {
             !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={!ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
           }
-          
+          {readOnly && <div ref={setMicrophoneTarget} />}
         </div>
         <span className="audiobook-transport-time" aria-label="Aktuelle Wiedergabeposition">{transport.position.toFixed(1)} / {duration.toFixed(1)} s</span>
       </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { PitchChart } from '../../features/tuner/components/PitchChart'
 import { appendPoint } from '../../features/tuner/history'
@@ -28,12 +29,13 @@ function makeJob(clip: AudioClip, buffer: AudioBuffer): ReferencePitchJob {
   return { id: clip.id, samples, sampleRate: buffer.sampleRate, start: clip.start }
 }
 
-export function ExerciseTuner({ tracks, decoded, position, playing, seekVersion }: {
+export function ExerciseTuner({ tracks, decoded, position, playing, seekVersion, controlsTarget }: {
   tracks: AudioTrack[]
   decoded: Decoded
   position: number
   playing: boolean
   seekVersion: number
+  controlsTarget: HTMLElement | null
 }) {
   const [settings] = useState(readTunerSettings)
   const tuner = useLiveTuner(settings.settings)
@@ -208,10 +210,13 @@ export function ExerciseTuner({ tracks, decoded, position, playing, seekVersion 
       <div className="exercise-tuner-chart">
         <PitchChart points={visibleLive} referencePoints={visibleReference} startMs={startMs} endMs={endMs} center={center} span={span} showPlayhead />
       </div>
-      <div className="exercise-tuner-actions">
+      {controlsTarget && createPortal(
         <button type="button" className="audiobook-secondary" onClick={tuner.status === 'listening' || tuner.status === 'starting' ? tuner.stop : () => void tuner.start()}>
           {tuner.status === 'starting' ? 'Mikrofonstart abbrechen' : tuner.status === 'listening' ? 'Mikrofon stoppen' : 'Mikrofon starten'}
-        </button>
+        </button>,
+        controlsTarget,
+      )}
+      <div className="exercise-tuner-actions">
         <span><span className="exercise-reference-key">Referenz</span> · <span className="exercise-live-key">Mikrofon</span></span>
       </div>
     </section>

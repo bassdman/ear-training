@@ -48,7 +48,7 @@ describe('App', () => {
   it('öffnet die Übungsansicht über einen direkten Projektlink', async () => {
     localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'song', name: 'Mein Lied' }]))
     const view = render(<MemoryRouter initialEntries={['/audiobook/song/exercise']}><App /></MemoryRouter>)
-    expect(await screen.findByText(/Übungsansicht: Die Spuren sind schreibgeschützt/)).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Stimmgerät zum Üben' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('aria-current', 'page')
     view.unmount()
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)

@@ -46,7 +46,7 @@ describe('Übungsstimmgerät', () => {
     const right = Float32Array.from([3, 4, 5, 6, 7, 8])
     const buffer = { sampleRate: 2, duration: 3, length: 6, numberOfChannels: 2, getChannelData: (channel: number) => channel ? right : left } as AudioBuffer
     const decoded = { a: { buffer }, b: { buffer }, c: { buffer } }
-    const { container, unmount } = render(<ExerciseTuner tracks={tracks} decoded={decoded} position={4} playing={false} seekVersion={0} />)
+    const { container, unmount } = render(<ExerciseTuner tracks={tracks} decoded={decoded} position={4} playing={false} seekVersion={0} controlsTarget={document.body} />)
     const worker = TestWorker.instance
     expect(worker.jobs).toHaveLength(1)
     expect(worker.jobs[0]).toMatchObject({ id: 'a', start: 4, sampleRate: 2 })
@@ -65,7 +65,7 @@ describe('Übungsstimmgerät', () => {
 
   it('zeigt Mikrofontöne synchron zur Wiedergabe und verwirft den Verlauf beim Springen', () => {
     mock.state = { status: 'listening', error: null, points: [{ timeMs: 50, frequency: 440 }], timeMs: 50 }
-    const props = { tracks: [], decoded: {}, position: 2, playing: true, seekVersion: 0 }
+    const props = { tracks: [], decoded: {}, position: 2, playing: true, seekVersion: 0, controlsTarget: document.body }
     const { container, rerender } = render(<ExerciseTuner {...props} />)
     expect(screen.getByLabelText('Aktuelle Tonhöhe')).toHaveTextContent('A4')
     mock.state = { ...mock.state, points: [{ timeMs: 100, frequency: 440 }] }
@@ -83,13 +83,13 @@ describe('Übungsstimmgerät', () => {
   it('meldet Fehler beim Starten der Analyse', async () => {
     vi.stubGlobal('Worker', class { constructor() { throw new Error('Nicht verfügbar') } })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    render(<ExerciseTuner tracks={[{ id: 'v', projectId: 'p', type: 'vocal', name: '', createdAt: 1 }]} decoded={{}} position={0} playing={false} seekVersion={0} />)
+    render(<ExerciseTuner tracks={[{ id: 'v', projectId: 'p', type: 'vocal', name: '', createdAt: 1 }]} decoded={{}} position={0} playing={false} seekVersion={0} controlsTarget={document.body} />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Tonhöhenanalyse konnte nicht gestartet werden')
     spy.mockRestore()
   })
 
   it('erhält während einer Pause keinen zeitlich falschen Mikrofonverlauf', () => {
-    const props = { tracks: [], decoded: {}, position: 2, playing: false, seekVersion: 0 }
+    const props = { tracks: [], decoded: {}, position: 2, playing: false, seekVersion: 0, controlsTarget: document.body }
     mock.state = { status: 'listening', error: null, points: [{ timeMs: 100, frequency: 220 }], timeMs: 100 }
     const { container, rerender } = render(<ExerciseTuner {...props} />)
     mock.state = { ...mock.state, points: [{ timeMs: 200, frequency: 220 }] }
