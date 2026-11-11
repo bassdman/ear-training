@@ -4,6 +4,7 @@ import { TooltipMenu, TooltipMenuButton, TooltipMenuFile, TooltipMenuRange } fro
 import { getTrackClips, getTrackMix, getTrackType, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
+import { createProjectId } from './storage'
 
 const MIN_ZOOM = 5
 const MAX_ZOOM = 200
@@ -135,10 +136,11 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, onDelete, onDeleteTrack, busy }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, busy }: {
   tracks: AudioTrack[]
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
+  onPaste: (trackId: string, start: number, durations: Record<string, number>, clip: AudioClip) => void
   onMove: (sourceId: string, targetId: string, clipId: string, start: number, durations: Record<string, number>) => void
   onSplit: (trackId: string, clipId: string, at: number, duration: number) => void
   onDelete: (trackId: string, clipId: string) => void
@@ -151,7 +153,8 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
   const viewportRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ trackId: string, time: number, y: number } | null>(null)
   const [selectedClip, setSelectedClip] = useState<string | null>(null)
-  const [clipMenu, setClipMenu] = useState<{ trackId: string, clipId: string, time: number, y: number } | null>(null)
+  const [clipMenu, setClipMenu] = useState<{ trackId: string, clipId: string, time: number } | null>(null)
+  const [copiedClip, setCopiedClip] = useState<AudioClip | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
   const [pendingExtent, setPendingExtent] = useState(0)
@@ -292,11 +295,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
     if (sourceId === targetId && Math.abs(clip.start - start) < 0.001) return
     onMove(sourceId, targetId, clipId, Math.max(0, start), durations)
   }
-  const activateClip = (trackId: string, clipId: string, time: number, y: number) => {
+  const activateClip = (trackId: string, clipId: string, time: number) => {
     setMenu(null)
     setConfirmDelete(false)
     if (selectedClip === clipId) {
-      setClipMenu({ trackId, clipId, time, y })
+      setClipMenu({ trackId, clipId, time })
     } else {
       setSelectedClip(clipId)
       setClipMenu(null)
@@ -409,7 +412,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
           } else if (!current.moved) {
             const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.audiobook-wave-seek')
             const rect = row?.getBoundingClientRect()
-            if (rect && row?.dataset.trackId === current.sourceId) activateClip(current.sourceId, current.clipId, (viewStart + event.clientX - rect.left) / zoom, Math.max(0, event.clientY - rect.top))
+            if (rect && row?.dataset.trackId === current.sourceId) activateClip(current.sourceId, current.clipId, (viewStart + event.clientX - rect.left) / zoom)
           }
           stopDrag()
         }}
@@ -478,14 +481,14 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                             }}
                             onClick={(event) => {
                               event.stopPropagation()
-                              if (event.detail === 0) activateClip(track.id, clip.id, clip.start, 0)
+                              if (event.detail === 0) activateClip(track.id, clip.id, clip.start)
                             }}
                             onKeyDown={(event) => {
                               event.stopPropagation()
                               if (busy) return
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault()
-                                activateClip(track.id, clip.id, clip.start, 0)
+                                activateClip(track.id, clip.id, clip.start)
                               } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                                 event.preventDefault()
                                 submitMove(track.id, track.id, clip.id, Math.max(0, clip.start + (event.key === 'ArrowLeft' ? -1 : 1)))
@@ -511,7 +514,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                         return (
                           <TooltipMenu
                             className="audiobook-import-menu audiobook-clip-menu"
-                            style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 230)), top: Math.min(clipMenu.y, 8), maxWidth: viewport.width }}
+                            style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 230)), top: 0, maxWidth: viewport.width }}
                             onClose={() => { setClipMenu(null); setConfirmDelete(false) }}
                           >
                             {confirmDelete ? (
@@ -535,9 +538,13 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                                   setClipMenu(null)
                                   setSelectedClip(null)
                                   }}>Schneiden</TooltipMenuButton>
-                                ) : <span className="audiobook-menu-hint">Positionslinie innerhalb des Blocks setzen</span>}
+                                ) : <></>}
+                                <TooltipMenuButton disabled={busy || !clip || !length} onClick={() => {
+                                  if (!clip || !length) return
+                                  setCopiedClip({ ...clip, duration: length, audioId: clip.audioId ?? createProjectId() })
+                                  setClipMenu(null)
+                                }}>Kopieren</TooltipMenuButton>
                                 <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(true)}>Löschen</TooltipMenuButton>
-                                <TooltipMenuButton aria-label="Blockmenü schließen" onClick={() => setClipMenu(null)}>×</TooltipMenuButton>
                               </>
                             )}
                           </TooltipMenu>
@@ -546,7 +553,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                       {menu?.trackId === track.id && (
                         <TooltipMenu
                           className="audiobook-import-menu"
-                          style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 130)), top: Math.min(menu.y, 52) }}
+                          style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 150)), top: Math.min(menu.y, 52), maxWidth: viewport.width }}
                           onClose={() => setMenu(null)}
                         >
                           <TooltipMenuFile label="Importieren" disabled={busy || clips.some((clip) => !decoded[clip.id]?.waveform)} onChange={(file) => {
@@ -554,7 +561,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onMove, onSplit, 
                             onImport(track.id, menu.time, durations, file)
                             setMenu(null)
                           }} />
-                          <TooltipMenuButton aria-label="Importmenü schließen" onClick={() => setMenu(null)}>×</TooltipMenuButton>
+                          {copiedClip && <TooltipMenuButton disabled={busy || clips.some((clip) => !durations[clip.id])} onClick={() => {
+                            transport.pause()
+                            onPaste(track.id, menu.time, durations, copiedClip)
+                            setMenu(null)
+                          }}>Einfügen</TooltipMenuButton>}
                         </TooltipMenu>
                       )}
                     </div>

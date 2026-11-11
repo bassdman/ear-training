@@ -14,7 +14,7 @@ const tracks: AudioTrack[] = [
   { id: 'one', projectId: 'project', name: 'Gesang', audio: new Blob(['a']), createdAt: 1 },
   { id: 'two', projectId: 'project', name: 'Gitarre', audio: new Blob(['b']), createdAt: 2 },
 ]
-const importProps = { onImport: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), busy: false }
+const importProps = { onImport: vi.fn(), onPaste: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), busy: false }
 
 beforeEach(() => {
   vi.mocked(decodeWaveform).mockReset()
@@ -186,12 +186,38 @@ describe('gemeinsame Zeitleiste', () => {
     expect(clip).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('button', { name: 'Schneiden' })).not.toBeInTheDocument()
     fireEvent.keyDown(clip, { key: 'Enter' })
-    expect(screen.getByText('Positionslinie innerhalb des Blocks setzen')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Schneiden' })).not.toBeInTheDocument()
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' }), { key: 'ArrowRight' })
     fireEvent.click(screen.getByRole('button', { name: 'Schneiden' }))
     expect(onSplit).toHaveBeenCalledWith('one', 'one:legacy', 1, 30)
     expect(clip).toHaveAttribute('aria-pressed', 'false')
   })
+
+  it('kopiert einen Block und bietet wiederholtes Einfügen an der angeklickten Position an', async () => {
+    const audio = new Blob(['a'])
+    const clipTracks: AudioTrack[] = [
+      { ...tracks[0], audio: undefined, clips: [{ id: 'clip', name: 'Schnitt', audio, start: 2, sourceStart: 10, duration: 7 }] },
+      { ...tracks[1], audio: undefined, clips: [] },
+    ]
+    const onPaste = vi.fn()
+    render(<AudioTimeline tracks={clipTracks} onMixChange={vi.fn()} {...importProps} onPaste={onPaste} />)
+    const empty = screen.getByRole('button', { name: 'Freier Bereich in Spur 2' })
+    fireEvent.click(empty, { detail: 1, clientX: 320, clientY: 10 })
+    expect(screen.queryByRole('button', { name: 'Einfügen' })).not.toBeInTheDocument()
+    const clip = await screen.findByRole('button', { name: 'Audioblock Schnitt in Spur 1 verschieben' })
+    fireEvent.keyDown(clip, { key: 'Enter' })
+    fireEvent.keyDown(clip, { key: 'Enter' })
+    expect(screen.queryByRole('button', { name: 'Blockmenü schließen' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Kopieren' }))
+    fireEvent.click(empty, { detail: 1, clientX: 320, clientY: 10 })
+    expect(screen.queryByRole('button', { name: 'Importmenü schließen' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Einfügen' }))
+    expect(onPaste).toHaveBeenCalledWith('two', 3, { clip: 7 }, expect.objectContaining({ id: 'clip', audio, sourceStart: 10, duration: 7, audioId: expect.any(String) }))
+    fireEvent.click(empty, { detail: 1, clientX: 360, clientY: 10 })
+    fireEvent.click(screen.getByRole('button', { name: 'Einfügen' }))
+    expect(onPaste).toHaveBeenCalledTimes(2)
+    expect(onPaste).toHaveBeenLastCalledWith('two', 4, { clip: 7 }, expect.any(Object))
+  }, 15000)
 
   it('öffnet Spuroptionen, bestätigt das Löschen und schließt Menüs mit Escape', async () => {
     const onDeleteTrack = vi.fn()

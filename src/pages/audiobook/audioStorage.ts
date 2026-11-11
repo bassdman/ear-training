@@ -214,6 +214,67 @@ export async function addClip(trackId: string, clip: AudioClip, durations: Recor
   }
 }
 
+export async function pasteClip(projectId: string, targetId: string, source: AudioClip, start: number, durations: Record<string, number>): Promise<void> {
+  if (!Number.isFinite(start) || start < 0 || !source.duration || !Number.isFinite(source.duration) || source.duration <= 0) {
+    throw new Error('Ungültige Position oder Audiodauer')
+  }
+  const duration = source.duration
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const audioStore = transaction.objectStore(AUDIO_STORE)
+      const request = store.index(PROJECT_INDEX).getAll(projectId)
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const tracks: StoredTrack[] = request.result
+        const target = tracks.find((track) => track.id === targetId)
+        if (!target) {
+          failure = new Error('Spur nicht gefunden')
+          transaction.abort()
+          return
+        }
+        const existing = storedClips(target)
+        if (existing.some((item) => {
+          const length = item.duration ?? durations[item.id]
+          return !length || !Number.isFinite(length) || length <= 0
+            || (start < item.start + length && start + duration > item.start)
+        })) {
+          failure = new Error('Audioblock überlappt oder Audiodauer unbekannt')
+          transaction.abort()
+          return
+        }
+        const sourceTrack = tracks.find((track) => storedClips(track).some((clip) => clip.id === source.id))
+        const original = sourceTrack && storedClips(sourceTrack).find((clip) => clip.id === source.id)
+        const audioId = original?.audioId ?? source.audioId ?? createProjectId()
+        const audioRequest = audioStore.get(audioId)
+        audioRequest.onsuccess = () => {
+          if (!audioRequest.result) audioStore.add({ id: audioId, projectId, audio: source.audio })
+          const { audio: _audio, ...reference } = source
+          const copy: StoredClip = { ...reference, id: createProjectId(), audioId, start, duration }
+          const promote = (track: StoredTrack) => storedClips(track).map((clip) => {
+            if (clip.id !== source.id || clip.audioId) return clip
+            const { audio: _clipAudio, ...rest } = clip
+            return { ...rest, audioId }
+          })
+          if (sourceTrack && sourceTrack.id !== target.id && original && !original.audioId) {
+            const { audio: _legacyAudio, ...rest } = sourceTrack
+            store.put({ ...rest, clips: promote(sourceTrack) })
+          }
+          const { audio: _targetAudio, ...rest } = target
+          store.put({ ...rest, clips: [...promote(target), copy] })
+        }
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Transaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function moveClip(
   sourceId: string,
   targetId: string,

@@ -10,10 +10,11 @@ vi.mock('./waveform', () => ({
 }))
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks, onMixChange, onImport, onDelete, onDeleteTrack }: {
+  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack }: {
     tracks: audioStorage.AudioTrack[]
     onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
     onImport: (id: string, start: number, durations: Record<string, number>, file: File) => void
+    onPaste: (id: string, start: number, durations: Record<string, number>, clip: audioStorage.AudioClip) => void
     onDelete: (trackId: string, clipId: string) => void
     onDeleteTrack: (trackId: string) => void
   }) => (
@@ -24,6 +25,10 @@ vi.mock('./AudioTimeline', () => ({
         <button onClick={() => onMixChange(track.id, { volume: 0.3 })}>Lautstärke {track.name}</button>
         <button onClick={() => onMixChange(track.id, { muted: true })}>Mute {track.name}</button>
         <button onClick={() => onDeleteTrack(track.id)}>Spur löschen {track.id}</button>
+        <button onClick={() => {
+          const clip = tracks.flatMap(audioStorage.getTrackClips)[0]
+          if (clip) onPaste(track.id, 12, Object.fromEntries(tracks.flatMap(audioStorage.getTrackClips).map((item) => [item.id, item.duration ?? 10])), { ...clip, duration: clip.duration ?? 10 })
+        }}>Einfügen {track.id}</button>
         <input aria-label={`Import ${track.id}`} type="file" onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) onImport(track.id, 12, Object.fromEntries(audioStorage.getTrackClips(track).map((clip) => [clip.id, clip.duration ?? 10])), file)
@@ -83,6 +88,23 @@ describe('ProjectTracks', () => {
     fireEvent.change(input, { target: { files: [new File(['a'], 'neu.mp3', { type: 'audio/mpeg' })] } })
     expect(await screen.findByRole('alert')).toHaveTextContent('überlappen')
     expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId))[0])).toHaveLength(1)
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('fügt dauerhaft in andere Spuren ein und meldet Überlappungen', async () => {
+    const projectId = crypto.randomUUID()
+    const source = await audioStorage.addEmptyTrack(projectId)
+    const target = await audioStorage.addEmptyTrack(projectId)
+    await audioStorage.addClip(source.id, { id: crypto.randomUUID(), name: 'sample.wav', audio: new Blob(['audio']), start: 0, duration: 5, sourceStart: 3 })
+    const view = render(<ProjectTracks projectId={projectId} />)
+    fireEvent.click(await screen.findByRole('button', { name: `Einfügen ${target.id}` }))
+    await waitFor(async () => expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === target.id)!)).toHaveLength(1))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Lösche sample.wav' })).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: `Einfügen ${target.id}` }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('überlappt')
+    view.unmount()
+    render(<ProjectTracks projectId={projectId} />)
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Lösche sample.wav' })).toHaveLength(2))
     await audioStorage.deleteProjectTracks(projectId)
   })
 
@@ -176,6 +198,50 @@ describe('ProjectTracks', () => {
     await audioStorage.deleteProjectTracks(projectId)
     expect((await readRaw()).audio).toHaveLength(0)
     db.close()
+  })
+
+  it('speichert Kopien als gemeinsame Audioreferenzen und bewahrt die Zwischenablage nach dem Löschen', async () => {
+    const projectId = crypto.randomUUID()
+    const source = await audioStorage.addTrack(projectId, new File(['audio'], 'alt.wav'))
+    const target = await audioStorage.addEmptyTrack(projectId)
+    const copied = { ...audioStorage.getTrackClips(source)[0], duration: 10, sourceStart: 2, audioId: crypto.randomUUID() }
+    await audioStorage.pasteClip(projectId, target.id, copied, 5, {})
+    await audioStorage.pasteClip(projectId, target.id, copied, 15, {})
+    await audioStorage.pasteClip(projectId, source.id, copied, 10, { [copied.id]: 10 })
+    await expect(audioStorage.pasteClip(projectId, target.id, copied, 14, {})).rejects.toThrow('überlappt')
+    let rows = await audioStorage.readTracks(projectId)
+    const original = audioStorage.getTrackClips(rows.find((track) => track.id === source.id)!)[0]
+    let copies = audioStorage.getTrackClips(rows.find((track) => track.id === target.id)!)
+    expect(copies).toHaveLength(2)
+    expect(copies[0]).toMatchObject({ start: 5, duration: 10, sourceStart: 2, audioId: original.audioId })
+    expect(copies[0].audio).toBe(original.audio)
+    expect(copies[0].id).not.toBe(original.id)
+    const sameTrackCopy = audioStorage.getTrackClips(rows.find((track) => track.id === source.id)!)[1]
+    expect(sameTrackCopy).toMatchObject({ start: 10, duration: 10, audioId: original.audioId })
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ear-training-audiobook', 2)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const raw = await new Promise<{ tracks: { clips: { audio?: Blob, audioId?: string }[] }[], audio: { projectId: string }[] }>((resolve, reject) => {
+      const tx = db.transaction(['tracks', 'audio'], 'readonly')
+      const tracks = tx.objectStore('tracks').index('projectId').getAll(projectId)
+      const audio = tx.objectStore('audio').getAll()
+      tx.oncomplete = () => resolve({ tracks: tracks.result, audio: audio.result.filter((item: { projectId: string }) => item.projectId === projectId) })
+      tx.onabort = () => reject(tx.error)
+    })
+    expect(raw.audio).toHaveLength(1)
+    expect(raw.tracks.flatMap((track) => track.clips).every((clip) => !clip.audio && clip.audioId === original.audioId)).toBe(true)
+    db.close()
+    await audioStorage.deleteTrack(source.id)
+    await audioStorage.deleteTrack(target.id)
+    const newTarget = await audioStorage.addEmptyTrack(projectId)
+    await audioStorage.pasteClip(projectId, newTarget.id, copied, 0, {})
+    rows = await audioStorage.readTracks(projectId)
+    copies = audioStorage.getTrackClips(rows[0])
+    expect(copies[0]).toMatchObject({ start: 0, duration: 10, sourceStart: 2, audioId: copied.audioId })
+    expect(copies[0].audio).toBeTruthy()
+    await audioStorage.deleteProjectTracks(projectId)
   })
 
   it('löscht einzelne geteilte Blöcke transaktional und entfernt die Audiodatei erst beim letzten Verweis', async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, deleteClip, deleteTrack, getTrackClips, moveClip, readTracks, splitClip, updateTrackMix, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
+import { addClip, addEmptyTrack, deleteClip, deleteTrack, getTrackClips, moveClip, pasteClip, readTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -113,6 +113,21 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
     }
   }
 
+  async function pasteAudio(trackId: string, start: number, durations: Record<string, number>, clip: AudioClip) {
+    setBusy(true)
+    setError('')
+    try {
+      await pasteClip(projectId, trackId, clip, start, durations)
+      setTracks(await readTracks(projectId))
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message.includes('überlappt')
+        ? 'Der Audioblock kann dort nicht eingefügt werden: Ein Block überlappt oder seine Dauer ist unbekannt.'
+        : 'Der Audioblock konnte nicht eingefügt werden. Bitte prüfe den Browserspeicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function deleteAudio(trackId: string, clipId: string) {
     setBusy(true)
     setError('')
@@ -158,7 +173,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
+          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
           <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur

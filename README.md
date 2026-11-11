@@ -26,6 +26,11 @@ Die Originalaufnahme wird dabei nur einmal gespeichert; die Blöcke verweisen
 mit ihren jeweiligen Quellbereichen darauf. Beim Schneiden pausiert die Wiedergabe.
 Im selben Menü lassen sich einzelne Blöcke nach Bestätigung löschen. Die
 gemeinsame Audiodatei bleibt erhalten, solange noch ein Block sie verwendet.
+Mit **Kopieren** lässt sich ein Block einschließlich seines Quellbereichs
+vormerken und über **Einfügen** an einer freien Stelle derselben oder einer
+anderen Spur beliebig oft einsetzen. Die Blöcke teilen sich die Audiodatei;
+Überlappungen sind nicht erlaubt. Die Zwischenablage gilt nur, solange das
+Projekt geöffnet ist, und bleibt auch beim Löschen des Originals verfügbar.
 Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;

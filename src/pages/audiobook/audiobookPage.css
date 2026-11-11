@@ -338,8 +338,9 @@
 }
 
 .audiobook-menu-hint {
-  padding: 8px;
+  padding: 4px 6px;
   font-size: 0.8rem;
+  line-height: 1.2;
 }
 
 .audiobook-clip-preview {
@@ -374,19 +375,26 @@
 }
 
 .audiobook-import-menu {
-  display: flex;
-  align-items: center;
+  display: grid;
+  width: 150px;
+  max-height: 126px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 4px;
+  gap: 2px;
+  font-size: 0.8rem;
 }
 
 .audiobook-clip-menu {
-  flex-wrap: wrap;
+  width: 230px;
 }
 
 .audiobook-import-menu label {
   position: relative;
-  padding: 8px;
+  padding: 6px;
   cursor: pointer;
   font-size: 0.8rem;
+  line-height: 1.2;
 }
 
 .audiobook-import-menu input {
@@ -402,8 +410,10 @@
 
 .audiobook-page .audiobook-import-menu button {
   padding: 6px;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
+  text-align: left;
+  line-height: 1.2;
 }
 
 .audiobook-add-buttons {
