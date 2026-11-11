@@ -136,8 +136,9 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, busy }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, busy, readOnly = false }: {
   tracks: AudioTrack[]
+  readOnly?: boolean
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
   onPaste: (trackId: string, start: number, durations: Record<string, number>, clip: AudioClip) => void
@@ -239,6 +240,21 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   useEffect(() => () => {
     if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
   }, [])
+
+  useEffect(() => {
+    setMenu(null)
+    setClipMenu(null)
+    setSelectedClip(null)
+    setConfirmDelete(false)
+    const node = viewportRef.current
+    const pointerId = dragRef.current?.pointerId
+    if (node && pointerId !== undefined && node.hasPointerCapture(pointerId)) node.releasePointerCapture(pointerId)
+    if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
+    dragFrame.current = null
+    dragRef.current = null
+    previewRef.current = null
+    setDrag(null)
+  }, [readOnly])
 
   useEffect(() => {
     if (!busy) setPendingExtent(0)
@@ -361,7 +377,9 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       <div className="audiobook-timeline-grid">
       <div className="audiobook-mixer">
         {tracks.map((track, index) => (
-          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} />
+          readOnly
+            ? <div key={track.id} className="audiobook-track-controls" role="group" aria-label={`Spur ${index + 1}: ${TRACK_LABELS[getTrackType(track)]}`}><span className="audiobook-track-type">{TRACK_LABELS[getTrackType(track)]}</span></div>
+            : <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} />
         ))}
       </div>
       <div
@@ -434,10 +452,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
               <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} data-track-type={getTrackType(track)} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
                     <div
-                      className="audiobook-wave-seek"
+                      className={`audiobook-wave-seek ${readOnly ? 'is-read-only' : ''}`}
                       data-track-id={track.id}
                     >
-                      <button
+                      {!readOnly && <button
                         type="button"
                         className="audiobook-empty-area"
                         aria-label={`Freier Bereich in Spur ${index + 1}`}
@@ -449,7 +467,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                           setClipMenu(null)
                           setMenu({ trackId: track.id, time: Math.max(0, (viewStart + x) / zoom), y })
                         }}
-                      />
+                      />}
                       {clips.map((clip) => {
                         const clipData = decoded[clip.id]
                         const clipDuration = clip.duration ?? clipData?.waveform?.duration ?? 0
@@ -463,15 +481,15 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                         return (
                           <div
                             key={clip.id}
-                            className={`audiobook-clip ${selectedClip === clip.id ? 'is-selected' : ''}`}
+                            className={`audiobook-clip ${readOnly ? 'is-read-only' : ''} ${selectedClip === clip.id && !readOnly ? 'is-selected' : ''}`}
                             style={{ left: visibleLeft, width: visibleRight - visibleLeft }}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Audioblock ${clip.name} in Spur ${index + 1} verschieben`}
-                            aria-description="Mit Pfeiltasten zeitlich oder zwischen Spuren verschieben."
-                            aria-pressed={selectedClip === clip.id}
+                            role={readOnly ? 'img' : 'button'}
+                            tabIndex={readOnly ? undefined : 0}
+                            aria-label={readOnly ? `Audioblock ${clip.name} in Spur ${index + 1}` : `Audioblock ${clip.name} in Spur ${index + 1} verschieben`}
+                            aria-description={readOnly ? undefined : 'Mit Pfeiltasten zeitlich oder zwischen Spuren verschieben.'}
+                            aria-pressed={readOnly ? undefined : selectedClip === clip.id}
                             onPointerDown={(event) => {
-                              if (busy || (event.pointerType === 'mouse' && event.button !== 0)) return
+                              if (readOnly || busy || (event.pointerType === 'mouse' && event.button !== 0)) return
                               event.stopPropagation()
                               setMenu(null)
                               const node = viewportRef.current
@@ -481,11 +499,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                             }}
                             onClick={(event) => {
                               event.stopPropagation()
-                              if (event.detail === 0) activateClip(track.id, clip.id, clip.start)
+                              if (!readOnly && event.detail === 0) activateClip(track.id, clip.id, clip.start)
                             }}
                             onKeyDown={(event) => {
                               event.stopPropagation()
-                              if (busy) return
+                              if (readOnly || busy) return
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault()
                                 activateClip(track.id, clip.id, clip.start)
@@ -507,7 +525,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                       {drag?.targetId === track.id && (
                         <div className="audiobook-clip-preview" style={{ left: drag.start * zoom - viewStart, width: drag.duration * zoom }} aria-hidden="true" />
                       )}
-                      {clipMenu?.trackId === track.id && (() => {
+                      {!readOnly && clipMenu?.trackId === track.id && (() => {
                         const clip = clips.find((item) => item.id === clipMenu.clipId)
                         const length = clip && durations[clip.id]
                         const canSplit = clip && length && position > clip.start && position < clip.start + length
@@ -550,7 +568,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                           </TooltipMenu>
                         )
                       })()}
-                      {menu?.trackId === track.id && (
+                      {!readOnly && menu?.trackId === track.id && (
                         <TooltipMenu
                           className="audiobook-import-menu"
                           style={{ left: Math.max(0, Math.min(menu.time * zoom - viewStart, viewport.width - 150)), top: Math.min(menu.y, 52), maxWidth: viewport.width }}

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useMatch, useNavigate, useParams } from 'react-router-dom'
 
 import { createProjectId, readProjects, writeProjects, type AudiobookProject } from './storage'
 import { deleteProjectTracks } from './audioStorage'
@@ -8,6 +8,7 @@ import './audiobookPage.css'
 
 export function AudiobookPage() {
   const { projectId } = useParams()
+  const isExercise = useMatch('/audiobook/:projectId/exercise') !== null
   const navigate = useNavigate()
   const [projects, setProjects] = useState<AudiobookProject[] | null>(null)
   const [name, setName] = useState('')
@@ -83,11 +84,17 @@ export function AudiobookPage() {
   const project = projects?.find((item) => item.id === projectId)
 
   return (
-    <main className="audiobook-page">
+    <main className={`audiobook-page ${projectId ? 'audiobook-page-project' : ''}`}>
       <div className="audiobook-shell">
-        <Link className="audiobook-back" to={projectId ? '/audiobook' : '/'}>
-          {projectId ? 'Zurück zum Audiobook' : 'Zur Startseite'}
-        </Link>
+        {projectId ? (
+          <nav className="audiobook-project-nav" aria-label="Projektansichten">
+            <Link className="audiobook-project-back" to="/audiobook" aria-label="Zurück zum Audiobook">←</Link>
+            <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise ? 'page' : undefined}>Edit</Link>
+            <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/exercise`} aria-current={isExercise ? 'page' : undefined}>Exercise</Link>
+          </nav>
+        ) : (
+          <Link className="audiobook-back" to="/">Zur Startseite</Link>
+        )}
         <header className="audiobook-header">
           <p className="audiobook-kicker">Songstudio</p>
           <h1>{projectId ? (project?.name ?? 'Projekt') : 'Audiobook'}</h1>
@@ -99,7 +106,7 @@ export function AudiobookPage() {
           !error && <p>Lade Projekte ...</p>
         ) : projectId ? (
           project ? (
-            <ProjectTracks key={project.id} projectId={project.id} />
+            <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} />
           ) : (
             <p>Dieses Projekt wurde nicht gefunden.</p>
           )

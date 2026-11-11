@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import 'fake-indexeddb/auto'
 import { TRAINING_DIFFICULTIES } from './features/earTrainer/config'
+import { AUDIOBOOK_STORAGE_KEY } from './pages/audiobook/storage'
 
 const { useTrainerProgressMock } = vi.hoisted(() => ({
   useTrainerProgressMock: vi.fn(),
@@ -41,6 +43,15 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Zum Tuner' })).toBeInTheDocument()
     expect(localStorage.getItem(key)).toBe('[{"id":"test"}]')
     localStorage.removeItem(key)
+  })
+
+  it('öffnet die Übungsansicht über einen direkten Projektlink', async () => {
+    localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'song', name: 'Mein Lied' }]))
+    const view = render(<MemoryRouter initialEntries={['/audiobook/song/exercise']}><App /></MemoryRouter>)
+    expect(await screen.findByText(/Übungsansicht: Die Spuren sind schreibgeschützt/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('aria-current', 'page')
+    view.unmount()
+    localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
   })
 
   it('startet auf der Kursseite', () => {

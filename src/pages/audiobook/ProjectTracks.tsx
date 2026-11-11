@@ -7,7 +7,7 @@ import { decodeWaveform } from './waveform'
 
 const AUDIO_EXTENSION = /\.(aac|aif|aiff|amr|caf|flac|m4a|m4b|mp3|mp4|mpga|oga|ogg|opus|wav|wave|webm)$/i
 
-export function ProjectTracks({ projectId }: { projectId: string }) {
+export function ProjectTracks({ projectId, readOnly = false }: { projectId: string, readOnly?: boolean }) {
   const [tracks, setTracks] = useState<AudioTrack[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -167,14 +167,16 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
 
   return (
     <section aria-label="Audiospuren" className="audiobook-tracks">
+      {readOnly && <p className="audiobook-exercise-intro">Übungsansicht: Die Spuren sind schreibgeschützt. Das Stimmgerät folgt in einem nächsten Schritt.</p>}
       {error && <p className="audiobook-error" role="alert">{error}</p>}
       {mixError && <p className="audiobook-error" role="alert">{mixError}</p>}
       {tracks === null ? (
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
-          <AudioTimeline tracks={tracks} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
-          <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
+          {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
+          <AudioTimeline tracks={tracks} readOnly={readOnly} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
+          {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur
             </button>
@@ -184,7 +186,7 @@ export function ProjectTracks({ projectId }: { projectId: string }) {
             <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('mixed')}>
               <span aria-hidden="true">+</span> Mixed-Spur
             </button>
-          </div>
+          </div>}
         </>
       )}
     </section>

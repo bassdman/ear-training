@@ -12,7 +12,9 @@ function renderAudiobook(path = '/audiobook') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/audiobook/:projectId?" element={<AudiobookPage />} />
+        <Route path="/audiobook/:projectId?" element={<AudiobookPage />}>
+          <Route path="exercise" />
+        </Route>
         <Route path="/" element={<p>Startseite</p>} />
       </Routes>
     </MemoryRouter>,
@@ -23,6 +25,7 @@ describe('Audiobook', () => {
   beforeEach(() => localStorage.removeItem(AUDIOBOOK_STORAGE_KEY))
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
   })
 
@@ -42,6 +45,39 @@ describe('Audiobook', () => {
     expect(await screen.findByRole('heading', { name: 'Mein Lied' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('link', { name: 'Zurück zum Audiobook' }))
     expect(screen.getByRole('link', { name: /Mein Lied.*Öffnen/ })).toBeInTheDocument()
+  }, 15000)
+
+  it('navigiert zwischen Editor, Übungsansicht und Projektliste und unterstützt direkte Übungslinks', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'song', name: 'Mein Lied' }]))
+    const readTracksSpy = vi.spyOn(audioStorage, 'readTracks')
+    const view = renderAudiobook('/audiobook/song')
+    expect(await screen.findByRole('button', { name: 'Mixed-Spur' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('href', '/audiobook/song/exercise')
+    fireEvent.click(screen.getByRole('link', { name: 'Exercise' }))
+    expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByText(/Übungsansicht: Die Spuren sind schreibgeschützt/)).toBeInTheDocument()
+    expect(await screen.findByText(/Noch keine Spuren vorhanden/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mixed-Spur' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Edit' }))
+    expect(await screen.findByRole('button', { name: 'Mixed-Spur' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Mixed-Spur' }))
+    expect(await screen.findByRole('button', { name: 'Freier Bereich in Spur 1' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Exercise' }))
+    expect(screen.getByLabelText('Spur 1: Mixed')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Freier Bereich in Spur 1' })).not.toBeInTheDocument()
+    expect(readTracksSpy).toHaveBeenCalledTimes(1)
+    expect(await readTracks('song')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('link', { name: 'Zurück zum Audiobook' }))
+    expect(await screen.findByRole('link', { name: /Mein Lied.*Öffnen/ })).toBeInTheDocument()
+    view.unmount()
+    renderAudiobook('/audiobook/song/exercise')
+    expect(await screen.findByText(/Übungsansicht: Die Spuren sind schreibgeschützt/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/audiobook/song')
+    expect(await screen.findByLabelText('Spur 1: Mixed')).toBeInTheDocument()
+    await audioStorage.deleteProjectTracks('song')
   }, 15000)
 
   it('löscht nur das bestätigte Projekt und seine Audiospuren', async () => {

@@ -21,7 +21,9 @@ function App() {
       <Route path="/intonation-training" element={<IntonationTrainingPage />} />
       <Route path="/tuner" element={<TunerPage />} />
       <Route path="/converter" element={<ConverterPage />} />
-      <Route path="/audiobook/:projectId?" element={<AudiobookPage />} />
+      <Route path="/audiobook/:projectId?" element={<AudiobookPage />}>
+        <Route path="exercise" />
+      </Route>
       <Route
         path="/campaign"
         element={

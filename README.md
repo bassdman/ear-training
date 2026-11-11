@@ -5,6 +5,10 @@
 Über **Audiobook** auf der Startseite lassen sich Projekte für Lieder und
 Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
+Im Projekt führt die oben haftende Navigation zurück zur Projektliste oder
+zwischen **Edit** und **Exercise**. Exercise zeigt die gespeicherten Spuren
+schreibgeschützt mit Zeitleiste und Wiedergabe; das Stimmgerät wird dort später
+ergänzt. Änderungen an Spuren und Audioblöcken sind nur unter Edit möglich.
 Auf der Projektseite legen die drei Schaltflächen eine leere Vocal-,
 Instrumental- oder Mixed-Spur an. Vocalspuren sind für Gesang, Instrumentalspuren
 für Instrumente und Mixed-Spuren für Aufnahmen mit beidem gedacht. Die Spurart
