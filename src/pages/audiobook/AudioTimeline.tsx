@@ -137,9 +137,11 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, busy, readOnly = false }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, busy, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
   tracks: AudioTrack[]
   readOnly?: boolean
+  traceMenuTarget?: HTMLElement | null
+  onTraceDownload?: () => void
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onImport: (trackId: string, start: number, durations: Record<string, number>, file: File) => void
   onPaste: (trackId: string, start: number, durations: Record<string, number>, clip: AudioClip) => void
@@ -335,7 +337,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   return (
     <>
       {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
-      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} duration={duration} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} onSeek={(time) => {
+      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} duration={duration} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onSeek={(time) => {
         setSeekVersion((current) => current + 1)
         transport.seek(time)
       }} />}

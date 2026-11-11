@@ -1,20 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 
+import { TooltipMenuButton } from '../../components/TooltipMenu'
 import { PitchChart } from '../../features/tuner/components/PitchChart'
 import { TunerSettingsPanel } from '../../features/tuner/components/TunerSettingsPanel'
-import { CHART_PLOT_WIDTH, CHART_WIDTH } from '../../features/tuner/chartGeometry'
+import { CHART_LEFT, CHART_PLOT_WIDTH, CHART_WIDTH } from '../../features/tuner/chartGeometry'
 import { appendPoint } from '../../features/tuner/history'
 import { useLiveTuner } from '../../features/tuner/hooks/useLiveTuner'
 import { describePitch, frequencyToMidi, type PitchPoint } from '../../features/tuner/pitch'
 import { readTunerSettings, TUNER_SETTINGS_STORAGE_KEY, type TunerSettings } from '../../features/tuner/settings'
 import { getTrackClips, getTrackType, type AudioClip, type AudioTrack } from './audioStorage'
-import type { ReferencePitchJob } from './referencePitch'
+import { createVocalDebugTrace, downloadVocalDebugTrace, type TracePoint } from './debugTrace'
+import type { ReferencePitchJob, ReferencePitchPoint } from './referencePitch'
+import { useSmoothPitchView } from './useSmoothPitchView'
+import { formatSeconds, getTickInterval } from './waveform'
 import '../tuner/tunerPage.css'
 
 type Decoded = Record<string, { buffer?: AudioBuffer, error?: boolean }>
-type Analysis = { points?: PitchPoint[], error?: string }
-type Result = { id: string, points?: PitchPoint[], error?: string }
+type Analysis = { points?: ReferencePitchPoint[], error?: string }
+type Result = { id: string, points?: ReferencePitchPoint[], error?: string }
 
 function makeJob(clip: AudioClip, buffer: AudioBuffer, octaveSkipFrames: number): ReferencePitchJob {
   const from = Math.max(0, Math.round((clip.sourceStart ?? 0) * buffer.sampleRate))
@@ -31,7 +35,7 @@ function makeJob(clip: AudioClip, buffer: AudioBuffer, octaveSkipFrames: number)
   return { id: clip.id, samples, sampleRate: buffer.sampleRate, start: clip.start, octaveSkipFrames }
 }
 
-export function ExerciseTuner({ tracks, decoded, position, duration, playing, seekVersion, controlsTarget, onSeek }: {
+export function ExerciseTuner({ tracks, decoded, position, duration, playing, seekVersion, controlsTarget, onSeek, traceMenuTarget = null, onTraceDownload }: {
   tracks: AudioTrack[]
   decoded: Decoded
   position: number
@@ -40,6 +44,8 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   seekVersion: number
   controlsTarget: HTMLElement | null
   onSeek: (time: number) => void
+  traceMenuTarget?: HTMLElement | null
+  onTraceDownload?: () => void
 }) {
   const [stored] = useState(readTunerSettings)
   const [settings, setSettings] = useState(stored.settings)
@@ -47,10 +53,12 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   const chartDrag = useRef<{ pointerId: number, x: number, position: number, width: number, last: number } | null>(null)
+  const [draggingChart, setDraggingChart] = useState(false)
   const tuner = useLiveTuner(settings)
   const [selectedId, setSelectedId] = useState('')
   const [analysis, setAnalysis] = useState<Record<string, Analysis>>({})
   const [workerError, setWorkerError] = useState('')
+  const [traceError, setTraceError] = useState('')
   const [livePoints, setLivePoints] = useState<PitchPoint[]>([])
   const workerRef = useRef<Worker | null>(null)
   const queued = useRef(new Set<string>())
@@ -181,14 +189,21 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   }, [tuner.points, tuner.status, position, playing, settings])
 
   const clips = useMemo(() => selected ? [...getTrackClips(selected)].sort((a, b) => a.start - b.start) : [], [selected])
-  const reference = useMemo(() => clips.flatMap((clip) => {
+  const reference = useMemo<TracePoint[]>(() => clips.flatMap((clip) => {
     const points = analysis[clip.id]?.points ?? []
-    return points.length ? [...points, { timeMs: clip.start * 1000 + (clip.duration ?? (decoded[clip.id]?.buffer?.duration ?? 0) - (clip.sourceStart ?? 0)) * 1000, frequency: null }] : []
+    return points.length ? [
+      ...points.map((point): TracePoint => ({ ...point, clipId: clip.id, kind: 'sample' })),
+      { timeMs: clip.start * 1000 + (clip.duration ?? (decoded[clip.id]?.buffer?.duration ?? 0) - (clip.sourceStart ?? 0)) * 1000, frequency: null, rawFrequency: null, clipId: clip.id, kind: 'clip-end' as const },
+    ] : []
   }), [clips, analysis, decoded])
   const windowMs = settings.windowMs
   const centerMs = position * 1000
   const startMs = centerMs - windowMs / 2
   const endMs = centerMs + windowMs / 2
+  const tickInterval = getTickInterval(200 / (windowMs / 1000))
+  const firstTick = Math.max(0, Math.ceil(startMs / 1000 / tickInterval))
+  const lastTick = Math.floor(Math.min(duration, endMs / 1000) / tickInterval)
+  const ticks = Array.from({ length: Math.max(0, lastTick - firstTick + 1) }, (_, index) => (firstTick + index) * tickInterval)
   let low = 0
   let high = reference.length
   while (low < high) {
@@ -207,13 +222,25 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
     : null
   const referenceMidi = nearest?.frequency ? frequencyToMidi(nearest.frequency) : null
   const liveMidi = centerFrequency ? frequencyToMidi(centerFrequency) : null
-  const center = referenceMidi !== null && liveMidi !== null
+  const targetCenter = referenceMidi !== null && liveMidi !== null
     ? (referenceMidi + liveMidi) / 2
-    : referenceMidi ?? liveMidi ?? 60
-  const span = referenceMidi !== null && liveMidi !== null ? Math.max(24, Math.abs(referenceMidi - liveMidi) + 4) : 24
+    : referenceMidi ?? liveMidi
+  const targetSpan = referenceMidi !== null && liveMidi !== null ? Math.max(24, Math.abs(referenceMidi - liveMidi) + 4) : 24
+  const { center, span } = useSmoothPitchView(targetCenter, targetSpan, draggingChart)
   const reading = frequency ? describePitch(frequency) : null
   const selectedError = clips.some((clip) => decoded[clip.id]?.error || analysis[clip.id]?.error)
   const loading = clips.some((clip) => !decoded[clip.id]?.error && !analysis[clip.id])
+  const seekWithKeyboard = (event: KeyboardEvent<HTMLElement>) => {
+    let next: number
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next = position - 1
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = position + 1
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = duration
+    else return
+    event.preventDefault()
+    next = Math.max(0, Math.min(duration, next))
+    if (next !== position) onSeek(next)
+  }
 
   return (
     <section className="exercise-tuner" aria-label="Stimmgerät zum Üben">
@@ -231,12 +258,40 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
       {selected && clips.length === 0 && <p>Diese Vocalspur enthält noch keine Audioblöcke.</p>}
       {loading && !workerError && <p role="status">Tonhöhen der Vocalspur werden analysiert …</p>}
       {(workerError || selectedError) && <p className="tuner-error" role="alert">{workerError || 'Mindestens ein Audioblock konnte nicht analysiert werden.'}</p>}
+      {traceError && <p className="tuner-error" role="alert">{traceError}</p>}
       {settingsError && !settingsOpen && <p className="tuner-error" role="alert">{settingsError}</p>}
       {tuner.error && <p className="tuner-error" role="alert">{tuner.error}</p>}
       <div className="tuner-reading" aria-label="Aktuelle Tonhöhe">
         <strong>{reading?.note ?? '–'}</strong>
         <span>{reading ? `${reading.cents > 0 ? '+' : ''}${reading.cents} ct` : '– ct'}</span>
         <span>{frequency === null ? '– Hz' : `${frequency.toFixed(1)} Hz`}</span>
+      </div>
+      <div className="exercise-tuner-ruler-shell">
+        <div
+          className="exercise-tuner-ruler"
+          role="slider"
+          tabIndex={0}
+          aria-label="Wiedergabeposition auf der Übungszeitleiste"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={Math.min(duration, Math.max(0, position))}
+          aria-valuetext={`${position.toFixed(1)} Sekunden`}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            const plotWidth = rect.width * CHART_PLOT_WIDTH / CHART_WIDTH
+            if (plotWidth <= 0) return
+            const x = event.clientX - rect.left - rect.width * CHART_LEFT / CHART_WIDTH
+            const next = Math.max(0, Math.min(duration, (startMs + x / plotWidth * windowMs) / 1000))
+            if (next !== position) onSeek(next)
+          }}
+          onKeyDown={seekWithKeyboard}
+        >
+          {ticks.map((seconds) => {
+            const left = (CHART_LEFT + (seconds * 1000 - startMs) / windowMs * CHART_PLOT_WIDTH) / CHART_WIDTH * 100
+            return <span className={`exercise-tuner-tick${left > 85 ? ' is-right' : ''}`} key={seconds} style={{ left: `${left}%` }}>{formatSeconds(seconds, tickInterval)}</span>
+          })}
+          <span className="exercise-tuner-ruler-playhead" aria-hidden="true" />
+        </div>
       </div>
       <div
         className="exercise-tuner-chart"
@@ -248,22 +303,13 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
         aria-valuenow={Math.min(duration, Math.max(0, position))}
         aria-valuetext={`${position.toFixed(1)} Sekunden`}
         aria-describedby="exercise-tuner-seek-hint"
-        onKeyDown={(event) => {
-          let next: number
-          if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next = position - 1
-          else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = position + 1
-          else if (event.key === 'Home') next = 0
-          else if (event.key === 'End') next = duration
-          else return
-          event.preventDefault()
-          next = Math.max(0, Math.min(duration, next))
-          if (next !== position) onSeek(next)
-        }}
+        onKeyDown={seekWithKeyboard}
         onPointerDown={(event) => {
           if (event.button !== 0 || !event.isPrimary || chartDrag.current || duration <= 0) return
           const width = event.currentTarget.getBoundingClientRect().width * CHART_PLOT_WIDTH / CHART_WIDTH
           if (width <= 0) return
           chartDrag.current = { pointerId: event.pointerId, x: event.clientX, position, width, last: position }
+          setDraggingChart(true)
           event.currentTarget.setPointerCapture(event.pointerId)
         }}
         onPointerMove={(event) => {
@@ -278,16 +324,23 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
         onPointerUp={(event) => {
           if (chartDrag.current?.pointerId !== event.pointerId) return
           chartDrag.current = null
+          setDraggingChart(false)
           if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         }}
         onPointerCancel={(event) => {
-          if (chartDrag.current?.pointerId === event.pointerId) chartDrag.current = null
+          if (chartDrag.current?.pointerId === event.pointerId) {
+            chartDrag.current = null
+            setDraggingChart(false)
+          }
         }}
         onLostPointerCapture={(event) => {
-          if (chartDrag.current?.pointerId === event.pointerId) chartDrag.current = null
+          if (chartDrag.current?.pointerId === event.pointerId) {
+            chartDrag.current = null
+            setDraggingChart(false)
+          }
         }}
       >
-        <PitchChart points={visibleLive} referencePoints={visibleReference} startMs={startMs} endMs={endMs} center={center} span={span} showPlayhead />
+        <PitchChart points={visibleLive} referencePoints={visibleReference} startMs={startMs} endMs={endMs} center={center} span={span} timeTicksMs={ticks.map((seconds) => seconds * 1000)} showPlayhead />
       </div>
       <p id="exercise-tuner-seek-hint" className="exercise-tuner-seek-hint">Zum Spulen das Diagramm ziehen oder die Pfeiltasten verwenden.</p>
       {controlsTarget && createPortal(
@@ -299,6 +352,26 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
       <div className="exercise-tuner-actions">
         <span><span className="exercise-reference-key">Referenz</span> · <span className="exercise-live-key">Mikrofon</span></span>
       </div>
+      {traceMenuTarget && createPortal(
+        <TooltipMenuButton
+          disabled={!selected || !clips.length || loading || !!workerError || selectedError || !reference.length}
+          title={!selected || !clips.length ? 'Keine Vocalspur mit Audioblöcken ausgewählt.' : loading ? 'Die Analyse der Vocalspur läuft noch.' : workerError || selectedError ? 'Die Vocalspur konnte nicht vollständig analysiert werden.' : undefined}
+          onClick={() => {
+            if (!selected) return
+            try {
+              const trace = createVocalDebugTrace(selected, tracks.indexOf(selected) + 1, settings.octaveSkipFrames, reference)
+              downloadVocalDebugTrace(trace)
+              setTraceError('')
+              onTraceDownload?.()
+            } catch (error) {
+              console.error('Debug-Trace konnte nicht heruntergeladen werden:', error)
+              setTraceError('Der Debug-Trace konnte nicht heruntergeladen werden.')
+              onTraceDownload?.()
+            }
+          }}
+        >Debug-Trace herunterladen</TooltipMenuButton>,
+        traceMenuTarget,
+      )}
       {settingsOpen && <TunerSettingsPanel settings={settings} storageError={settingsError} onChange={updateSettings} onClose={() => {
         setSettingsOpen(false)
         settingsButtonRef.current?.focus()

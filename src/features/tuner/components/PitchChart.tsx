@@ -12,9 +12,10 @@ type Props = {
   span: number
   referencePoints?: readonly PitchPoint[]
   showPlayhead?: boolean
+  timeTicksMs?: readonly number[]
 }
 
-export function PitchChart({ points, startMs, endMs, center, span, referencePoints, showPlayhead = false }: Props) {
+export function PitchChart({ points, startMs, endMs, center, span, referencePoints, showPlayhead = false, timeTicksMs }: Props) {
   const clipId = useId()
   const minMidi = center - span / 2
   const maxMidi = center + span / 2
@@ -47,8 +48,8 @@ export function PitchChart({ points, startMs, endMs, center, span, referencePoin
           </g>
         )
       })}
-      {Array.from({ length: 6 }, (_, index) => {
-        const x = CHART_LEFT + index * CHART_PLOT_WIDTH / 5
+      {(timeTicksMs ?? Array.from({ length: 6 }, (_, index) => startMs + index * (endMs - startMs) / 5)).map((time, index) => {
+        const x = CHART_LEFT + (time - startMs) / (endMs - startMs) * CHART_PLOT_WIDTH
         return (
           <g className="tuner-grid-time" key={index}>
             <line x1={x} x2={x} y1={CHART_TOP} y2={CHART_TOP + CHART_PLOT_HEIGHT} />

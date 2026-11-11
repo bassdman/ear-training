@@ -22,12 +22,26 @@ function renderAudiobook(path = '/audiobook') {
 }
 
 describe('Audiobook', () => {
-  beforeEach(() => localStorage.removeItem(AUDIOBOOK_STORAGE_KEY))
+  beforeEach(() => {
+    localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+  })
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
   })
+
+  it('zeigt den Debug-Trace im Projektmenü nur im Übungsmodus und deaktiviert ihn ohne Vocalspur', async () => {
+    localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'trace-song', name: 'Trace' }]))
+    vi.spyOn(audioStorage, 'readTracks').mockResolvedValue([])
+    renderAudiobook('/audiobook/trace-song/exercise')
+    await screen.findByRole('region', { name: 'Stimmgerät zum Üben' }, { timeout: 10000 })
+    fireEvent.click(screen.getByRole('button', { name: 'Projektoptionen' }))
+    expect(await screen.findByRole('button', { name: 'Debug-Trace herunterladen' }, { timeout: 10000 })).toBeDisabled()
+    fireEvent.click(screen.getByRole('link', { name: 'Edit' }))
+    expect(screen.queryByRole('button', { name: 'Debug-Trace herunterladen' })).not.toBeInTheDocument()
+  }, 15000)
 
   it('legt Projekte an, öffnet sie und bewahrt sie nach erneutem Laden', async () => {
     const view = renderAudiobook()

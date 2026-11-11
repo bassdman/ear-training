@@ -20,8 +20,13 @@ mittlere Linie markiert die aktuelle Songposition. Beim Springen wird der
 bisherige Mikrofonverlauf zurückgesetzt. Durch horizontales Ziehen des
 Stimmgerät-Diagramms oder mit den Pfeiltasten auf dem fokussierten Diagramm
 lässt sich die Wiedergabeposition auch während der Wiedergabe ändern.
+Die Zeitskala über dem Diagramm zeigt Songsekunden und ermöglicht das
+Springen per Klick oder Tastatur; sie bewegt sich synchron zum Diagramm.
+Die Tonhöhenansicht folgt Änderungen sanft und bleibt beim Ziehen auf ihrer
+aktuellen Höhe; nach dem Loslassen führt sie wieder automatisch nach.
 Die Mikrofonanalyse verwendet die
-Einstellungen des Stimm-Tuners, die Referenzanalyse dessen Standardwerte.
+Einstellungen des Stimm-Tuners; die Referenzanalyse verwendet Standardwerte
+und die eingestellte Anzahl übersprungener Oktav-Frames.
 Die Analyse wird beim erneuten Öffnen der Übungsansicht neu erzeugt und ist
 abhängig von Aufnahme und Stimmqualität nicht immer eindeutig. Für den
 Vergleich empfiehlt sich ein Kopfhörer, damit die Wiedergabe nicht vom
@@ -32,6 +37,14 @@ die Anzahl übersprungener Frames zwischen 0 und 100 einstellen (Standard: 2;
 0 deaktiviert den Filter). Ein anhaltender Oktavwechsel erscheint bei der
 nächsten passenden Messung. Änderungen analysieren die Vocal-Referenz erneut;
 nach einer Gesangspause beginnt die Erkennung ohne Vergleich zum vorherigen Ton.
+Im Übungsmodus lädt **Projektoptionen → Debug-Trace herunterladen** nach
+abgeschlossener Analyse die vollständige ausgewählte Vocalspur als JSON herunter,
+auch außerhalb des sichtbaren Ausschnitts. `timeSeconds` bezeichnet Sekunden
+seit Songbeginn; `frequencyHz` ist der angezeigte Wert, `rawFrequencyHz` der
+Wert vor dem Oktavfilter. `null` bedeutet eine Lücke, `clip-end` markiert das
+Ende eines Audioblocks. Die Datei enthält Spurkennung und Analyseparameter,
+aber weder Audiodaten noch Mikrofonaufnahmen. Bei fehlender oder fehlerhafter
+Analyse ist der Download deaktiviert.
 Auf der Projektseite legen die drei Schaltflächen eine leere Vocal-,
 Instrumental- oder Mixed-Spur an. Vocalspuren sind für Gesang, Instrumentalspuren
 für Instrumente und Mixed-Spuren für Aufnahmen mit beidem gedacht. Die Spurart

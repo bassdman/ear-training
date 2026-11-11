@@ -7,7 +7,9 @@ import { decodeWaveform } from './waveform'
 
 const AUDIO_EXTENSION = /\.(aac|aif|aiff|amr|caf|flac|m4a|m4b|mp3|mp4|mpga|oga|ogg|opus|wav|wave|webm)$/i
 
-export function ProjectTracks({ projectId, readOnly = false }: { projectId: string, readOnly?: boolean }) {
+export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
+  projectId: string, readOnly?: boolean, traceMenuTarget?: HTMLElement | null, onTraceDownload?: () => void
+}) {
   const [tracks, setTracks] = useState<AudioTrack[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -174,7 +176,7 @@ export function ProjectTracks({ projectId, readOnly = false }: { projectId: stri
       ) : (
         <>
           {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
-          <AudioTimeline tracks={tracks} readOnly={readOnly} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
+          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
           {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur

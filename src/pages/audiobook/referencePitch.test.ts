@@ -26,6 +26,8 @@ describe('Referenztonhöhen', () => {
     try {
       const points = analyzeReferencePitch({ id: 'clip', samples: new Float32Array(400), sampleRate: 1000, start: 5, octaveSkipFrames: 2 })
       expect(points.map((point) => point.frequency)).toEqual([220, null, 220, null, null, 440, null, 220])
+      expect(points.map((point) => point.rawFrequency)).toEqual([220, 440, 220, 440, 440, 440, null, 220])
+      expect(points[1].timeMs).toBe(5050)
     } finally {
       analyzer.mockRestore()
     }

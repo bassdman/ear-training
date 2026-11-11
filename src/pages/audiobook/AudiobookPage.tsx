@@ -17,6 +17,7 @@ export function AudiobookPage() {
   const [busy, setBusy] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
+  const [traceMenuTarget, setTraceMenuTarget] = useState<HTMLDivElement | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [renameError, setRenameError] = useState('')
@@ -143,6 +144,7 @@ export function AudiobookPage() {
                 <button ref={menuButtonRef} type="button" className="audiobook-project-menu-trigger" aria-label="Projektoptionen" aria-expanded={projectMenuOpen} onPointerDown={(event) => event.stopPropagation()} onClick={() => setProjectMenuOpen((open) => !open)}>...</button>
                 {projectMenuOpen && <TooltipMenu className="audiobook-project-menu" onClose={() => setProjectMenuOpen(false)}>
                   <TooltipMenuButton onClick={() => { setRenameValue(project.name); setRenameError(''); setRenaming(true); setProjectMenuOpen(false) }}>Projektnamen ändern</TooltipMenuButton>
+                  {isExercise && <div ref={setTraceMenuTarget} />}
                 </TooltipMenu>}
               </div>}
             </header>
@@ -183,7 +185,7 @@ export function AudiobookPage() {
           !error && <p>Lade Projekte ...</p>
         ) : projectId ? (
           project ? (
-            <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} />
+            <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} traceMenuTarget={isExercise ? traceMenuTarget : null} onTraceDownload={() => setProjectMenuOpen(false)} />
           ) : (
             <p>Dieses Projekt wurde nicht gefunden.</p>
           )

@@ -88,6 +88,8 @@
 }
 
 .audiobook-page .audiobook-project-menu button {
+  display: block;
+  width: 100%;
   padding: 8px;
   border: 1px solid var(--theme-border);
   background: var(--theme-surface);
@@ -171,6 +173,59 @@
   border-radius: 6px;
   background: #101923;
   color: #edf3fb;
+}
+
+.exercise-tuner-ruler-shell {
+  max-width: 400px;
+  margin: auto;
+}
+
+.exercise-tuner-ruler {
+  position: relative;
+  height: 38px;
+  overflow: hidden;
+  color: #b6c7d7;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.exercise-tuner-ruler:focus-visible {
+  outline: 2px solid #80d5ff;
+  outline-offset: -2px;
+}
+
+.exercise-tuner-tick {
+  position: absolute;
+  bottom: 0;
+  padding: 0 4px 12px;
+  white-space: nowrap;
+}
+
+.exercise-tuner-tick::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 8px;
+  border-left: 1px solid #b6c7d7;
+}
+
+.exercise-tuner-tick.is-right {
+  transform: translateX(-100%);
+}
+
+.exercise-tuner-tick.is-right::after {
+  left: auto;
+  right: 0;
+}
+
+.exercise-tuner-ruler-playhead {
+  position: absolute;
+  left: 52.5%;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid #e65d50;
+  pointer-events: none;
 }
 
 .exercise-tuner-chart {
