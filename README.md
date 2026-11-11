@@ -22,8 +22,10 @@ Stimmgerät-Diagramms oder mit den Pfeiltasten auf dem fokussierten Diagramm
 lässt sich die Wiedergabeposition auch während der Wiedergabe ändern.
 Die Zeitskala über dem Diagramm zeigt Songsekunden und ermöglicht das
 Springen per Klick oder Tastatur; sie bewegt sich synchron zum Diagramm.
-Die Tonhöhenansicht folgt Änderungen sanft und bleibt beim Ziehen auf ihrer
-aktuellen Höhe; nach dem Loslassen führt sie wieder automatisch nach.
+Die höhere Tonhöhenansicht zeigt mindestens drei Oktaven und bleibt stabil,
+solange die aktuellen Töne genügend Platz haben. Sie führt bei Bedarf sanft
+nach und bleibt beim Ziehen auf ihrer aktuellen Höhe; nach dem Loslassen
+führt sie wieder automatisch nach.
 Die Mikrofonanalyse verwendet die
 Einstellungen des Stimm-Tuners; die Referenzanalyse verwendet Standardwerte
 und die eingestellte Anzahl übersprungener Frames für große Tonsprünge.

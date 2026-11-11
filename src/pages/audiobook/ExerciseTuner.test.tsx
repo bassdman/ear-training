@@ -172,10 +172,14 @@ describe('Übungsstimmgerät', () => {
     rerender(<ExerciseTuner {...props} />)
     expect(noteY()).toBe(initialY)
     advance()
+    expect(noteY()).toBe(initialY)
+    mock.state = { ...mock.state, points: [{ timeMs: 175, frequency: 1760 }] }
+    rerender(<ExerciseTuner {...props} />)
+    advance()
     expect(noteY()).not.toBe(initialY)
     fireEvent.pointerDown(chart, { pointerId: 1, isPrimary: true, button: 0, clientX: 200 })
     const frozenY = noteY()
-    mock.state = { ...mock.state, points: [{ timeMs: 200, frequency: 1760 }] }
+    mock.state = { ...mock.state, points: [{ timeMs: 200, frequency: 3520 }] }
     rerender(<ExerciseTuner {...props} position={6} />)
     advance()
     expect(noteY()).toBe(frozenY)

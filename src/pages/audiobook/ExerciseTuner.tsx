@@ -222,11 +222,9 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
     : null
   const referenceMidi = nearest?.frequency ? frequencyToMidi(nearest.frequency) : null
   const liveMidi = centerFrequency ? frequencyToMidi(centerFrequency) : null
-  const targetCenter = referenceMidi !== null && liveMidi !== null
-    ? (referenceMidi + liveMidi) / 2
-    : referenceMidi ?? liveMidi
-  const targetSpan = referenceMidi !== null && liveMidi !== null ? Math.max(24, Math.abs(referenceMidi - liveMidi) + 4) : 24
-  const { center, span } = useSmoothPitchView(targetCenter, targetSpan, draggingChart)
+  const lowMidi = referenceMidi !== null && liveMidi !== null ? Math.min(referenceMidi, liveMidi) : referenceMidi ?? liveMidi
+  const highMidi = referenceMidi !== null && liveMidi !== null ? Math.max(referenceMidi, liveMidi) : referenceMidi ?? liveMidi
+  const { center, span } = useSmoothPitchView(lowMidi, highMidi, draggingChart)
   const reading = frequency ? describePitch(frequency) : null
   const selectedError = clips.some((clip) => decoded[clip.id]?.error || analysis[clip.id]?.error)
   const loading = clips.some((clip) => !decoded[clip.id]?.error && !analysis[clip.id])
@@ -342,7 +340,6 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
       >
         <PitchChart points={visibleLive} referencePoints={visibleReference} startMs={startMs} endMs={endMs} center={center} span={span} timeTicksMs={ticks.map((seconds) => seconds * 1000)} showPlayhead />
       </div>
-      <p id="exercise-tuner-seek-hint" className="exercise-tuner-seek-hint">Zum Spulen das Diagramm ziehen oder die Pfeiltasten verwenden.</p>
       {controlsTarget && createPortal(
         <button type="button" className="audiobook-secondary" onClick={tuner.status === 'listening' || tuner.status === 'starting' ? tuner.stop : () => void tuner.start()}>
           {tuner.status === 'starting' ? 'Mikrofonstart abbrechen' : tuner.status === 'listening' ? 'Mikrofon stoppen' : 'Mikrofon starten'}
