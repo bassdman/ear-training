@@ -5,6 +5,7 @@ import { getTrackClips, getTrackMix, getTrackType, type AudioClip, type AudioTra
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
 import { createProjectId } from './storage'
+import { ExerciseTuner } from './ExerciseTuner'
 
 const MIN_ZOOM = 5
 const MAX_ZOOM = 200
@@ -159,6 +160,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
   const [pendingExtent, setPendingExtent] = useState(0)
+  const [seekVersion, setSeekVersion] = useState(0)
   const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, x: number, initialStart: number, initialScroll: number, duration: number, moved: boolean, targetId?: string, direction: number, scroll: number, lastFrame?: number } | null>(null)
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
@@ -332,6 +334,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   return (
     <>
       {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
+      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} playing={transport.playing} seekVersion={seekVersion} />}
       {hasTracks && <div className="audiobook-timeline-section">
       <div className="audiobook-timeline-toolbar">
         <div>
@@ -356,14 +359,17 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
           aria-valuetext={`${transport.position.toFixed(1)} Sekunden`}
           onClick={(event) => {
             const x = event.clientX - event.currentTarget.getBoundingClientRect().left
+            setSeekVersion((current) => current + 1)
             transport.seek((viewStart + x) / zoom)
           }}
           onKeyDown={(event) => {
             if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
               event.preventDefault()
+              setSeekVersion((current) => current + 1)
               transport.seek(transport.position + (event.key === 'ArrowLeft' ? -1 : 1))
             } else if (event.key === 'Home' || event.key === 'End') {
               event.preventDefault()
+              setSeekVersion((current) => current + 1)
               transport.seek(event.key === 'Home' ? 0 : duration)
             }
           }}
@@ -389,6 +395,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
           const node = event.currentTarget
           setViewport({ width: node.clientWidth, offset: node.scrollLeft })
           if (Math.abs(node.scrollLeft - transport.position * zoom) > 0.5) {
+            setSeekVersion((current) => current + 1)
             transport.seek(node.scrollLeft / zoom)
           }
         }}

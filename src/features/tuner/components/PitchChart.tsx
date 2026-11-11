@@ -10,9 +10,11 @@ type Props = {
   endMs: number
   center: number
   span: number
+  referencePoints?: readonly PitchPoint[]
+  showPlayhead?: boolean
 }
 
-export function PitchChart({ points, startMs, endMs, center, span }: Props) {
+export function PitchChart({ points, startMs, endMs, center, span, referencePoints, showPlayhead = false }: Props) {
   const clipId = useId()
   const minMidi = center - span / 2
   const maxMidi = center + span / 2
@@ -54,8 +56,10 @@ export function PitchChart({ points, startMs, endMs, center, span }: Props) {
         )
       })}
       <g clipPath={`url(#${clipId})`}>
+        {referencePoints && <path className="tuner-reference-trace" d={buildPitchPath(referencePoints, startMs, endMs, center, span)} />}
         <path className="tuner-trace" d={path} />
       </g>
+      {showPlayhead && <line className="tuner-playhead" x1={CHART_LEFT + CHART_PLOT_WIDTH / 2} x2={CHART_LEFT + CHART_PLOT_WIDTH / 2} y1={CHART_TOP} y2={CHART_TOP + CHART_PLOT_HEIGHT} />}
     </svg>
   )
 }

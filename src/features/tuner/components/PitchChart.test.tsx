@@ -34,4 +34,15 @@ describe('PitchChart', () => {
     expect(container.querySelector('clipPath rect')).toHaveAttribute('width', String(CHART_PLOT_WIDTH))
     expect(container.querySelector('.tuner-trace')).toHaveAttribute('d', `M${CHART_LEFT.toFixed(2)} 282.00 L400.00 282.00`)
   })
+
+  it('zeichnet eine zusätzliche Referenz und die mittige Positionslinie', () => {
+    const { container } = render(<PitchChart
+      points={[{ timeMs: 2500, frequency: 440 }]}
+      referencePoints={[{ timeMs: 0, frequency: 220 }, { timeMs: 5000, frequency: 220 }]}
+      startMs={0} endMs={5000} center={63} span={24} showPlayhead
+    />)
+    expect(container.querySelector('.tuner-reference-trace')?.getAttribute('d')).toContain('L400.00')
+    expect(container.querySelector('.tuner-trace')?.getAttribute('d')).toContain('M210.00')
+    expect(container.querySelector('.tuner-playhead')).toHaveAttribute('x1', '210')
+  })
 })

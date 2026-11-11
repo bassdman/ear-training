@@ -167,7 +167,7 @@ export function ProjectTracks({ projectId, readOnly = false }: { projectId: stri
 
   return (
     <section aria-label="Audiospuren" className="audiobook-tracks">
-      {readOnly && <p className="audiobook-exercise-intro">Übungsansicht: Die Spuren sind schreibgeschützt. Das Stimmgerät folgt in einem nächsten Schritt.</p>}
+      {readOnly && <p className="audiobook-exercise-intro">Übungsansicht: Die Spuren sind schreibgeschützt.</p>}
       {error && <p className="audiobook-error" role="alert">{error}</p>}
       {mixError && <p className="audiobook-error" role="alert">{mixError}</p>}
       {tracks === null ? (

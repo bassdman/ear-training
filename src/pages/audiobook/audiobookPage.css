@@ -63,6 +63,72 @@
   color: var(--theme-muted);
 }
 
+.exercise-tuner {
+  padding: 16px;
+  border-radius: 8px;
+  background: #131a24;
+  color: #edf3fb;
+}
+
+.exercise-tuner-header,
+.exercise-tuner-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.exercise-tuner-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.exercise-tuner-header label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exercise-tuner-header select {
+  max-width: 220px;
+  padding: 8px;
+  border: 1px solid #697e90;
+  border-radius: 6px;
+  background: #101923;
+  color: #edf3fb;
+}
+
+.exercise-tuner-chart {
+  height: 300px;
+}
+
+.exercise-tuner-chart .tuner-chart {
+  height: 100%;
+}
+
+.exercise-tuner-chart .tuner-trace {
+  stroke-width: 1.5;
+}
+
+.tuner-reference-trace {
+  fill: none;
+  stroke: #f0ae55;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.tuner-playhead {
+  stroke: #e65d50;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.exercise-reference-key { color: #f0ae55; }
+.exercise-live-key { color: #80d5ff; }
+
 .audiobook-back {
   color: var(--theme-primary);
   text-decoration: none;

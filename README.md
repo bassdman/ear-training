@@ -7,8 +7,19 @@ Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
 Im Projekt führt die oben haftende Navigation zurück zur Projektliste oder
 zwischen **Edit** und **Exercise**. Exercise zeigt die gespeicherten Spuren
-schreibgeschützt mit Zeitleiste und Wiedergabe; das Stimmgerät wird dort später
-ergänzt. Änderungen an Spuren und Audioblöcken sind nur unter Edit möglich.
+schreibgeschützt mit Zeitleiste und Wiedergabe. Änderungen an Spuren und
+Audioblöcken sind nur unter Edit möglich.
+Beim Öffnen von Exercise werden die Tonhöhen aller Vocalspuren lokal im
+Hintergrund analysiert. Im Stimmgerät kann eine Vocalspur als orangefarbene
+Referenz ausgewählt werden. Mit **Mikrofon starten** wird der eigene Gesang
+erfasst und während der Wiedergabe blau über der Referenz angezeigt; die
+mittlere Linie markiert die aktuelle Songposition. Beim Springen wird der
+bisherige Mikrofonverlauf zurückgesetzt. Die Mikrofonanalyse verwendet die
+Einstellungen des Stimm-Tuners, die Referenzanalyse dessen Standardwerte.
+Die Analyse wird beim erneuten Öffnen der Übungsansicht neu erzeugt und ist
+abhängig von Aufnahme und Stimmqualität nicht immer eindeutig. Für den
+Vergleich empfiehlt sich ein Kopfhörer, damit die Wiedergabe nicht vom
+Mikrofon als eigener Gesang erfasst wird.
 Auf der Projektseite legen die drei Schaltflächen eine leere Vocal-,
 Instrumental- oder Mixed-Spur an. Vocalspuren sind für Gesang, Instrumentalspuren
 für Instrumente und Mixed-Spuren für Aufnahmen mit beidem gedacht. Die Spurart

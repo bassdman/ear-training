@@ -13,7 +13,7 @@ function renderAudiobook(path = '/audiobook') {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/audiobook/:projectId?" element={<AudiobookPage />}>
-          <Route path="exercise" />
+          <Route path="exercise" element={null} />
         </Route>
         <Route path="/" element={<p>Startseite</p>} />
       </Routes>
