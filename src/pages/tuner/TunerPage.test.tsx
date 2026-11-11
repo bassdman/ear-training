@@ -105,7 +105,7 @@ describe('TunerPage', () => {
   it('speichert die Anzahl übersprungener Oktav-Frames und lehnt ungültige Werte ab', () => {
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: 'Einstellungen öffnen' }))
-    const input = screen.getByLabelText('Oktavsprung: Frames überspringen')
+    const input = screen.getByLabelText('Große Tonsprünge: Frames überspringen')
     fireEvent.change(input, { target: { value: '0' } })
     expect(mocks.useLiveTuner).toHaveBeenLastCalledWith({ ...DEFAULT_TUNER_SETTINGS, octaveSkipFrames: 0 })
     fireEvent.change(input, { target: { value: '101' } })

@@ -33,6 +33,19 @@ describe('Referenztonhöhen', () => {
     }
   })
 
+  it('filtert im Debug-Trace beobachtete große Sprünge und behält ihre Rohwerte', () => {
+    const frequencies = [196.82843525927052, 446.4459060989098, 222.66966367604047]
+    const analyzer = vi.spyOn(pitch, 'createPitchAnalyzer').mockReturnValue(() => frequencies.shift() ?? null)
+    try {
+      const points = analyzeReferencePitch({ id: 'clip', samples: new Float32Array(150), sampleRate: 1000, start: 28.37667677878304, octaveSkipFrames: 1 })
+      expect(points.map((point) => point.frequency)).toEqual([196.82843525927052, null, 222.66966367604047])
+      expect(points[1].rawFrequency).toBe(446.4459060989098)
+      expect(points[1].timeMs / 1000).toBeCloseTo(28.42667677878304, 8)
+    } finally {
+      analyzer.mockRestore()
+    }
+  })
+
   it.each([
     [0, [220, 440, 440, 440]],
     [1, [220, null, 440, 440]],

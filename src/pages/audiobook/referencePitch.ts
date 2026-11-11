@@ -14,7 +14,7 @@ export type ReferencePitchPoint = PitchPoint & { rawFrequency: number | null }
 
 export function analyzeReferencePitch({ samples, sampleRate, start, octaveSkipFrames }: ReferencePitchJob): ReferencePitchPoint[] {
   if (!Number.isFinite(sampleRate) || sampleRate <= 0 || !Number.isFinite(start) || start < 0) throw new Error('Ungültige Audiodaten für die Tonhöhenanalyse')
-  if (!Number.isInteger(octaveSkipFrames) || octaveSkipFrames < 0 || octaveSkipFrames > 100) throw new Error('Ungültige Anzahl übersprungener Oktav-Frames')
+  if (!Number.isInteger(octaveSkipFrames) || octaveSkipFrames < 0 || octaveSkipFrames > 100) throw new Error('Ungültige Anzahl übersprungener Frames bei Tonsprüngen')
   const { analysisFftSize, analysisIntervalMs } = DEFAULT_TUNER_SETTINGS
   const analyze = createPitchAnalyzer(analysisFftSize, DEFAULT_TUNER_SETTINGS)
   const octaveFilter = createOctaveFilter(octaveSkipFrames)

@@ -100,6 +100,22 @@ describe('Live-Tuner', () => {
     expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
   })
 
+  it('unterdrückt auch größere Sprünge im Mikrofonsignal', async () => {
+    const { result } = renderHook(() => useLiveTuner())
+    await act(async () => { await result.current.start() })
+    time = 200
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
+    frequency = 1100
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeNull()
+    frequency = 440
+    time += 50
+    act(() => frame?.(time))
+    expect(result.current.points.at(-1)?.frequency).toBeCloseTo(440, 0)
+  })
+
   it('übernimmt geänderte Analyseparameter während der Aufnahme ohne Neustart', async () => {
     const initial = { ...DEFAULT_TUNER_SETTINGS }
     const { result, rerender } = renderHook(({ settings }) => useLiveTuner(settings), {

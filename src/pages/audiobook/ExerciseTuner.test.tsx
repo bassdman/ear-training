@@ -97,7 +97,8 @@ describe('Übungsstimmgerät', () => {
     expect(close).toHaveBeenCalledOnce()
     expect(download).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'p', track: { id: 'v1', name: 'Lead', number: 1 },
-      analysis: expect.objectContaining({ octaveSkipFrames: 2, analysisIntervalMs: 50 }),
+      version: 2,
+      analysis: expect.objectContaining({ octaveSkipFrames: 2, minimumJumpSemitones: 10, analysisIntervalMs: 50 }),
       points: [
         { timeSeconds: 4, clipId: 'a', kind: 'sample', frequencyHz: 220, note: 'A3', rawFrequencyHz: 220, rawNote: 'A3' },
         { timeSeconds: 4.05, clipId: 'a', kind: 'sample', frequencyHz: null, note: null, rawFrequencyHz: 440, rawNote: 'A4' },
@@ -250,7 +251,7 @@ describe('Übungsstimmgerät', () => {
     expect(oldWorker.jobs[0].octaveSkipFrames).toBe(2)
     act(() => oldWorker.complete('a', [{ timeMs: 0, frequency: 220 }]))
     fireEvent.click(screen.getByRole('button', { name: 'Stimmgerät-Einstellungen' }))
-    fireEvent.change(screen.getByLabelText('Oktavsprung: Frames überspringen'), { target: { value: '4' } })
+    fireEvent.change(screen.getByLabelText('Große Tonsprünge: Frames überspringen'), { target: { value: '4' } })
     expect(JSON.parse(localStorage.getItem(TUNER_SETTINGS_STORAGE_KEY) ?? '')).toEqual({ ...DEFAULT_TUNER_SETTINGS, octaveSkipFrames: 4 })
     const newWorker = TestWorker.instance
     expect(oldWorker.terminate).toHaveBeenCalledOnce()

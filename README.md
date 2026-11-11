@@ -26,22 +26,23 @@ Die Tonhöhenansicht folgt Änderungen sanft und bleibt beim Ziehen auf ihrer
 aktuellen Höhe; nach dem Loslassen führt sie wieder automatisch nach.
 Die Mikrofonanalyse verwendet die
 Einstellungen des Stimm-Tuners; die Referenzanalyse verwendet Standardwerte
-und die eingestellte Anzahl übersprungener Oktav-Frames.
+und die eingestellte Anzahl übersprungener Frames für große Tonsprünge.
 Die Analyse wird beim erneuten Öffnen der Übungsansicht neu erzeugt und ist
 abhängig von Aufnahme und Stimmqualität nicht immer eindeutig. Für den
 Vergleich empfiehlt sich ein Kopfhörer, damit die Wiedergabe nicht vom
 Mikrofon als eigener Gesang erfasst wird.
-Einzelne erkannte Oktavsprünge werden sowohl beim Mikrofon als auch in der
+Einzelne erkannte Tonsprünge ab 10 Halbtönen werden sowohl beim Mikrofon als auch in der
 Vocal-Referenz als Lücke ausgelassen. In den Stimmgerät-Einstellungen lässt sich
 die Anzahl übersprungener Frames zwischen 0 und 100 einstellen (Standard: 2;
-0 deaktiviert den Filter). Ein anhaltender Oktavwechsel erscheint bei der
-nächsten passenden Messung. Änderungen analysieren die Vocal-Referenz erneut;
+0 deaktiviert den Filter). Ein anhaltender großer Tonsprung erscheint bei der
+nächsten passenden Messung; auch echte große Intervalle werden entsprechend
+verzögert. Änderungen analysieren die Vocal-Referenz erneut;
 nach einer Gesangspause beginnt die Erkennung ohne Vergleich zum vorherigen Ton.
 Im Übungsmodus lädt **Projektoptionen → Debug-Trace herunterladen** nach
 abgeschlossener Analyse die vollständige ausgewählte Vocalspur als JSON herunter,
 auch außerhalb des sichtbaren Ausschnitts. `timeSeconds` bezeichnet Sekunden
 seit Songbeginn; `frequencyHz` ist der angezeigte Wert, `rawFrequencyHz` der
-Wert vor dem Oktavfilter. `null` bedeutet eine Lücke, `clip-end` markiert das
+Wert vor dem Tonsprungfilter. `null` bedeutet eine Lücke, `clip-end` markiert das
 Ende eines Audioblocks. Die Datei enthält Spurkennung und Analyseparameter,
 aber weder Audiodaten noch Mikrofonaufnahmen. Bei fehlender oder fehlerhafter
 Analyse ist der Download deaktiviert.

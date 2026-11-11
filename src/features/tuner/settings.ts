@@ -46,7 +46,7 @@ export function validateTunerSettings(value: TunerSettings): string | null {
     return 'Zeiten müssen ganze Millisekunden zwischen 1 und 600000 sein; der Lückenabstand muss größer als das Analyseintervall sein.'
   }
   if (!Number.isInteger(value.octaveSkipFrames) || value.octaveSkipFrames < 0 || value.octaveSkipFrames > 100) {
-    return 'Übersprungene Oktav-Frames müssen eine ganze Zahl zwischen 0 und 100 sein.'
+    return 'Übersprungene Frames bei Tonsprüngen müssen eine ganze Zahl zwischen 0 und 100 sein.'
   }
   return null
 }

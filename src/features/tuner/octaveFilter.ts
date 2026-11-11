@@ -1,8 +1,8 @@
 import { frequencyToMidi } from './pitch'
 import { DEFAULT_TUNER_SETTINGS } from './settings'
 
-const OCTAVE_SEMITONES = 12
-const OCTAVE_TOLERANCE = 1
+export const LARGE_PITCH_JUMP_SEMITONES = 10
+const CANDIDATE_TOLERANCE = 1
 
 export function createOctaveFilter(skipFrames = DEFAULT_TUNER_SETTINGS.octaveSkipFrames) {
   let accepted: number | null = null
@@ -25,8 +25,8 @@ export function createOctaveFilter(skipFrames = DEFAULT_TUNER_SETTINGS.octaveSki
     if (previousTime !== null && (timeMs < previousTime || timeMs - previousTime > maxGapMs)) reset()
     previousTime = timeMs
     const midi = frequencyToMidi(frequency)
-    if (accepted !== null && Math.abs(Math.abs(midi - frequencyToMidi(accepted)) - OCTAVE_SEMITONES) <= OCTAVE_TOLERANCE) {
-      if (candidate !== null && Math.abs(midi - frequencyToMidi(candidate)) <= OCTAVE_TOLERANCE) {
+    if (accepted !== null && Math.abs(midi - frequencyToMidi(accepted)) >= LARGE_PITCH_JUMP_SEMITONES - 1e-9) {
+      if (candidate !== null && Math.abs(midi - frequencyToMidi(candidate)) <= CANDIDATE_TOLERANCE) {
         count++
       } else {
         count = 1

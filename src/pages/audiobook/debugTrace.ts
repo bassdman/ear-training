@@ -1,4 +1,5 @@
 import { describePitch } from '../../features/tuner/pitch'
+import { LARGE_PITCH_JUMP_SEMITONES } from '../../features/tuner/octaveFilter'
 import { DEFAULT_TUNER_SETTINGS } from '../../features/tuner/settings'
 import type { AudioTrack } from './audioStorage'
 import type { ReferencePitchPoint } from './referencePitch'
@@ -12,15 +13,16 @@ export function createVocalDebugTrace(track: AudioTrack, trackNumber: number, oc
   const { minVolumeRms, minPitchClarity, minFrequencyHz, maxFrequencyHz, analysisFftSize, analysisIntervalMs, maxSampleGapMs } = DEFAULT_TUNER_SETTINGS
   return {
     format: 'ear-training-vocal-debug-trace',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     projectId: track.projectId,
     track: { id: track.id, name: track.name, number: trackNumber },
     analysis: {
       minVolumeRms, minPitchClarity, minFrequencyHz, maxFrequencyHz, analysisFftSize, analysisIntervalMs, maxSampleGapMs,
       octaveSkipFrames,
+      minimumJumpSemitones: LARGE_PITCH_JUMP_SEMITONES,
       timeUnit: 'seconds from song start',
-      description: 'frequencyHz is displayed after octave filtering; rawFrequencyHz is before filtering. null means no pitch. clip-end marks a display gap.',
+      description: 'frequencyHz is displayed after large pitch-jump filtering; rawFrequencyHz is before filtering. octaveSkipFrames is the configured number of skipped frames. null means no pitch. clip-end marks a display gap.',
     },
     points: points.map((point) => ({
       timeSeconds: point.timeMs / 1000,

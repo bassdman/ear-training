@@ -26,7 +26,7 @@ const fields: Field[] = [
   { key: 'analysisIntervalMs', label: 'Analyseintervall (ms)', hint: '1 bis 600000 ms. Kleiner aktualisiert häufiger, benötigt aber mehr Rechenleistung.', min: 1, max: 600000, step: 1 },
   { key: 'maxSampleGapMs', label: 'Maximaler Messabstand (ms)', hint: 'Größer als das Analyseintervall, höchstens 600000 ms. Längere Unterbrechungen erzeugen eine Lücke.', min: 1, max: 600000, step: 1 },
   { key: 'windowMs', label: 'Sichtbarer Verlauf (ms)', hint: '1 bis 600000 ms. Bereits verworfene ältere Messwerte können nicht wiederhergestellt werden.', min: 1, max: 600000, step: 1 },
-  { key: 'octaveSkipFrames', label: 'Oktavsprung: Frames überspringen', hint: '0 bis 100. So viele aufeinanderfolgende Oktavmessungen werden ausgelassen; 0 deaktiviert den Filter. Gilt für Mikrofon und Vocal-Referenz.', min: 0, max: 100, step: 1 },
+  { key: 'octaveSkipFrames', label: 'Große Tonsprünge: Frames überspringen', hint: '0 bis 100. Bei Sprüngen ab 10 Halbtönen werden so viele aufeinanderfolgende Messungen ausgelassen; 0 deaktiviert den Filter. Gilt für Mikrofon und Vocal-Referenz.', min: 0, max: 100, step: 1 },
 ]
 
 function strings(settings: TunerSettings): Record<keyof TunerSettings, string> {
