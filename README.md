@@ -5,6 +5,9 @@
 Über **Audiobook** auf der Startseite lassen sich Projekte für Lieder und
 Aufnahmen anlegen, öffnen und nach Bestätigung löschen. Die Projektnamen
 werden lokal im Browser gespeichert und sind an diesen Browser gebunden.
+In der Projektübersicht führen **Edit** und **Exercise** direkt in die jeweilige
+Ansicht. Das Menü **...** enthält die Löschoption mit Bestätigung; neue Projekte
+werden unterhalb der vorhandenen angelegt.
 Im Projekt führt die oben haftende Navigation zurück zur Projektliste oder
 zwischen **Edit** und **Exercise**. Exercise spielt die gespeicherten Spuren
 ab, ohne die Spuren oder die Editor-Zeitleiste anzuzeigen. Änderungen an

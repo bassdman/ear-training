@@ -16,6 +16,7 @@ export function AudiobookPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [listMenuId, setListMenuId] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [traceMenuTarget, setTraceMenuTarget] = useState<HTMLDivElement | null>(null)
   const [renaming, setRenaming] = useState(false)
@@ -91,6 +92,8 @@ export function AudiobookPage() {
 
   useEffect(() => {
     setProjectMenuOpen(false)
+    setListMenuId(null)
+    setDeleteId(null)
     setRenaming(false)
     setRenameError('')
   }, [projectId])
@@ -191,6 +194,45 @@ export function AudiobookPage() {
           )
         ) : (
           <>
+            <section className="audiobook-projects" aria-labelledby="audiobook-projects-title">
+              <h2 id="audiobook-projects-title">Deine Projekte</h2>
+              {projects.length === 0 ? (
+                <p className="audiobook-empty">Noch keine Projekte vorhanden. Füge dein erstes Lied oder deine erste Aufnahme hinzu.</p>
+              ) : (
+                <ul className="audiobook-list">
+                  {projects.map((item) => (
+                    <li className="audiobook-project" key={item.id}>
+                      <span className="audiobook-project-name">{item.name}</span>
+                      <div className="audiobook-project-actions">
+                        <Link className="audiobook-project-action" aria-label={`${item.name} bearbeiten`} to={`/audiobook/${encodeURIComponent(item.id)}`}>Edit</Link>
+                        <Link className="audiobook-project-action" aria-label={`${item.name} üben`} to={`/audiobook/${encodeURIComponent(item.id)}/exercise`}>Exercise</Link>
+                        <div className="audiobook-list-menu-anchor">
+                          <button type="button" className="audiobook-secondary audiobook-list-menu-trigger" aria-label={`Optionen für ${item.name}`}
+                            aria-expanded={listMenuId === item.id} disabled={busy} onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => { setDeleteId(null); setListMenuId((current) => current === item.id ? null : item.id) }}>...</button>
+                          {listMenuId === item.id && <TooltipMenu className="audiobook-list-menu" onClose={() => setListMenuId(null)}>
+                            <TooltipMenuButton className="audiobook-list-delete" disabled={busy} onClick={() => { setListMenuId(null); setDeleteId(item.id) }}>
+                              Projekt löschen
+                            </TooltipMenuButton>
+                          </TooltipMenu>}
+                        </div>
+                      </div>
+                      {deleteId === item.id ? (
+                        <div className="audiobook-delete-confirm">
+                          <span>„{item.name}“ wirklich löschen?</span>
+                          <button type="button" className="audiobook-danger" disabled={busy} onClick={() => void deleteProject(item.id)}>
+                            Endgültig löschen
+                          </button>
+                          <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => setDeleteId(null)}>
+                            Abbrechen
+                          </button>
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
             <form className="audiobook-create" onSubmit={createProject}>
               <label htmlFor="audiobook-project-name">Projektname</label>
               <div className="audiobook-create-row">
@@ -206,39 +248,6 @@ export function AudiobookPage() {
                 </button>
               </div>
             </form>
-
-            <section className="audiobook-projects" aria-labelledby="audiobook-projects-title">
-              <h2 id="audiobook-projects-title">Deine Projekte</h2>
-              {projects.length === 0 ? (
-                <p className="audiobook-empty">Noch keine Projekte vorhanden. Füge dein erstes Lied oder deine erste Aufnahme hinzu.</p>
-              ) : (
-                <ul className="audiobook-list">
-                  {projects.map((item) => (
-                    <li className="audiobook-project" key={item.id}>
-                      <Link className="audiobook-project-link" to={`/audiobook/${item.id}`}>
-                        <span>{item.name}</span>
-                        <span className="audiobook-open">Öffnen →</span>
-                      </Link>
-                      {deleteId === item.id ? (
-                        <div className="audiobook-delete-confirm">
-                          <span>„{item.name}“ wirklich löschen?</span>
-                          <button type="button" className="audiobook-danger" disabled={busy} onClick={() => void deleteProject(item.id)}>
-                            Endgültig löschen
-                          </button>
-                          <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => setDeleteId(null)}>
-                            Abbrechen
-                          </button>
-                        </div>
-                      ) : (
-                        <button type="button" className="audiobook-delete" aria-label={`${item.name} löschen`} disabled={busy} onClick={() => setDeleteId(item.id)}>
-                          Löschen
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
           </>
         )}
       </div>
