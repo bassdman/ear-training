@@ -85,7 +85,7 @@ describe('Übungsstimmgerät', () => {
     ]
     const buffer: AudioBuffer = { sampleRate: 2, duration: 3, length: 6, numberOfChannels: 1, getChannelData: () => new Float32Array(6), copyFromChannel: vi.fn(), copyToChannel: vi.fn() }
     const close = vi.fn()
-    const { unmount } = render(<ExerciseTuner tracks={tracks} decoded={{ a: { buffer }, b: { buffer } }} position={0} duration={9} playing={false} seekVersion={0} controlsTarget={null} onSeek={vi.fn()} traceMenuTarget={target} onTraceDownload={close} />)
+    const { unmount } = render(<ExerciseTuner tracks={tracks} decoded={{ a: { buffer }, b: { buffer } }} position={0} duration={9} playing={false} seekVersion={0} controlsTarget={document.body} onSeek={vi.fn()} traceMenuTarget={target} onTraceDownload={close} />)
     const button = screen.getByRole('button', { name: 'Debug-Trace herunterladen' })
     expect(button).toBeDisabled()
     act(() => TestWorker.instance.complete('a', [
@@ -105,7 +105,8 @@ describe('Übungsstimmgerät', () => {
         { timeSeconds: 5, clipId: 'a', kind: 'clip-end', frequencyHz: null, note: null, rawFrequencyHz: null, rawNote: null },
       ],
     }))
-    fireEvent.change(screen.getByLabelText('Vocalspur'), { target: { value: 'v2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Vocalspur auswählen' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Spur 2: Chor' }))
     expect(button).toBeDisabled()
     act(() => TestWorker.instance.complete('b', [{ timeMs: 8000, frequency: 440 }]))
     expect(button).toBeEnabled()
@@ -249,7 +250,7 @@ describe('Übungsstimmgerät', () => {
     const audio = new Blob(['a'])
     const tracks: AudioTrack[] = [{ id: 'v', projectId: 'p', type: 'vocal', name: 'Lead', createdAt: 1, clips: [{ id: 'a', name: 'a', audio, start: 0, duration: 1 }] }]
     const buffer: AudioBuffer = { sampleRate: 2, duration: 1, length: 2, numberOfChannels: 1, getChannelData: () => new Float32Array(2), copyFromChannel: vi.fn(), copyToChannel: vi.fn() }
-    const props = { tracks, decoded: { a: { buffer } }, position: 0, duration: 1, playing: false, seekVersion: 0, controlsTarget: document.body, onSeek: vi.fn() }
+    const props = { tracks, decoded: { a: { buffer } }, position: 0, duration: 1, playing: false, seekVersion: 0, controlsTarget: document.body, settingsTarget: document.body, onSeek: vi.fn() }
     const { unmount } = render(<ExerciseTuner {...props} />)
     const oldWorker = TestWorker.instance
     expect(oldWorker.jobs[0].octaveSkipFrames).toBe(2)
@@ -292,13 +293,49 @@ describe('Übungsstimmgerät', () => {
     act(() => worker.complete('a', [{ timeMs: 4000, frequency: 220 }, { timeMs: 4500, frequency: 220 }]))
     expect(worker.jobs.map((job) => job.id)).toEqual(['a', 'b'])
     expect(container.querySelector('.tuner-reference-trace')?.getAttribute('d')).toContain('L')
-    fireEvent.change(screen.getByLabelText('Vocalspur'), { target: { value: 'v2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Vocalspur auswählen' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Spur 2: Chor' }))
     expect(screen.getByRole('status')).toHaveTextContent('analysiert')
     act(() => worker.complete('b', [{ timeMs: 8000, frequency: 440 }]))
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(worker.jobs).toHaveLength(2)
     unmount()
     expect(worker.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('blendet die Vocalreferenz über das Menü aus und aktiviert eine andere Spur', () => {
+    vi.stubGlobal('Worker', TestWorker)
+    const audio = new Blob(['a'])
+    const tracks: AudioTrack[] = [
+      { id: 'v1', projectId: 'p', type: 'vocal', name: 'Lead', createdAt: 1, clips: [{ id: 'a', name: 'a', audio, start: 0, duration: 1 }] },
+      { id: 'v2', projectId: 'p', type: 'vocal', name: 'Chor', createdAt: 2, clips: [{ id: 'b', name: 'b', audio, start: 0, duration: 1 }] },
+    ]
+    const buffer: AudioBuffer = { sampleRate: 2, duration: 1, length: 2, numberOfChannels: 1, getChannelData: () => new Float32Array(2), copyFromChannel: vi.fn(), copyToChannel: vi.fn() }
+    const { container } = render(<ExerciseTuner tracks={tracks} decoded={{ a: { buffer }, b: { buffer } }} position={0} duration={1} playing={false} seekVersion={0} controlsTarget={document.body} onSeek={vi.fn()} />)
+    const worker = TestWorker.instance
+    act(() => worker.complete('a', [{ timeMs: 0, frequency: 220 }, { timeMs: 50, frequency: 220 }]))
+    act(() => worker.complete('b', [{ timeMs: 0, frequency: 440 }, { timeMs: 50, frequency: 440 }]))
+    const button = screen.getByRole('button', { name: 'Vocalspur auswählen' })
+    expect(button).toHaveClass('is-active')
+    expect(container.querySelector('.tuner-reference-trace')?.getAttribute('d')).toContain('L')
+    fireEvent.click(button)
+    expect(screen.getByRole('menuitemradio', { name: 'Spur 1: Lead' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Keine Referenz' }))
+    expect(button).not.toHaveClass('is-active')
+    expect(container.querySelector('.tuner-reference-trace')).toHaveAttribute('d', '')
+    fireEvent.click(button)
+    expect(screen.getByRole('menuitemradio', { name: 'Keine Referenz' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Spur 2: Chor' }))
+    expect(button).toHaveClass('is-active')
+    expect(container.querySelector('.tuner-reference-trace')?.getAttribute('d')).toContain('L')
+    fireEvent.click(button)
+    expect(screen.getByRole('menuitemradio', { name: 'Spur 2: Chor' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menuitemradio', { name: 'Spur 2: Chor' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('menuitemradio', { name: 'Spur 2: Chor' }), { key: 'ArrowDown' })
+    expect(screen.getByRole('menuitemradio', { name: 'Keine Referenz' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('menuitemradio', { name: 'Keine Referenz' }), { key: 'Escape' })
+    expect(screen.queryByRole('menu', { name: 'Vocal-Referenz' })).not.toBeInTheDocument()
+    expect(button).toHaveFocus()
   })
 
   it('zeigt Mikrofontöne synchron zur Wiedergabe und verwirft den Verlauf beim Springen', () => {

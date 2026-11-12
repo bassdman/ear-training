@@ -164,6 +164,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const [pendingExtent, setPendingExtent] = useState(0)
   const [seekVersion, setSeekVersion] = useState(0)
   const [microphoneTarget, setMicrophoneTarget] = useState<HTMLDivElement | null>(null)
+  const [settingsTarget, setSettingsTarget] = useState<HTMLDivElement | null>(null)
   const dragRef = useRef<{ pointerId: number, sourceId: string, clipId: string, startX: number, x: number, initialStart: number, initialScroll: number, duration: number, moved: boolean, targetId?: string, direction: number, scroll: number, lastFrame?: number } | null>(null)
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
@@ -337,7 +338,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   return (
     <>
       {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
-      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} duration={duration} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onSeek={(time) => {
+      {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} duration={duration} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} settingsTarget={settingsTarget} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onSeek={(time) => {
         setSeekVersion((current) => current + 1)
         transport.seek(time)
       }} />}
@@ -608,16 +609,17 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     </div>}
       <div className="audiobook-transport" aria-label="Wiedergabesteuerung">
         {transport.error && <p className="audiobook-transport-error" role="alert">{transport.error}</p>}
-        <div className="audiobook-transport-buttons">
+        <div className={`audiobook-transport-buttons${readOnly ? ' has-exercise-controls' : ''}`}>
           {
            transport.playing && <button type="button" className="audiobook-secondary" aria-label="Pause" disabled={!transport.playing && !transport.starting} onClick={transport.pause}>❚❚</button>
           }
           {
             !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={!ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
           }
-          {readOnly && <div ref={setMicrophoneTarget} />}
+          {readOnly && <div className="audiobook-exercise-controls" ref={setMicrophoneTarget} />}
         </div>
         <span className="audiobook-transport-time" aria-label="Aktuelle Wiedergabeposition">{transport.position.toFixed(1)} / {duration.toFixed(1)} s</span>
+        {readOnly && <div className="audiobook-transport-settings" ref={setSettingsTarget} />}
       </div>
     </>
   )

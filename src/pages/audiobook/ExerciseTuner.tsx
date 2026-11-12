@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 
-import { TooltipMenuButton } from '../../components/TooltipMenu'
+import { TooltipMenu, TooltipMenuButton } from '../../components/TooltipMenu'
 import { PitchChart } from '../../features/tuner/components/PitchChart'
 import { TunerSettingsPanel } from '../../features/tuner/components/TunerSettingsPanel'
 import { CHART_LEFT, CHART_PLOT_WIDTH, CHART_WIDTH } from '../../features/tuner/chartGeometry'
@@ -35,7 +35,7 @@ function makeJob(clip: AudioClip, buffer: AudioBuffer, octaveSkipFrames: number)
   return { id: clip.id, samples, sampleRate: buffer.sampleRate, start: clip.start, octaveSkipFrames }
 }
 
-export function ExerciseTuner({ tracks, decoded, position, duration, playing, seekVersion, controlsTarget, onSeek, traceMenuTarget = null, onTraceDownload }: {
+export function ExerciseTuner({ tracks, decoded, position, duration, playing, seekVersion, controlsTarget, settingsTarget = null, onSeek, traceMenuTarget = null, onTraceDownload }: {
   tracks: AudioTrack[]
   decoded: Decoded
   position: number
@@ -43,6 +43,7 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   playing: boolean
   seekVersion: number
   controlsTarget: HTMLElement | null
+  settingsTarget?: HTMLElement | null
   onSeek: (time: number) => void
   traceMenuTarget?: HTMLElement | null
   onTraceDownload?: () => void
@@ -51,7 +52,11 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   const [settings, setSettings] = useState(stored.settings)
   const [settingsError, setSettingsError] = useState(stored.error)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [vocalMenuOpen, setVocalMenuOpen] = useState(false)
+  const [referenceEnabled, setReferenceEnabled] = useState(true)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const vocalButtonRef = useRef<HTMLButtonElement>(null)
+  const vocalMenuRef = useRef<HTMLDivElement>(null)
   const chartDrag = useRef<{ pointerId: number, x: number, position: number, width: number, last: number } | null>(null)
   const [draggingChart, setDraggingChart] = useState(false)
   const tuner = useLiveTuner(settings)
@@ -72,6 +77,10 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   const vocalTracks = tracks.filter((track) => getTrackType(track) === 'vocal')
   const hasVocalTracks = vocalTracks.length > 0
   const selected = vocalTracks.find((track) => track.id === selectedId) ?? vocalTracks[0]
+
+  useEffect(() => {
+    if (vocalMenuOpen) vocalMenuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus()
+  }, [vocalMenuOpen])
 
   const updateSettings = (next: TunerSettings) => {
     setSettings(next)
@@ -214,7 +223,8 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
   const visibleReference: PitchPoint[] = []
   for (let i = low; i < reference.length && reference[i].timeMs <= endMs + 100; i++) visibleReference.push(reference[i])
   const visibleLive = livePoints.filter((point) => point.timeMs >= startMs - 100 && point.timeMs <= endMs + 100)
-  const nearest = visibleReference.filter((point) => point.frequency !== null).reduce<PitchPoint | undefined>((best, point) =>
+  const displayedReference = referenceEnabled ? visibleReference : []
+  const nearest = displayedReference.filter((point) => point.frequency !== null).reduce<PitchPoint | undefined>((best, point) =>
     !best || Math.abs(point.timeMs - centerMs) < Math.abs(best.timeMs - centerMs) ? point : best, undefined)
   const frequency = tuner.status === 'listening' ? tuner.points.at(-1)?.frequency ?? null : null
   const centerFrequency = tuner.status === 'listening'
@@ -242,16 +252,6 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
 
   return (
     <section className="exercise-tuner" aria-label="Stimmgerät zum Üben">
-      <div className="exercise-tuner-header">
-        <h2>Stimmgerät</h2>
-        <label>Vocalspur
-          <select value={selected?.id ?? ''} disabled={!vocalTracks.length} onChange={(event) => setSelectedId(event.target.value)}>
-            {!vocalTracks.length && <option value="">Keine Vocalspur</option>}
-            {vocalTracks.map((track) => <option key={track.id} value={track.id}>Spur {tracks.indexOf(track) + 1}{track.name ? `: ${track.name}` : ''}</option>)}
-          </select>
-        </label>
-        <button ref={settingsButtonRef} type="button" className="audiobook-secondary" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}>Stimmgerät-Einstellungen</button>
-      </div>
       {!vocalTracks.length && <p>Füge im Editmodus eine Vocalspur hinzu, um eine Referenz anzuzeigen.</p>}
       {selected && clips.length === 0 && <p>Diese Vocalspur enthält noch keine Audioblöcke.</p>}
       {loading && !workerError && <p role="status">Tonhöhen der Vocalspur werden analysiert …</p>}
@@ -338,13 +338,55 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
           }
         }}
       >
-        <PitchChart points={visibleLive} referencePoints={visibleReference} startMs={startMs} endMs={endMs} center={center} span={span} timeTicksMs={ticks.map((seconds) => seconds * 1000)} showPlayhead />
+        <PitchChart points={visibleLive} referencePoints={displayedReference} startMs={startMs} endMs={endMs} center={center} span={span} timeTicksMs={ticks.map((seconds) => seconds * 1000)} showPlayhead />
       </div>
       {controlsTarget && createPortal(
-        <button type="button" className="audiobook-secondary" onClick={tuner.status === 'listening' || tuner.status === 'starting' ? tuner.stop : () => void tuner.start()}>
-          {tuner.status === 'starting' ? 'Mikrofonstart abbrechen' : tuner.status === 'listening' ? 'Mikrofon stoppen' : 'Mikrofon starten'}
-        </button>,
+        <>
+          <button type="button" className="audiobook-secondary" onClick={tuner.status === 'listening' || tuner.status === 'starting' ? tuner.stop : () => void tuner.start()}>
+            {tuner.status === 'starting' ? 'Mikrofonstart abbrechen' : tuner.status === 'listening' ? 'Mikrofon stoppen' : 'Mikrofon starten'}
+          </button>
+          <div className="exercise-vocal-menu-anchor" onKeyDown={(event) => {
+            if (event.key === 'Escape' && vocalMenuOpen) {
+              event.stopPropagation()
+              setVocalMenuOpen(false)
+              vocalButtonRef.current?.focus()
+            }
+          }}>
+            <button ref={vocalButtonRef} type="button" className={`audiobook-secondary exercise-vocal-button${referenceEnabled && selected ? ' is-active' : ''}`}
+              aria-label="Vocalspur auswählen" aria-haspopup="menu" aria-expanded={vocalMenuOpen}
+              title={referenceEnabled && selected ? 'Vocal-Referenz aktiv' : 'Vocal-Referenz aus'}
+              onPointerDown={(event) => event.stopPropagation()} onClick={() => setVocalMenuOpen((open) => !open)}>V</button>
+            {vocalMenuOpen && <TooltipMenu className="exercise-vocal-menu" onClose={() => setVocalMenuOpen(false)}>
+              <div ref={vocalMenuRef} role="menu" aria-label="Vocal-Referenz" onKeyDown={(event) => {
+                if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+                const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')]
+                if (!items.length) return
+                event.preventDefault()
+                const current = items.findIndex((item) => item === document.activeElement)
+                const index = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+                  : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+                items[index].focus()
+              }}>
+                <TooltipMenuButton role="menuitemradio" aria-checked={!referenceEnabled || !selected} onClick={() => { setReferenceEnabled(false); setVocalMenuOpen(false); vocalButtonRef.current?.focus() }}>Keine Referenz</TooltipMenuButton>
+                {vocalTracks.map((track) => <TooltipMenuButton key={track.id} role="menuitemradio" aria-checked={referenceEnabled && selected?.id === track.id}
+                  onClick={() => { setSelectedId(track.id); setReferenceEnabled(true); setVocalMenuOpen(false); vocalButtonRef.current?.focus() }}>
+                  Spur {tracks.indexOf(track) + 1}{track.name ? `: ${track.name}` : ''}
+                </TooltipMenuButton>)}
+              </div>
+            </TooltipMenu>}
+          </div>
+        </>,
         controlsTarget,
+      )}
+      {settingsTarget && createPortal(
+        <button ref={settingsButtonRef} type="button" className="audiobook-secondary exercise-settings-button"
+          aria-label="Stimmgerät-Einstellungen" title="Stimmgerät-Einstellungen" aria-haspopup="dialog" aria-expanded={settingsOpen}
+          onClick={() => { setVocalMenuOpen(false); setSettingsOpen(true) }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>,
+        settingsTarget,
       )}
       <div className="exercise-tuner-actions">
         <span><span className="exercise-reference-key">Referenz</span> · <span className="exercise-live-key">Mikrofon</span></span>

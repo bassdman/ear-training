@@ -56,6 +56,9 @@ describe('gemeinsame Zeitleiste', () => {
     const bar = screen.getByLabelText('Wiedergabesteuerung')
     expect(within(bar).getByRole('button', { name: 'Mikrofon starten' })).toBeInTheDocument()
     expect(within(bar).getByRole('button', { name: 'Abspielen' })).toBeEnabled()
+    expect(within(bar).getByRole('button', { name: 'Vocalspur auswählen' })).toBeInTheDocument()
+    expect(within(bar).getByRole('button', { name: 'Stimmgerät-Einstellungen' })).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Stimmgerät zum Üben' })).queryByRole('button', { name: 'Stimmgerät-Einstellungen' })).not.toBeInTheDocument()
   })
 
   it('spult im Übungsmodus über das Stimmgerät und setzt die Wiedergabe fort', async () => {

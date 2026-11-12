@@ -12,8 +12,10 @@ Spuren und Audioblöcken sind nur unter Edit möglich.
 Über **...** in der Projektleiste lässt sich der Projektname ändern; die
 Spuren und die Projektadresse bleiben dabei erhalten.
 Beim Öffnen von Exercise werden die Tonhöhen aller Vocalspuren lokal im
-Hintergrund analysiert. Im Stimmgerät kann eine Vocalspur als orangefarbene
-Referenz ausgewählt werden. Mit **Mikrofon starten** in der unteren
+Hintergrund analysiert. Über **V** in der unteren Wiedergabeleiste kann eine
+Vocalspur als orangefarbene Referenz ausgewählt oder die Referenz ausgeblendet
+werden. Der Button ist bei aktiver Referenz grün. Die Stimmgerät-Einstellungen
+öffnen sich über das Menü-Symbol rechts in der Leiste. Mit **Mikrofon starten** in der unteren
 Wiedergabeleiste wird der eigene Gesang
 erfasst und während der Wiedergabe blau über der Referenz angezeigt; die
 mittlere Linie markiert die aktuelle Songposition. Beim Springen wird der
