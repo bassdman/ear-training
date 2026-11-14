@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import 'fake-indexeddb/auto'
@@ -50,6 +50,22 @@ describe('App', () => {
     const view = render(<MemoryRouter initialEntries={['/audiobook/song/exercise']}><App /></MemoryRouter>)
     expect(await screen.findByRole('region', { name: 'Stimmgerät zum Üben' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('aria-current', 'page')
+    view.unmount()
+    localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
+  })
+
+  it('öffnet Lyrics und PDFs über einen direkten Projektlink und navigiert zwischen den Ansichten', async () => {
+    localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'song-details', name: 'Mein Lied' }]))
+    const view = render(<MemoryRouter initialEntries={['/audiobook/song-details/details']}><App /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Lyrics' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Weitere Dokumente' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Lyrics & PDFs' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Edit' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('link', { name: 'Exercise' })).toHaveAttribute('href', '/audiobook/song-details/exercise')
+    fireEvent.click(screen.getByRole('link', { name: 'Edit' }))
+    expect(await screen.findByRole('button', { name: 'Mixed-Spur' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Lyrics & PDFs' }))
+    expect(await screen.findByRole('heading', { name: 'Lyrics' })).toBeInTheDocument()
     view.unmount()
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
   })

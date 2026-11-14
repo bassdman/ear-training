@@ -45,7 +45,7 @@
 
 .audiobook-project-nav {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   height: 48px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--theme-border);
@@ -130,6 +130,56 @@
 .audiobook-project-tab[aria-current="page"] {
   border-bottom-color: var(--theme-primary);
   color: var(--theme-primary);
+}
+
+.audiobook-details {
+  display: grid;
+  gap: 24px;
+  padding: 16px 0;
+}
+
+.audiobook-details-card {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 16px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-surface);
+}
+
+.audiobook-details-card h3 {
+  margin: 0 0 8px;
+}
+
+.audiobook-details-card label {
+  font-weight: 600;
+}
+
+.audiobook-details-card input,
+.audiobook-details-card textarea,
+.audiobook-details-card select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  background: var(--theme-background);
+  color: var(--theme-ink);
+  font: inherit;
+}
+
+.audiobook-details-card textarea {
+  resize: vertical;
+}
+
+.audiobook-details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .audiobook-project-nav a:focus-visible,

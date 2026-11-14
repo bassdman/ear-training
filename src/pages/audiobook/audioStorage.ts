@@ -3,7 +3,12 @@ import { createProjectId } from './storage'
 const DATABASE_NAME = 'ear-training-audiobook'
 const STORE_NAME = 'tracks'
 const AUDIO_STORE = 'audio'
+const LYRICS_STORE = 'lyrics'
+const DOCUMENT_STORE = 'documents'
 const PROJECT_INDEX = 'projectId'
+
+export type ProjectLyrics = { id: string, projectId: string, text: string, trackId: string | null, createdAt: number }
+export type ProjectDocument = { id: string, projectId: string, name: string, description: string, pdf: Blob, createdAt: number }
 
 export type TrackType = 'vocal' | 'instrumental' | 'mixed'
 
@@ -58,14 +63,19 @@ export function getTrackMix(track: AudioTrack): TrackMix {
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, 2)
+    const request = indexedDB.open(DATABASE_NAME, 3)
     let blocked = false
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE_NAME)) {
         const store = request.result.createObjectStore(STORE_NAME, { keyPath: 'id' })
         store.createIndex(PROJECT_INDEX, 'projectId')
       }
-      request.result.createObjectStore(AUDIO_STORE, { keyPath: 'id' })
+      if (!request.result.objectStoreNames.contains(AUDIO_STORE)) request.result.createObjectStore(AUDIO_STORE, { keyPath: 'id' })
+      for (const name of [LYRICS_STORE, DOCUMENT_STORE]) {
+        if (!request.result.objectStoreNames.contains(name)) {
+          request.result.createObjectStore(name, { keyPath: 'id' }).createIndex(PROJECT_INDEX, 'projectId')
+        }
+      }
     }
     request.onerror = () => reject(request.error)
     request.onblocked = () => {
@@ -104,6 +114,14 @@ async function withStore<T>(
 
 function sortTracks(tracks: AudioTrack[]) {
   return tracks.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+}
+
+export async function readVocalTracks(projectId: string): Promise<Pick<AudioTrack, 'id' | 'name'>[]> {
+  const tracks = await withStore<StoredTrack[]>('readonly', (store) => store.index(PROJECT_INDEX).getAll(projectId))
+  return tracks.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+    .map((track, index) => ({ track, name: track.name ? `Spur ${index + 1}: ${track.name}` : `Spur ${index + 1}` }))
+    .filter(({ track }) => getTrackType(track) === 'vocal')
+    .map(({ track, name }) => ({ id: track.id, name }))
 }
 
 export async function readTracks(projectId: string): Promise<AudioTrack[]> {
@@ -427,7 +445,7 @@ export async function deleteTrack(trackId: string): Promise<void> {
   const db = await openDatabase()
   try {
     await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE, LYRICS_STORE], 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
       const request = store.get(trackId)
       let failure: Error | undefined
@@ -441,6 +459,15 @@ export async function deleteTrack(trackId: string): Promise<void> {
         const ids = new Set(storedClips(track).flatMap((clip) => clip.audioId ? [clip.audioId] : []))
         store.delete(trackId)
         deleteUnreferencedAudio(store, transaction.objectStore(AUDIO_STORE), track.projectId, ids)
+        const lyricsStore = transaction.objectStore(LYRICS_STORE)
+        const lyricsRequest = lyricsStore.index(PROJECT_INDEX).openCursor(track.projectId)
+        lyricsRequest.onsuccess = () => {
+          const cursor = lyricsRequest.result
+          if (!cursor) return
+          const lyrics: ProjectLyrics = cursor.value
+          if (lyrics.trackId === trackId) cursor.update({ ...lyrics, trackId: null })
+          cursor.continue()
+        }
       }
       transaction.oncomplete = () => resolve()
       transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
@@ -479,7 +506,7 @@ export async function deleteProjectTracks(projectId: string): Promise<void> {
   const db = await openDatabase()
   try {
     await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE, LYRICS_STORE, DOCUMENT_STORE], 'readwrite')
       const request = transaction.objectStore(STORE_NAME).index(PROJECT_INDEX).openKeyCursor(projectId)
       request.onsuccess = () => {
         const cursor = request.result
@@ -487,13 +514,20 @@ export async function deleteProjectTracks(projectId: string): Promise<void> {
           transaction.objectStore(STORE_NAME).delete(cursor.primaryKey)
           cursor.continue()
         }
-        const audioCursor = transaction.objectStore(AUDIO_STORE).openCursor()
-        audioCursor.onsuccess = () => {
-          const cursor = audioCursor.result
-          if (cursor) {
-            if (cursor.value.projectId === projectId) cursor.delete()
-            cursor.continue()
-          }
+      }
+      const audioCursor = transaction.objectStore(AUDIO_STORE).openCursor()
+      audioCursor.onsuccess = () => {
+        const cursor = audioCursor.result
+        if (cursor) {
+          if (cursor.value.projectId === projectId) cursor.delete()
+          cursor.continue()
+        }
+      }
+      for (const name of [LYRICS_STORE, DOCUMENT_STORE]) {
+        const cursorRequest = transaction.objectStore(name).index(PROJECT_INDEX).openCursor(projectId)
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result
+          if (cursor) { cursor.delete(); cursor.continue() }
         }
       }
       transaction.oncomplete = () => resolve()
@@ -503,4 +537,67 @@ export async function deleteProjectTracks(projectId: string): Promise<void> {
   } finally {
     db.close()
   }
+}
+
+async function projectStoreRequest<T>(name: string, mode: IDBTransactionMode, operation: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  const db = await openDatabase()
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const transaction = db.transaction(name, mode)
+      const request = operation(transaction.objectStore(name))
+      transaction.oncomplete = () => resolve(request.result)
+      transaction.onabort = () => reject(transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function readProjectLyrics(projectId: string): Promise<ProjectLyrics[]> {
+  const entries = await projectStoreRequest<ProjectLyrics[]>(LYRICS_STORE, 'readonly', (store) => store.index(PROJECT_INDEX).getAll(projectId))
+  return entries.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+}
+
+export async function saveProjectLyrics(lyrics: ProjectLyrics): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([LYRICS_STORE, STORE_NAME], 'readwrite')
+      let failure: Error | undefined
+      const save = () => transaction.objectStore(LYRICS_STORE).put(lyrics)
+      if (lyrics.trackId) {
+        const request = transaction.objectStore(STORE_NAME).get(lyrics.trackId)
+        request.onsuccess = () => {
+          const track: StoredTrack | undefined = request.result
+          if (!track || track.projectId !== lyrics.projectId || getTrackType(track) !== 'vocal') {
+            failure = new Error('Vocalspur nicht gefunden')
+            transaction.abort()
+          } else save()
+        }
+      } else save()
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function deleteProjectLyrics(id: string): Promise<void> {
+  await projectStoreRequest(LYRICS_STORE, 'readwrite', (store) => store.delete(id))
+}
+
+export async function readProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
+  const entries = await projectStoreRequest<ProjectDocument[]>(DOCUMENT_STORE, 'readonly', (store) => store.index(PROJECT_INDEX).getAll(projectId))
+  return entries.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+}
+
+export async function saveProjectDocument(document: ProjectDocument): Promise<void> {
+  await projectStoreRequest(DOCUMENT_STORE, 'readwrite', (store) => store.put(document))
+}
+
+export async function deleteProjectDocument(id: string): Promise<void> {
+  await projectStoreRequest(DOCUMENT_STORE, 'readwrite', (store) => store.delete(id))
 }

@@ -5,11 +5,13 @@ import { TooltipMenu, TooltipMenuButton } from '../../components/TooltipMenu'
 import { createProjectId, readProjects, writeProjects, type AudiobookProject } from './storage'
 import { deleteProjectTracks } from './audioStorage'
 import { ProjectTracks } from './ProjectTracks'
+import { ProjectDetails } from './ProjectDetails'
 import './audiobookPage.css'
 
 export function AudiobookPage() {
   const { projectId } = useParams()
   const isExercise = useMatch('/audiobook/:projectId/exercise') !== null
+  const isDetails = useMatch('/audiobook/:projectId/details') !== null
   const navigate = useNavigate()
   const [projects, setProjects] = useState<AudiobookProject[] | null>(null)
   const [name, setName] = useState('')
@@ -74,10 +76,10 @@ export function AudiobookPage() {
         } catch {
           setProjects(updated)
           setDeleteId(null)
-          setError('Das Projekt wurde gelöscht, aber seine Audiodaten konnten nicht entfernt werden.')
+          setError('Das Projekt wurde gelöscht, aber seine Projektdaten konnten nicht entfernt werden.')
           return
         }
-        setError('Die Audiodaten konnten nicht gelöscht werden. Das Projekt wurde beibehalten.')
+        setError('Die Projektdaten konnten nicht gelöscht werden. Das Projekt wurde beibehalten.')
         return
       }
       setProjects(updated)
@@ -152,7 +154,8 @@ export function AudiobookPage() {
               </div>}
             </header>
             <nav className="audiobook-project-nav" aria-label="Projektansichten">
-              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise ? 'page' : undefined}>Edit</Link>
+              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise && !isDetails ? 'page' : undefined}>Edit</Link>
+              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/details`} aria-current={isDetails ? 'page' : undefined}>Lyrics &amp; PDFs</Link>
               <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/exercise`} aria-current={isExercise ? 'page' : undefined}>Exercise</Link>
             </nav>
           </div>
@@ -188,7 +191,8 @@ export function AudiobookPage() {
           !error && <p>Lade Projekte ...</p>
         ) : projectId ? (
           project ? (
-            <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} traceMenuTarget={isExercise ? traceMenuTarget : null} onTraceDownload={() => setProjectMenuOpen(false)} />
+            isDetails ? <ProjectDetails key={project.id} projectId={project.id} /> :
+              <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} traceMenuTarget={isExercise ? traceMenuTarget : null} onTraceDownload={() => setProjectMenuOpen(false)} />
           ) : (
             <p>Dieses Projekt wurde nicht gefunden.</p>
           )

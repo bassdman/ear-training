@@ -181,7 +181,7 @@ describe('ProjectTracks', () => {
       { start: 22, sourceStart: 6, duration: 4 },
     ])
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('ear-training-audiobook', 2)
+      const request = indexedDB.open('ear-training-audiobook')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -219,7 +219,7 @@ describe('ProjectTracks', () => {
     const sameTrackCopy = audioStorage.getTrackClips(rows.find((track) => track.id === source.id)!)[1]
     expect(sameTrackCopy).toMatchObject({ start: 10, duration: 10, audioId: original.audioId })
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('ear-training-audiobook', 2)
+      const request = indexedDB.open('ear-training-audiobook')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -258,7 +258,7 @@ describe('ProjectTracks', () => {
     expect(audioStorage.getTrackClips(rows.find((track) => track.id === target.id)!)[0]).toMatchObject({ id: second.id, sourceStart: 4, duration: 6 })
 
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('ear-training-audiobook', 2)
+      const request = indexedDB.open('ear-training-audiobook')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -291,7 +291,7 @@ describe('ProjectTracks', () => {
     expect(remaining).toHaveLength(1)
     expect(audioStorage.getTrackClips(remaining[0])[0]).toMatchObject({ id: second.id, audioId: first.audioId, sourceStart: 4 })
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('ear-training-audiobook', 2)
+      const request = indexedDB.open('ear-training-audiobook')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })

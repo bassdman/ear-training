@@ -22,6 +22,7 @@ function App() {
       <Route path="/tuner" element={<TunerPage />} />
       <Route path="/converter" element={<ConverterPage />} />
       <Route path="/audiobook/:projectId?" element={<AudiobookPage />}>
+        <Route path="details" element={null} />
         <Route path="exercise" element={null} />
       </Route>
       <Route

@@ -9,7 +9,15 @@ In der Projektübersicht führen **Edit** und **Exercise** direkt in die jeweili
 Ansicht. Das Menü **...** enthält die Löschoption mit Bestätigung; neue Projekte
 werden unterhalb der vorhandenen angelegt.
 Im Projekt führt die oben haftende Navigation zurück zur Projektliste oder
-zwischen **Edit** und **Exercise**. Exercise spielt die gespeicherten Spuren
+zwischen **Edit**, **Lyrics & PDFs** und **Exercise**. Unter **Lyrics & PDFs**
+lassen sich mehrere Liedtexte erstellen und optional Vocalspuren zuweisen.
+Änderungen werden jeweils über **Liedtext speichern** gesichert. Wird eine
+Vocalspur gelöscht, bleibt der Text ohne Zuordnung erhalten. Darunter können
+beliebig viele PDFs mit Namen und optionaler Beschreibung hinzugefügt,
+geöffnet, bearbeitet und gelöscht werden. Änderungen an Name oder Beschreibung
+werden mit **Dokument speichern** gesichert. Liedtexte und PDFs werden lokal
+in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
+Exercise spielt die gespeicherten Spuren
 ab, ohne die Spuren oder die Editor-Zeitleiste anzuzeigen. Änderungen an
 Spuren und Audioblöcken sind nur unter Edit möglich.
 Über **...** in der Projektleiste lässt sich der Projektname ändern; die
