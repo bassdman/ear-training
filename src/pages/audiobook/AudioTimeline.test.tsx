@@ -188,6 +188,22 @@ describe('gemeinsame Zeitleiste', () => {
     expect(decodeWaveform).toHaveBeenCalledTimes(2)
   })
 
+  it('dekodiert eine Aufnahme mit vielen Schnitten nur einmal und macht alle Blöcke abspielbar', async () => {
+    const audio = new Blob(['shared'])
+    let finish: (value: Awaited<ReturnType<typeof decodeWaveform>>) => void = () => {}
+    vi.mocked(decodeWaveform).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    const clips = Array.from({ length: 1200 }, (_, index) => ({
+      id: `clip-${index}`, name: 'Wort', audio, start: index * 0.25, sourceStart: 0, duration: 0.2,
+    }))
+    const many: AudioTrack[] = [{ id: 'vocal', projectId: 'project', type: 'vocal', name: '', createdAt: 1, clips }]
+    render(<AudioTimeline tracks={many} onMixChange={vi.fn()} {...importProps} />)
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    act(() => finish({ buffer: { duration: 30 } as AudioBuffer, waveform: { duration: 30, peaks: new Float32Array(3000), peaksPerSecond: 100 } }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    expect(decodeWaveform).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Wellenform wird geladen ...')).not.toBeInTheDocument()
+  }, 15000)
+
   it('setzt die gemeinsame Position per Klick und Tastatur auch nach horizontalem Scrollen', async () => {
     const { container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
     await waitFor(() => expect(container.querySelectorAll('canvas')).toHaveLength(2))

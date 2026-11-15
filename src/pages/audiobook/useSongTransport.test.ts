@@ -153,10 +153,35 @@ describe('Songtransport', () => {
     expect(sources[1].start).toHaveBeenCalledWith(20, 0, 4)
     rerender({ tracks: clips.map((clip) => ({ ...clip, muted: true })) })
     expect(gains[0].gain.value).toBe(0)
-    expect(gains[1].gain.value).toBe(0)
+    expect(gains).toHaveLength(1)
     act(() => result.current.seek(8))
     expect(sources[2].start).toHaveBeenCalledWith(0, 3, 7)
     expect(sources[3].start).toHaveBeenCalledWith(12, 0, 4)
+  })
+
+  it('nutzt bei vielen Blöcken einen einzigen Lautstärkeknoten pro Spur', async () => {
+    const clips = Array.from({ length: 1200 }, (_, index) => ({
+      ...buffers[0], id: `clip-${index}`, trackId: 'vocal', start: index * 0.25, duration: 0.2,
+    }))
+    const { result, rerender, unmount } = renderHook(({ tracks }) => useSongTransport(tracks, 300, true, 'many'), { initialProps: { tracks: clips } })
+    await act(async () => result.current.play())
+    expect(sources).toHaveLength(1200)
+    expect(gains).toHaveLength(1)
+    expect(sources.every((source) => source.connect.mock.calls[0][0] === gains[0])).toBe(true)
+    const updateGain = vi.fn()
+    let value = gains[0].gain.value
+    Object.defineProperty(gains[0].gain, 'value', {
+      get: () => value,
+      set: (next: number) => { value = next; updateGain(next) },
+    })
+    rerender({ tracks: clips.map((clip) => ({ ...clip, volume: 0.25 })) })
+    expect(gains[0].gain.value).toBe(0.25)
+    expect(updateGain).toHaveBeenCalledExactlyOnceWith(0.25)
+    act(() => { contexts[0].currentTime = 1; frame?.(0) })
+    expect(updateGain).toHaveBeenCalledTimes(1)
+    expect(sources).toHaveLength(1200)
+    unmount()
+    expect(gains[0].disconnect).toHaveBeenCalledOnce()
   })
 
   it('spielt geschnittene Bereiche mit korrektem Quelloffset und begrenzter Dauer', async () => {

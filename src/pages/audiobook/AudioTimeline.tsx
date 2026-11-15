@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { TooltipMenu, TooltipMenuButton, TooltipMenuFile, TooltipMenuRange } from '../../components/TooltipMenu'
 import { getTrackClips, getTrackMix, getTrackType, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
@@ -18,23 +18,6 @@ type TimelineTrack = {
   waveform?: WaveformData
   buffer?: AudioBuffer
   error?: boolean
-}
-
-function TrackDecoder({ clip, onDecoded, decode }: {
-  clip: AudioClip
-  onDecoded: (id: string, result: TimelineTrack) => void
-  decode: typeof decodeWaveform
-}) {
-  useEffect(() => {
-    let active = true
-    void decode(clip.audio).then(({ waveform, buffer }) => {
-      if (active) onDecoded(clip.id, { waveform, buffer })
-    }).catch(() => {
-      if (active) onDecoded(clip.id, { error: true })
-    })
-    return () => { active = false }
-  }, [clip.id, clip.audio, onDecoded, decode])
-  return null
 }
 
 function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSeparate, busy }: {
@@ -187,27 +170,44 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const dragFrame = useRef<number | null>(null)
   const decodedAudio = useRef(new WeakMap<Blob, ReturnType<typeof decodeWaveform>>())
   const hasTracks = tracks.length > 0
+  const allClips = useMemo(() => tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip }))), [tracks])
 
-  const onDecoded = useCallback((id: string, result: TimelineTrack) => {
-    setDecoded((current) => ({ ...current, [id]: result }))
-  }, [])
   useEffect(() => {
-    const active = new Set(tracks.flatMap((track) => getTrackClips(track).map((clip) => clip.id)))
+    let active = true
+    const groups = new Map<Blob, string[]>()
+    const ids = new Set<string>()
+    for (const { clip } of allClips) {
+      ids.add(clip.id)
+      const group = groups.get(clip.audio)
+      if (group) group.push(clip.id)
+      else groups.set(clip.audio, [clip.id])
+    }
     setDecoded((current) => {
-      const entries = Object.entries(current).filter(([id]) => active.has(id))
+      const entries = Object.entries(current).filter(([id]) => ids.has(id))
       return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries)
     })
-  }, [tracks])
-  const decode = useCallback((audio: Blob) => {
-    const cached = decodedAudio.current.get(audio)
-    if (cached) return cached
-    const result = decodeWaveform(audio).catch((cause: unknown) => {
-      decodedAudio.current.delete(audio)
-      throw cause
-    })
-    decodedAudio.current.set(audio, result)
-    return result
-  }, [])
+    for (const [audio, clipIds] of groups) {
+      let promise = decodedAudio.current.get(audio)
+      if (!promise) {
+        promise = decodeWaveform(audio).catch((cause: unknown) => {
+          decodedAudio.current.delete(audio)
+          throw cause
+        })
+        decodedAudio.current.set(audio, promise)
+      }
+      const update = (result: TimelineTrack) => {
+        if (!active) return
+        setDecoded((current) => {
+          if (clipIds.every((id) => current[id]?.buffer === result.buffer && current[id]?.waveform === result.waveform && current[id]?.error === result.error)) return current
+          const next = { ...current }
+          for (const id of clipIds) next[id] = result
+          return next
+        })
+      }
+      void promise.then(update, () => update({ error: true }))
+    }
+    return () => { active = false }
+  }, [allClips])
 
   useEffect(() => {
     const node = viewportRef.current
@@ -235,15 +235,15 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     return () => node.removeEventListener('wheel', onWheel)
   }, [changeZoom, hasTracks, readOnly])
 
-  const allClips = tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip })))
-  const duration = Math.max(0, ...allClips.map(({ clip }) => clip.start + (clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0)))
+  const duration = useMemo(() => allClips.reduce((end, { clip }) => Math.max(end, clip.start + (clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0)), 0), [allClips, decoded])
   const scrollDuration = Math.max(duration, pendingExtent, drag ? drag.start + drag.duration + viewport.width / zoom : 0)
-  const buffers = allClips.flatMap(({ track, clip }) => {
+  const buffers = useMemo(() => allClips.flatMap(({ track, clip }) => {
     const buffer = decoded[clip.id]?.buffer
     return buffer ? [{ id: clip.id, trackId: track.id, start: clip.start, sourceStart: clip.sourceStart, duration: clip.duration, buffer, ...getTrackMix(track) }] : []
-  })
+  }), [allClips, decoded])
   const ready = allClips.length > 0 && buffers.length === allClips.length && duration > 0
-  const transport = useSongTransport(buffers, scrollDuration, ready, JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])))
+  const trackKey = useMemo(() => JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])), [allClips])
+  const transport = useSongTransport(buffers, scrollDuration, ready, trackKey)
   const { position, seek } = transport
   const dragEnvironment = useRef({ zoom, seek })
   dragEnvironment.current = { zoom, seek }
@@ -321,10 +321,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   }
 
   const viewStart = viewport.offset - viewport.width / 2
-  const durations = Object.fromEntries(allClips.flatMap(({ clip }) => {
+  const durations = useMemo(() => Object.fromEntries(allClips.flatMap(({ clip }) => {
     const value = clip.duration ?? decoded[clip.id]?.waveform?.duration
     return value === undefined ? [] : [[clip.id, value]]
-  }))
+  })), [allClips, decoded])
   const submitMove = (sourceId: string, targetId: string, clipId: string, start: number) => {
     const source = tracks.find((track) => track.id === sourceId)
     const target = tracks.find((track) => track.id === targetId)
@@ -354,7 +354,6 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
 
   return (
     <>
-      {allClips.map(({ clip }) => <TrackDecoder key={clip.id} clip={clip} onDecoded={onDecoded} decode={decode} />)}
       {readOnly && <ExerciseTuner tracks={tracks} decoded={decoded} position={transport.position} duration={duration} playing={transport.playing} seekVersion={seekVersion} controlsTarget={microphoneTarget} settingsTarget={settingsTarget} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onSeek={(time) => {
         setSeekVersion((current) => current + 1)
         transport.seek(time)
@@ -477,6 +476,13 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
           <span className="audiobook-playhead audiobook-track-playhead" style={{ left: viewport.offset + viewport.width / 2 }} aria-hidden="true" />
           {tracks.map((track, index) => {
             const clips = getTrackClips(track)
+            const failedAudio = new Map<Blob, string>()
+            let loading = false
+            for (const clip of clips) {
+              const result = decoded[clip.id]
+              if (result?.error) failedAudio.set(clip.audio, clip.name)
+              else if (!result?.waveform) loading = true
+            }
             return (
               <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} data-track-type={getTrackType(track)} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
@@ -497,6 +503,8 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                           setMenu({ trackId: track.id, time: Math.max(0, (viewStart + x) / zoom), y })
                         }}
                       />
+                      {[...failedAudio.values()].map((name, errorIndex) => <p className="audiobook-wave-status" role="alert" key={errorIndex}>Audiodatei „{name}“ konnte nicht geladen werden.</p>)}
+                      {loading && <p className="audiobook-wave-status" role="status">Wellenform wird geladen ...</p>}
                       {clips.map((clip) => {
                         const clipData = decoded[clip.id]
                         const clipDuration = clip.duration ?? clipData?.waveform?.duration ?? 0
@@ -504,8 +512,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                         const right = left + clipDuration * zoom
                         const visibleLeft = Math.max(0, left)
                         const visibleRight = Math.min(viewport.width, right)
-                        if (clipData?.error) return <p className="audiobook-wave-status" role="alert" key={clip.id}>Audiodatei „{clip.name}“ konnte nicht geladen werden.</p>
-                        if (!clipData?.waveform) return <p className="audiobook-wave-status" role="status" key={clip.id}>Wellenform wird geladen ...</p>
+                        if (!clipData?.waveform) return null
                         if (visibleRight <= visibleLeft) return null
                         return (
                           <div

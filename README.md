@@ -97,6 +97,9 @@ anderen Spur beliebig oft einsetzen. Die Blöcke teilen sich die Audiodatei;
 Projekt geöffnet ist, und bleibt auch beim Löschen des Originals verfügbar.
 Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
+Gemeinsam genutzte Aufnahmen werden für die Zeitleiste nur einmal dekodiert;
+die Lautstärke wird auch bei vielen Blöcken über einen gemeinsamen Knoten je
+Spur gesteuert.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
 Eine fest mittige rote Linie zeigt die aktuelle Position über alle Spuren hinweg;

@@ -17,8 +17,8 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
   const contextRef = useRef<AudioContext | null>(null)
-  const sourcesRef = useRef<{ source: AudioBufferSourceNode, gain: GainNode }[]>([])
-  const gainsRef = useRef(new Map<string, GainNode[]>())
+  const sourcesRef = useRef<AudioBufferSourceNode[]>([])
+  const gainsRef = useRef(new Map<string, GainNode>())
   const positionRef = useRef(0)
   const startedAtRef = useRef(0)
   const playingRef = useRef(false)
@@ -28,18 +28,23 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
 
   useEffect(() => {
     tracksRef.current = tracks
+    const updated = new Set<string>()
     for (const track of tracks) {
-      const gains = gainsRef.current.get(track.trackId ?? track.id)
-      if (gains) for (const gain of gains) gain.gain.value = track.muted ? 0 : track.volume
+      const key = track.trackId ?? track.id
+      if (updated.has(key)) continue
+      updated.add(key)
+      const gain = gainsRef.current.get(key)
+      const value = track.muted ? 0 : track.volume
+      if (gain && gain.gain.value !== value) gain.gain.value = value
     }
   }, [tracks])
 
   const stopSources = useCallback(() => {
-    for (const { source, gain } of sourcesRef.current) {
+    for (const source of sourcesRef.current) {
       source.stop()
       source.disconnect()
-      gain.disconnect()
     }
+    for (const gain of gainsRef.current.values()) gain.disconnect()
     sourcesRef.current = []
     gainsRef.current.clear()
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
@@ -63,21 +68,24 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   }, [duration, stopSources, updatePosition])
 
   const startSources = useCallback((context: AudioContext, offset: number) => {
-    const sources: { source: AudioBufferSourceNode, gain: GainNode }[] = []
-    const gains = new Map<string, GainNode[]>()
+    const sources: AudioBufferSourceNode[] = []
+    const gains = new Map<string, GainNode>()
     try {
       const startTime = context.currentTime
       for (const { id, trackId, buffer, volume, muted, start = 0, sourceStart = 0, duration: clipDuration = buffer.duration - sourceStart } of tracksRef.current) {
         if (offset >= start + clipDuration) continue
         const source = context.createBufferSource()
-        const gain = context.createGain()
-        sources.push({ source, gain })
+        sources.push(source)
         const key = trackId ?? id
-        gains.set(key, [...(gains.get(key) ?? []), gain])
+        let gain = gains.get(key)
+        if (!gain) {
+          gain = context.createGain()
+          gains.set(key, gain)
+          gain.gain.value = muted ? 0 : volume
+          gain.connect(context.destination)
+        }
         source.buffer = buffer
-        gain.gain.value = muted ? 0 : volume
         source.connect(gain)
-        gain.connect(context.destination)
         const elapsed = Math.max(0, offset - start)
         source.start(startTime + Math.max(0, start - offset), sourceStart + elapsed, clipDuration - elapsed)
       }
@@ -100,11 +108,11 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
       }
       frameRef.current = requestAnimationFrame(tick)
     } catch (cause) {
-      for (const { source, gain } of sources) {
+      for (const source of sources) {
         try { source.stop() } catch { /* A source may not have started yet. */ }
         source.disconnect()
-        gain.disconnect()
       }
+      for (const gain of gains.values()) gain.disconnect()
       throw cause
     }
   }, [duration, stopSources])
