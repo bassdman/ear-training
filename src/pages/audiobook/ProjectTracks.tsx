@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, deleteClip, deleteTrack, getTrackClips, moveClip, pasteClip, readTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
+import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTrackClips, moveClip, pasteClip, readTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -159,6 +159,22 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     }
   }
 
+  async function copyTrack(trackId: string) {
+    setBusy(true)
+    setError('')
+    try {
+      await writeQueue.current
+      const id = await duplicateTrack(projectId, trackId)
+      const duplicate = (await readTracks(projectId)).find((track) => track.id === id)
+      if (!duplicate) throw new Error('Duplizierte Spur nicht gefunden')
+      setTracks((current) => current && [...current, duplicate])
+    } catch {
+      setError('Die Spur konnte nicht dupliziert werden. Bitte prüfe den Browserspeicher und lade das Projekt bei Bedarf erneut.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function changeTrackMix(id: string, patch: Partial<TrackMix>) {
     setTracks((current) => current && current.map((track) => track.id === id ? { ...track, ...patch } : track))
     const operation = writeQueue.current.then(() => updateTrackMix(id, patch))
@@ -176,7 +192,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       ) : (
         <>
           {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
-          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} busy={busy} />
+          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} busy={busy} />
           {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur

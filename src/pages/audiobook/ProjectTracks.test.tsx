@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto'
+import { File as NodeFile } from 'node:buffer'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,13 +11,14 @@ vi.mock('./waveform', () => ({
 }))
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack }: {
+  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack, onDuplicateTrack }: {
     tracks: audioStorage.AudioTrack[]
     onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
     onImport: (id: string, start: number, durations: Record<string, number>, file: File) => void
     onPaste: (id: string, start: number, durations: Record<string, number>, clip: audioStorage.AudioClip) => void
     onDelete: (trackId: string, clipId: string) => void
     onDeleteTrack: (trackId: string) => void
+    onDuplicateTrack: (trackId: string) => void
   }) => (
     <div>{tracks.map((track) => (
       <div key={track.id}>
@@ -25,6 +27,7 @@ vi.mock('./AudioTimeline', () => ({
         <button onClick={() => onMixChange(track.id, { volume: 0.3 })}>Lautstärke {track.name}</button>
         <button onClick={() => onMixChange(track.id, { muted: true })}>Mute {track.name}</button>
         <button onClick={() => onDeleteTrack(track.id)}>Spur löschen {track.id}</button>
+        <button onClick={() => onDuplicateTrack(track.id)}>Spur duplizieren {track.id}</button>
         <button onClick={() => {
           const clip = tracks.flatMap(audioStorage.getTrackClips)[0]
           if (clip) onPaste(track.id, 12, Object.fromEntries(tracks.flatMap(audioStorage.getTrackClips).map((item) => [item.id, item.duration ?? 10])), { ...clip, duration: clip.duration ?? 10 })
@@ -38,9 +41,114 @@ vi.mock('./AudioTimeline', () => ({
   ),
 }))
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 describe('ProjectTracks', () => {
+  it('dupliziert eine Spur dauerhaft, übernimmt den wartenden Mix und meldet Speicherfehler', async () => {
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    await audioStorage.addClip(track.id, { id: crypto.randomUUID(), name: 'Gesang.wav', audio: new Blob(['a']), start: 5, duration: 10 })
+    const view = render(<ProjectTracks projectId={projectId} />)
+    const duplicateButton = await screen.findByRole('button', { name: `Spur duplizieren ${track.id}` })
+    const failure = vi.spyOn(audioStorage, 'duplicateTrack').mockRejectedValueOnce(new Error('Speicherfehler'))
+    fireEvent.click(duplicateButton)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Spur konnte nicht dupliziert werden')
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(1)
+    failure.mockRestore()
+    fireEvent.click(screen.getByRole('button', { name: 'Lautstärke' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mute' }))
+    fireEvent.click(duplicateButton)
+    await waitFor(() => expect(screen.getAllByText('Gesang.wav')).toHaveLength(2))
+    const [original, copy] = await audioStorage.readTracks(projectId)
+    expect(copy).toMatchObject({ type: 'vocal', volume: 0.3, muted: true })
+    expect(copy.id).not.toBe(original.id)
+    expect(audioStorage.getTrackClips(copy)[0]).toMatchObject({ name: 'Gesang.wav', start: 5, duration: 10 })
+    view.unmount()
+    render(<ProjectTracks projectId={projectId} />)
+    expect(await screen.findAllByText('Gesang.wav')).toHaveLength(2)
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('dupliziert Legacy-, leere und geschnittene Spuren unabhängig und teilt die Audiodaten', async () => {
+    vi.stubGlobal('File', NodeFile)
+    const projectId = crypto.randomUUID()
+    const legacy = await audioStorage.addTrack(projectId, new File(['legacy'], 'alt.wav', { type: 'audio/wav' }))
+    const empty = await audioStorage.addEmptyTrack(projectId, 'instrumental')
+    const split = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    await audioStorage.addClip(split.id, { id: crypto.randomUUID(), name: 'sample.wav', audio: new Blob(['sample']), start: 3, duration: 10, sourceStart: 2 })
+    await audioStorage.addClip(split.id, { id: crypto.randomUUID(), name: 'andere.wav', audio: new Blob(['other']), start: 15, duration: 3 })
+    const clipId = audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === split.id)!)[0].id
+    await audioStorage.splitClip(split.id, clipId, 7, 10)
+    await audioStorage.updateTrackMix(split.id, { volume: 0.4, muted: true })
+    const lyrics = { id: crypto.randomUUID(), projectId, trackId: split.id, text: 'Hallo', createdAt: 1 }
+    await audioStorage.saveProjectLyrics(lyrics)
+
+    const legacyCopyId = await audioStorage.duplicateTrack(projectId, legacy.id)
+    const emptyCopyId = await audioStorage.duplicateTrack(projectId, empty.id)
+    const splitCopyId = await audioStorage.duplicateTrack(projectId, split.id)
+    const tracks = await audioStorage.readTracks(projectId)
+    const legacyOriginal = tracks.find((track) => track.id === legacy.id)!
+    const legacyCopy = tracks.find((track) => track.id === legacyCopyId)!
+    const emptyCopy = tracks.find((track) => track.id === emptyCopyId)!
+    const original = tracks.find((track) => track.id === split.id)!
+    const copy = tracks.find((track) => track.id === splitCopyId)!
+    expect(emptyCopy).toMatchObject({ type: 'instrumental', clips: [] })
+    expect(audioStorage.getTrackClips(legacyCopy)[0].audioId).toBe(audioStorage.getTrackClips(legacyOriginal)[0].audioId)
+    expect(copy).toMatchObject({ type: 'vocal', volume: 0.4, muted: true })
+    const originalClips = audioStorage.getTrackClips(original)
+    const copiedClips = audioStorage.getTrackClips(copy)
+    expect(copiedClips.map(({ name, start, duration, sourceStart, audioId }) => ({ name, start, duration, sourceStart, audioId })))
+      .toEqual(originalClips.map(({ name, start, duration, sourceStart, audioId }) => ({ name, start, duration, sourceStart, audioId })))
+    expect(copiedClips.every((clip, index) => clip.id !== originalClips[index].id)).toBe(true)
+    expect(await audioStorage.readProjectLyrics(projectId)).toEqual([lyrics])
+    await audioStorage.updateTrackMix(splitCopyId, { muted: false, volume: 0.9 })
+    await audioStorage.deleteClip(splitCopyId, copiedClips[0].id)
+    expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === split.id)!)).toHaveLength(3)
+    await audioStorage.deleteTrack(split.id)
+    expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === splitCopyId)!)).toHaveLength(2)
+    await audioStorage.deleteTrack(legacy.id)
+    expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId)).find((track) => track.id === legacyCopyId)!)[0].audio.size).toBe(6)
+    await expect(audioStorage.duplicateTrack('another-project', empty.id)).rejects.toThrow('Spur nicht gefunden')
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('bricht die Duplikation bei fehlender Audiodatei vollständig ab', async () => {
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId)
+    await audioStorage.addClip(track.id, { id: crypto.randomUUID(), name: 'inline.wav', audio: new Blob(['a']), start: 0, duration: 5 })
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ear-training-audiobook')
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('tracks', 'readwrite')
+      const store = transaction.objectStore('tracks')
+      const request = store.get(track.id)
+      request.onsuccess = () => store.put({ ...request.result, clips: [...request.result.clips, { id: 'missing', name: 'missing.wav', start: 5, duration: 5, audioId: 'missing-audio' }] })
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+    })
+    await expect(audioStorage.duplicateTrack(projectId, track.id)).rejects.toThrow('Audiodatei nicht gefunden')
+    const stored = await new Promise<{ clips: { audioId?: string }[] }>((resolve, reject) => {
+      const request = db.transaction('tracks').objectStore('tracks').get(track.id)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    expect(stored.clips[0].audioId).toBeUndefined()
+    const allAudio = await new Promise<unknown[]>((resolve, reject) => {
+      const request = db.transaction('audio').objectStore('audio').getAll()
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    expect(allAudio).toEqual([])
+    db.close()
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
   it('legt eine leere Spur an und speichert importierte Blöcke mit Position', async () => {
     const projectId = crypto.randomUUID()
     const view = render(<ProjectTracks projectId={projectId} />)

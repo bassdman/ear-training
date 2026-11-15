@@ -14,7 +14,7 @@ const tracks: AudioTrack[] = [
   { id: 'one', projectId: 'project', name: 'Gesang', audio: new Blob(['a']), createdAt: 1 },
   { id: 'two', projectId: 'project', name: 'Gitarre', audio: new Blob(['b']), createdAt: 2 },
 ]
-const importProps = { onImport: vi.fn(), onPaste: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), busy: false }
+const importProps = { onImport: vi.fn(), onPaste: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), onDuplicateTrack: vi.fn(), busy: false }
 
 beforeEach(() => {
   vi.mocked(decodeWaveform).mockReset()
@@ -308,6 +308,38 @@ describe('gemeinsame Zeitleiste', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Endgültig löschen' }))
     expect(onDeleteTrack).toHaveBeenCalledExactlyOnceWith('one')
   }, 15000)
+
+  it('dupliziert die gewählte Spur über das Menü und pausiert die Wiedergabe', async () => {
+    const stop = vi.fn()
+    class TestContext {
+      state = 'running'
+      currentTime = 0
+      destination = {}
+      createBufferSource() { return { connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), stop, buffer: null } }
+      createGain() { return { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() } }
+      close = vi.fn(async () => {})
+    }
+    vi.stubGlobal('AudioContext', TestContext)
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const onDuplicateTrack = vi.fn()
+    const { rerender } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onDuplicateTrack={onDuplicateTrack} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await screen.findByRole('button', { name: 'Pause' })
+    const options = screen.getByRole('button', { name: 'Optionen für Spur 2: Gitarre' })
+    fireEvent.click(options)
+    fireEvent.click(screen.getByRole('button', { name: 'Spur duplizieren' }))
+    expect(onDuplicateTrack).toHaveBeenCalledExactlyOnceWith('two')
+    expect(stop).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Abspielen' })).toBeInTheDocument()
+    expect(options).toHaveAttribute('aria-expanded', 'false')
+    rerender(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onDuplicateTrack={onDuplicateTrack} busy />)
+    fireEvent.click(options)
+    expect(screen.getByRole('button', { name: 'Spur duplizieren' })).toBeDisabled()
+    expect(screen.getByRole('slider', { name: 'Lautstärke Spur 2: Gitarre' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Spur 2: Gitarre stummschalten' })).toBeDisabled()
+  })
 
   it('bietet Löschen auch außerhalb der Schnittposition an und löscht erst nach Bestätigung', async () => {
     const onDelete = vi.fn()

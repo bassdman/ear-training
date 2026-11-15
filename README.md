@@ -105,7 +105,12 @@ Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien wer
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
 Links neben jeder Wellenform schaltet **M** die jeweilige Spur stumm. Über
 **...** lassen sich die Lautstärke einstellen und die Spur mit allen ihren
-Audioblöcken nach Bestätigung löschen. Gemeinsam genutzte Audiodaten bleiben
+Audioblöcken nach Bestätigung löschen. **Spur duplizieren** erstellt am Ende
+eine unabhängige Kopie mit allen Audioblöcken, Schnittpositionen, Spurart und
+Mischereinstellungen; die Wiedergabe pausiert dabei. Beide Spuren teilen sich
+die Audiodaten, aber Änderungen an Blöcken oder Einstellungen wirken nur auf
+die jeweilige Spur. Liedtexte bleiben der ursprünglichen Spur zugeordnet.
+Gemeinsam genutzte Audiodaten bleiben
 erhalten, solange sie in anderen Spuren verwendet werden. Lautstärke und Stummschaltung gelten
 auch während der Wiedergabe und werden pro Spur lokal gespeichert. Bei aktiver
 Stummschaltung erscheinen die Spur grau und der Mute-Button rot.

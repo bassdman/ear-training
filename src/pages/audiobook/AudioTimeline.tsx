@@ -37,11 +37,12 @@ function TrackDecoder({ clip, onDecoded, decode }: {
   return null
 }
 
-function TrackControls({ track, index, onMixChange, onDelete, busy }: {
+function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, busy }: {
   track: AudioTrack
   index: number
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
   onDelete: (id: string) => void
+  onDuplicate: (id: string) => void
   busy: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -58,6 +59,7 @@ function TrackControls({ track, index, onMixChange, onDelete, busy }: {
           className={`audiobook-track-button audiobook-mute ${muted ? 'is-muted' : ''}`}
           aria-label={`${name} stummschalten`}
           aria-pressed={muted}
+          disabled={busy}
           onClick={() => onMixChange(track.id, { muted: !muted })}
         >M</button>
         <button
@@ -90,9 +92,11 @@ function TrackControls({ track, index, onMixChange, onDelete, busy }: {
                 min={0}
                 max={100}
                 value={Math.round(volume * 100)}
+                disabled={busy}
                 aria-label={`Lautstärke ${name}`}
                 onChange={(event) => onMixChange(track.id, { volume: Number(event.currentTarget.value) / 100 })}
               />
+              <TooltipMenuButton disabled={busy} onClick={() => { onDuplicate(track.id); setMenuOpen(false) }}>Spur duplizieren</TooltipMenuButton>
               <TooltipMenuButton className="audiobook-track-delete" disabled={busy} onClick={() => setConfirmDelete(true)}>Spur löschen</TooltipMenuButton>
             </>
           )}
@@ -137,7 +141,7 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, busy, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, busy, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
   tracks: AudioTrack[]
   readOnly?: boolean
   traceMenuTarget?: HTMLElement | null
@@ -149,6 +153,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   onSplit: (trackId: string, clipId: string, at: number, duration: number) => void
   onDelete: (trackId: string, clipId: string) => void
   onDeleteTrack: (trackId: string) => void
+  onDuplicateTrack: (trackId: string) => void
   busy: boolean
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
@@ -390,7 +395,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       <div className="audiobook-timeline-grid">
       <div className="audiobook-mixer">
         {tracks.map((track, index) => (
-          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} />
+          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} onDuplicate={(id) => { transport.pause(); onDuplicateTrack(id) }} />
         ))}
       </div>
       <div

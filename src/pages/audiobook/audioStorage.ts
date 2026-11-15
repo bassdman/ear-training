@@ -194,6 +194,65 @@ export async function addEmptyTrack(projectId: string, type: TrackType = 'mixed'
   return track
 }
 
+export async function duplicateTrack(projectId: string, trackId: string): Promise<string> {
+  const db = await openDatabase()
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const audioStore = transaction.objectStore(AUDIO_STORE)
+      const request = store.index(PROJECT_INDEX).getAll(projectId)
+      const duplicateId = createProjectId()
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const tracks: StoredTrack[] = request.result
+        const source = tracks.find((track) => track.id === trackId)
+        if (!source) {
+          failure = new Error('Spur nicht gefunden')
+          transaction.abort()
+          return
+        }
+        const clips: StoredClip[] = []
+        for (const clip of storedClips(source)) {
+          if (clip.audioId) {
+            const audioRequest = audioStore.get(clip.audioId)
+            audioRequest.onsuccess = () => {
+              if (!audioRequest.result?.audio || audioRequest.result.projectId !== projectId) {
+                failure = new Error('Audiodatei nicht gefunden')
+                transaction.abort()
+              }
+            }
+            clips.push(clip)
+          } else {
+            if (!clip.audio) {
+              failure = new Error('Audiodatei nicht gefunden')
+              transaction.abort()
+              return
+            }
+            const audioId = createProjectId()
+            audioStore.add({ id: audioId, projectId, audio: clip.audio })
+            const { audio: _audio, ...reference } = clip
+            clips.push({ ...reference, audioId })
+          }
+        }
+        const { audio: _audio, ...sourceData } = source
+        store.put({ ...sourceData, clips })
+        store.add({
+          ...sourceData,
+          id: duplicateId,
+          createdAt: Math.max(Date.now(), ...tracks.map((track) => track.createdAt + 1)),
+          clips: clips.map((clip) => ({ ...clip, id: createProjectId() })),
+        })
+      }
+      transaction.oncomplete = () => resolve(duplicateId)
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(failure ?? transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function addClip(trackId: string, clip: AudioClip, durations: Record<string, number> = {}): Promise<void> {
   const db = await openDatabase()
   try {
