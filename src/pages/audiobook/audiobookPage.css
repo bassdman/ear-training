@@ -200,6 +200,10 @@
   outline-offset: -2px;
 }
 
+.audiobook-separator {
+  display:flex;
+  align-items: center;
+}
 .exercise-tuner {
   padding: 16px;
   border-radius: 8px;
@@ -372,6 +376,7 @@
 }
 
 .audiobook-timeline-section {
+  min-width: 0;
   border: 1px solid var(--theme-border);
   border-radius: 8px;
 }
@@ -403,11 +408,48 @@
   border-top: 1px solid var(--theme-border);
 }
 
-.audiobook-sticky-ruler {
+.audiobook-sticky-timeline {
   position: sticky;
   top: var(--audiobook-nav-height, 0px);
   z-index: 4;
   background: #f4f6fb;
+}
+
+.audiobook-position-controls {
+  padding: 8px;
+  background: var(--theme-surface);
+  border-top: 1px solid var(--theme-border);
+}
+
+.audiobook-position-controls-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.audiobook-position-steps {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.audiobook-position-steps:first-child {
+  justify-content: safe flex-end;
+}
+
+.audiobook-page .audiobook-position-steps button {
+  flex: 0 0 auto;
+  min-width: 46px;
+  padding: 6px 4px;
+  font-size: 0.8rem;
+}
+
+.audiobook-timecode {
+  min-width: 76px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .audiobook-ruler-spacer {

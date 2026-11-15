@@ -13,7 +13,23 @@ const MAX_ZOOM = 200
 const INITIAL_ZOOM = 40
 const WAVE_HEIGHT = 96
 const DRAG_EDGE_WIDTH = 48
+const TIMELINE_FRAMES_PER_SECOND = 25
 const TRACK_LABELS: Record<TrackType, string> = { vocal: 'Vocal', instrumental: 'Instrumental', mixed: 'Mixed' }
+
+function formatTimecode(time: number): string {
+  const totalFrames = Math.floor(time * TIMELINE_FRAMES_PER_SECOND + 1e-8)
+  const frames = totalFrames % TIMELINE_FRAMES_PER_SECOND
+  const seconds = Math.floor(totalFrames / TIMELINE_FRAMES_PER_SECOND)
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}:${String(frames).padStart(2, '0')}`
+}
+
+const POSITION_STEPS = [
+  { label: '1min', seconds: 60, name: 'eine Minute' },
+  { label: '5s', seconds: 5, name: 'fünf Sekunden' },
+  { label: '1s', seconds: 1, name: 'eine Sekunde' },
+  { label: '10', seconds: 10 / TIMELINE_FRAMES_PER_SECOND, name: 'zehn Frames' },
+  { label: '1', seconds: 1 / TIMELINE_FRAMES_PER_SECOND, name: 'ein Frame' },
+]
 
 type TimelineTrack = {
   waveform?: WaveformData
@@ -375,16 +391,27 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
         transport.seek(time)
       }} />}
       {hasTracks && !readOnly && <div className="audiobook-timeline-section">
-      <div className="audiobook-timeline-toolbar">
-        <div>
-          <strong>Zeitleiste</strong>
-          <p>Mit dem Mausrad zoomen, horizontal scrollen zum Ändern der Wiedergabeposition. Den Spurtyp links anklicken, um eine Spur für die Aufnahme auszuwählen.</p>
-        </div>
-        <div className="audiobook-zoom-controls" aria-label="Zoom der Zeitleiste">
-          <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
+      <div className="audiobook-sticky-timeline">
+        <div className="audiobook-position-controls" role="group" aria-label="Schnittposition verschieben">
+          <div className="audiobook-position-controls-inner">
+            <div className="audiobook-position-steps">
+              {POSITION_STEPS.map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} zurück`} disabled={busy} onClick={() => {
+                setSeekVersion((current) => current + 1)
+                transport.seek(Math.round((position - step.seconds) * 1e6) / 1e6)
+              }}>-{step.label}</button>)}
+            </div>
+            <span className="audiobook-timecode" aria-label="Schnittposition">{formatTimecode(displayedPosition)}</span>
+            <div className="audiobook-position-steps">
+              {[...POSITION_STEPS].reverse().map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} vor`} disabled={busy} onClick={() => {
+                setSeekVersion((current) => current + 1)
+                transport.seek(Math.round((position + step.seconds) * 1e6) / 1e6)
+              }}>+{step.label}</button>)}
+              <span className="audiobook-separator">|</span>
+    <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
           <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5)}>+</button>
+            </div>
+          </div>
         </div>
-      </div>
       <div className="audiobook-sticky-ruler">
         <div className="audiobook-ruler-spacer" />
         <div
@@ -420,6 +447,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
             <span className="audiobook-tick" key={seconds} style={{ left: x }}>{formatSeconds(seconds, interval)}</span>
           ))}
           <span className="audiobook-playhead" style={{ left: '50%' }} aria-hidden="true" />
+        </div>
         </div>
       </div>
       <div className="audiobook-timeline-grid">

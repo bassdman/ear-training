@@ -116,6 +116,12 @@ die Lautstärke wird auch bei vielen Blöcken über einen gemeinsamen Knoten je
 Spur gesteuert.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
+Darüber verschieben die ebenfalls haftenden Schaltflächen die Schnittposition
+um eine Minute, fünf oder eine Sekunde sowie um zehn oder ein Frame. Die Anzeige
+verwendet Minuten:Sekunden:Frames mit 25 Frames pro Sekunde (40 ms je Frame).
+Die Position bleibt auf den Bereich zwischen Songanfang und Songende begrenzt.
+Auf schmalen Bildschirmen lassen sich die beiden Schaltflächengruppen
+horizontal scrollen; die Positionsanzeige bleibt in der Mitte sichtbar.
 Eine fest mittige rote Linie zeigt die aktuelle Position über alle Spuren hinweg;
 bei der Wiedergabe bewegen sich die Spuren darunter nach links.
 Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien werden

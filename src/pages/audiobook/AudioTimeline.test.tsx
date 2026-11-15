@@ -40,6 +40,82 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('verschiebt die Schnittposition mit 25 Frames pro Sekunde und begrenzt sie auf die Songlänge', async () => {
+    vi.mocked(decodeWaveform).mockResolvedValue({
+      buffer: { duration: 125 } as AudioBuffer,
+      waveform: { duration: 125, peaks: new Float32Array(10), peaksPerSecond: 100 },
+    })
+    const { rerender, container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
+    await waitFor(() => expect(screen.getByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).toHaveAttribute('aria-valuemax', '125'))
+    const timestamp = screen.getByLabelText('Schnittposition')
+    const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }))
+    expect(timestamp).toHaveTextContent('00:00:00')
+    click('ein Frame vor')
+    expect(timestamp).toHaveTextContent('00:00:01')
+    click('zehn Frames vor')
+    expect(timestamp).toHaveTextContent('00:00:11')
+    click('eine Sekunde vor')
+    expect(timestamp).toHaveTextContent('00:01:11')
+    click('fünf Sekunden vor')
+    expect(timestamp).toHaveTextContent('00:06:11')
+    click('eine Minute vor')
+    expect(timestamp).toHaveTextContent('01:06:11')
+    click('eine Minute zurück')
+    click('fünf Sekunden zurück')
+    click('eine Sekunde zurück')
+    click('zehn Frames zurück')
+    click('ein Frame zurück')
+    expect(timestamp).toHaveTextContent('00:00:00')
+    click('zehn Frames zurück')
+    expect(timestamp).toHaveTextContent('00:00:00')
+    click('eine Minute vor')
+    click('eine Minute vor')
+    click('eine Minute vor')
+    expect(timestamp).toHaveTextContent('02:05:00')
+    expect(container.querySelector('.audiobook-sticky-timeline .audiobook-position-controls')).toBeInTheDocument()
+    expect(container.querySelector('.audiobook-sticky-timeline .audiobook-sticky-ruler')).toBeInTheDocument()
+    rerender(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} busy />)
+    expect(screen.getByRole('button', { name: 'ein Frame zurück' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'eine Minute vor' })).toBeDisabled()
+    rerender(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} readOnly />)
+    expect(screen.queryByRole('group', { name: 'Schnittposition verschieben' })).not.toBeInTheDocument()
+  })
+
+  it('setzt die Wiedergabe beim Verschieben der Schnittposition fort', async () => {
+    const start = vi.fn()
+    class TestContext {
+      state = 'running'
+      currentTime = 0
+      destination = {}
+      createBufferSource() { return { connect: vi.fn(), disconnect: vi.fn(), start, stop: vi.fn(), buffer: null } }
+      createGain() { return { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() } }
+      close = vi.fn(async () => {})
+    }
+    vi.stubGlobal('AudioContext', TestContext)
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await screen.findByRole('button', { name: 'Pause' })
+    fireEvent.click(screen.getByRole('button', { name: 'zehn Frames vor' }))
+    expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:00:10')
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
+    expect(start).toHaveBeenLastCalledWith(0, 0.4, 29.6)
+  })
+
+  it('schneidet an der mit Frame-Schritten gewählten Position', async () => {
+    const onSplit = vi.fn()
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onSplit={onSplit} />)
+    const clip = await screen.findByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
+    fireEvent.click(screen.getByRole('button', { name: 'zehn Frames vor' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ein Frame vor' }))
+    fireEvent.keyDown(clip, { key: 'Enter' })
+    fireEvent.keyDown(clip, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Schneiden' }))
+    expect(onSplit).toHaveBeenCalledExactlyOnceWith('one', 'one:legacy', 0.44, 30)
+  })
+
   it('markiert eine Spur für die Aufnahme nur im Editmodus', async () => {
     const save = vi.fn()
     const { rerender, container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onRecordSave={save} />)
