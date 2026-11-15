@@ -40,6 +40,21 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('markiert eine Spur für die Aufnahme nur im Editmodus', async () => {
+    const save = vi.fn()
+    const { rerender, container } = render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onRecordSave={save} />)
+    await waitFor(() => expect(decodeWaveform).toHaveBeenCalledTimes(2))
+    const button = screen.getByRole('button', { name: 'Spur 2: Gitarre für Aufnahme auswählen' })
+    expect(screen.getByRole('button', { name: 'Aufnehmen' })).toBeDisabled()
+    fireEvent.click(button)
+    expect(button).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Aufnehmen' })).toBeEnabled())
+    expect(container.querySelector('.audiobook-wave-row.is-track-selected')).toHaveAttribute('data-track-type', 'mixed')
+    rerender(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onRecordSave={save} readOnly />)
+    expect(screen.queryByRole('button', { name: 'Aufnehmen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /für Aufnahme auswählen/ })).not.toBeInTheDocument()
+  })
+
   it('bietet Worttrennung nur für Vocalspuren mit Bestätigung und Abbruch an', () => {
     const onSeparateTrack = vi.fn()
     const typed: AudioTrack[] = [{ ...tracks[0], type: 'vocal' }, { ...tracks[1], type: 'instrumental' }, { id: 'empty', projectId: 'project', type: 'vocal', name: '', clips: [], createdAt: 3 }]

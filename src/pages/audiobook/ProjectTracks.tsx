@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTrackClips, moveClip, pasteClip, readTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
+import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTrackClips, insertRecording, moveClip, pasteClip, readTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -14,6 +14,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
   const [tracks, setTracks] = useState<AudioTrack[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [recordingBusy, setRecordingBusy] = useState(false)
   const [mixError, setMixError] = useState('')
   const writeQueue = useRef<Promise<void>>(Promise.resolve())
   const separation = useWordSeparation(projectId, (updated) => {
@@ -21,7 +22,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       ? { ...track, audio: updated.audio, clips: updated.clips }
       : track))
   })
-  const editingBusy = busy || separation.busy
+  const editingBusy = busy || separation.busy || recordingBusy
 
   useEffect(() => {
     let active = true
@@ -190,6 +191,16 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     })
   }
 
+  async function saveRecording(track: AudioTrack, clip: AudioClip, durations: Record<string, number>) {
+    await writeQueue.current
+    await insertRecording(track, clip, durations)
+    try {
+      setTracks(await readTracks(projectId))
+    } catch {
+      setError('Die Aufnahme wurde gespeichert, aber die Spuren konnten nicht aktualisiert werden. Bitte lade das Projekt erneut.')
+    }
+  }
+
   return (
     <section aria-label="Audiospuren" className="audiobook-tracks">
       {error && <p className="audiobook-error" role="alert">{error}</p>}
@@ -201,7 +212,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       ) : (
         <>
           {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
-          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} busy={editingBusy} />
+          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} onRecordSave={saveRecording} onRecordingBusyChange={setRecordingBusy} busy={editingBusy} />
           {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={editingBusy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur

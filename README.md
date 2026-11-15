@@ -73,6 +73,20 @@ Auf der Projektseite legen die drei Schaltflächen eine leere Vocal-,
 Instrumental- oder Mixed-Spur an. Vocalspuren sind für Gesang, Instrumentalspuren
 für Instrumente und Mixed-Spuren für Aufnahmen mit beidem gedacht. Die Spurart
 wird gespeichert und farblich angezeigt; vorhandene Spuren gelten als Mixed.
+Im Editmodus kann die Spur links über ihre Typ-Schaltfläche für eine
+Mikrofonaufnahme ausgewählt werden. **Aufnehmen** startet an der aktuellen
+Wiedergabeposition und spielt die anderen Spuren mit ihren Lautstärke- und
+Stummschaltungseinstellungen ab; die Zielspur bleibt währenddessen stumm.
+**Aufnahme stoppen** beendet und speichert die Aufnahme. Nur der überlappende
+Bereich der Zielspur wird ersetzt; Material davor und danach bleibt erhalten.
+Das funktioniert auch in einer leeren Spur und über das bisherige Songende
+hinaus. Für die Aufnahme sind Mikrofonberechtigung und HTTPS oder localhost
+erforderlich. Kopfhörer vermeiden Rückkopplungen; je nach Gerät und Browser kann
+eine zeitliche Mikrofonlatenz auftreten. Bei einem Speicherfehler kann die
+Aufnahme über den angezeigten Download-Link gesichert werden.
+Falls der Browser das Aufnahmeformat nicht direkt dekodieren kann, wird es
+lokal mit dem mitgelieferten FFmpeg in WAV umgewandelt; dies kann beim ersten
+Mal einige Zeit und zusätzlichen Arbeitsspeicher benötigen.
 Die spätere Tonhöhenanzeige für Vocalspuren ist noch nicht implementiert. Ein Klick
 in ihren freien Bereich öffnet **Importieren**; die ausgewählte Audiodatei
 wird als Block an der angeklickten Zeitposition eingefügt. Pro Spur sind

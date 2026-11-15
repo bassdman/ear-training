@@ -3,7 +3,7 @@ export type Segment = { start: number, end: number }
 export const WINDOW_SECONDS = 0.01
 export const MIN_PAUSE_SECONDS = 0.12
 export const EDGE_SECONDS = 0.02
-export const SILENCE_RMS = 0.003
+export const SILENCE_RMS = 0.01
 
 export async function findSoundSegments(buffer: AudioBuffer, sourceStart: number, duration: number, signal?: AbortSignal): Promise<Segment[]> {
   if (!Number.isFinite(sourceStart) || sourceStart < 0 || !Number.isFinite(duration) || duration <= 0

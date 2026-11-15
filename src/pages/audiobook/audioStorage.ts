@@ -470,6 +470,88 @@ function deleteUnreferencedAudio(store: IDBObjectStore, audioStore: IDBObjectSto
   }
 }
 
+export async function insertRecording(expected: AudioTrack, recording: AudioClip, durations: Record<string, number>): Promise<void> {
+  const length = recording.duration
+  if (!Number.isFinite(recording.start) || recording.start < 0 || !length || !Number.isFinite(length) || length <= 0 || recording.audio.size === 0) {
+    throw new Error('Ungültige Aufnahme')
+  }
+  const before = getTrackClips(expected)
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const audioStore = transaction.objectStore(AUDIO_STORE)
+      const request = store.get(expected.id)
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const track: StoredTrack | undefined = request.result
+        const current = track ? storedClips(track) : []
+        if (!track || track.projectId !== expected.projectId || current.length !== before.length
+          || current.some((clip, index) => {
+            const previous = before[index]
+            return clip.id !== previous.id || clip.name !== previous.name || clip.start !== previous.start
+              || clip.duration !== previous.duration || clip.sourceStart !== previous.sourceStart || clip.audioId !== previous.audioId
+          })) {
+          failure = new Error('Die Zielspur wurde während der Aufnahme geändert.')
+          transaction.abort()
+          return
+        }
+        const end = recording.start + length
+        const result: StoredClip[] = []
+        const removedAudio = new Set<string>()
+        for (const clip of current) {
+          const duration = clip.duration ?? durations[clip.id]
+          if (!duration || !Number.isFinite(duration) || duration <= 0) {
+            failure = new Error('Die Dauer eines Audioblocks ist unbekannt.')
+            transaction.abort()
+            return
+          }
+          const clipEnd = clip.start + duration
+          if (clip.start >= end || clipEnd <= recording.start) {
+            result.push(clip)
+            continue
+          }
+          const hasLeft = clip.start < recording.start
+          const hasRight = clipEnd > end
+          if (!hasLeft && !hasRight) {
+            if (clip.audioId) removedAudio.add(clip.audioId)
+            continue
+          }
+          let audioId = clip.audioId
+          if (!audioId) {
+            if (!clip.audio) {
+              failure = new Error('Audiodatei nicht gefunden')
+              transaction.abort()
+              return
+            }
+            audioId = createProjectId()
+            audioStore.add({ id: audioId, projectId: track.projectId, audio: clip.audio })
+          }
+          const { audio: _audio, ...reference } = clip
+          if (hasLeft) result.push({ ...reference, audioId, duration: recording.start - clip.start })
+          if (hasRight) result.push({
+            ...reference, id: hasLeft ? createProjectId() : clip.id, audioId,
+            start: end, duration: clipEnd - end, sourceStart: (clip.sourceStart ?? 0) + end - clip.start,
+          })
+        }
+        const { audio: _recordingAudio, ...recordingData } = recording
+        const recordingAudioId = createProjectId()
+        audioStore.add({ id: recordingAudioId, projectId: track.projectId, audio: recording.audio })
+        result.push({ ...recordingData, audioId: recordingAudioId })
+        const { audio: _legacyAudio, ...rest } = track
+        store.put({ ...rest, clips: result })
+        deleteUnreferencedAudio(store, audioStore, track.projectId, removedAudio)
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(failure ?? transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function applyWordSeparation(expected: AudioTrack, plan: ClipSegments[]): Promise<void> {
   const expectedClips = getTrackClips(expected)
   if (plan.length !== expectedClips.length || new Set(plan.map((item) => item.clipId)).size !== plan.length) {

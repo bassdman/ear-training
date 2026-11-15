@@ -6,6 +6,7 @@ import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } fro
 import { useSongTransport } from './useSongTransport'
 import { createProjectId } from './storage'
 import { ExerciseTuner } from './ExerciseTuner'
+import { useTrackRecording } from '../../features/recording/useTrackRecording'
 
 const MIN_ZOOM = 5
 const MAX_ZOOM = 200
@@ -20,7 +21,7 @@ type TimelineTrack = {
   error?: boolean
 }
 
-function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSeparate, busy }: {
+function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSeparate, busy, selected, onSelect }: {
   track: AudioTrack
   index: number
   onMixChange: (id: string, patch: Partial<TrackMix>) => void
@@ -28,6 +29,8 @@ function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSep
   onDuplicate: (id: string) => void
   onSeparate: (id: string) => void
   busy: boolean
+  selected: boolean
+  onSelect: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -37,7 +40,9 @@ function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSep
 
   return (
     <div className={`audiobook-track-controls ${menuOpen ? 'has-menu' : ''}`} role="group" aria-label={`Einstellungen für ${name}`}>
-      <span className="audiobook-track-type">{TRACK_LABELS[getTrackType(track)]}</span>
+      <button type="button" className="audiobook-track-select" aria-label={`${name} für Aufnahme auswählen`} aria-pressed={selected} disabled={busy} onClick={onSelect}>
+        {selected ? '✓ ' : ''}{TRACK_LABELS[getTrackType(track)]}
+      </button>
       <div className="audiobook-track-buttons">
         <button
           type="button"
@@ -135,7 +140,7 @@ function Waveform({ data, width, offset, zoom }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, busy, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, busy: externalBusy, onRecordSave, onRecordingBusyChange, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
   tracks: AudioTrack[]
   readOnly?: boolean
   traceMenuTarget?: HTMLElement | null
@@ -150,6 +155,8 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   onDuplicateTrack: (trackId: string) => void
   onSeparateTrack: (trackId: string) => void
   busy: boolean
+  onRecordSave?: (track: AudioTrack, clip: AudioClip, durations: Record<string, number>) => Promise<void>
+  onRecordingBusyChange?: (busy: boolean) => void
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
@@ -157,6 +164,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const viewportRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ trackId: string, time: number, y: number } | null>(null)
   const [selectedClip, setSelectedClip] = useState<string | null>(null)
+  const [selectedTrack, setSelectedTrack] = useState<string | null>(null)
   const [clipMenu, setClipMenu] = useState<{ trackId: string, clipId: string, time: number } | null>(null)
   const [copiedClip, setCopiedClip] = useState<AudioClip | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -169,8 +177,15 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
   const decodedAudio = useRef(new WeakMap<Blob, ReturnType<typeof decodeWaveform>>())
+  const recording = useTrackRecording(onRecordSave ?? missingRecordingSave, onRecordingBusyChange)
+  const { phase: recordingPhase, stop: stopRecording } = recording
+  const busy = externalBusy || recording.phase !== 'idle'
   const hasTracks = tracks.length > 0
   const allClips = useMemo(() => tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip }))), [tracks])
+
+  useEffect(() => {
+    if (readOnly && (recordingPhase === 'preparing' || recordingPhase === 'recording')) stopRecording()
+  }, [readOnly, recordingPhase, stopRecording])
 
   useEffect(() => {
     let active = true
@@ -236,7 +251,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   }, [changeZoom, hasTracks, readOnly])
 
   const duration = useMemo(() => allClips.reduce((end, { clip }) => Math.max(end, clip.start + (clip.duration ?? decoded[clip.id]?.waveform?.duration ?? 0)), 0), [allClips, decoded])
-  const scrollDuration = Math.max(duration, pendingExtent, drag ? drag.start + drag.duration + viewport.width / zoom : 0)
+  const scrollDuration = Math.max(duration, pendingExtent, recording.position ?? 0, drag ? drag.start + drag.duration + viewport.width / zoom : 0)
   const buffers = useMemo(() => allClips.flatMap(({ track, clip }) => {
     const buffer = decoded[clip.id]?.buffer
     return buffer ? [{ id: clip.id, trackId: track.id, start: clip.start, sourceStart: clip.sourceStart, duration: clip.duration, buffer, ...getTrackMix(track) }] : []
@@ -245,20 +260,21 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const trackKey = useMemo(() => JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])), [allClips])
   const transport = useSongTransport(buffers, scrollDuration, ready, trackKey)
   const { position, seek } = transport
+  const displayedPosition = recording.position ?? position
   const dragEnvironment = useRef({ zoom, seek })
   dragEnvironment.current = { zoom, seek }
   useLayoutEffect(() => {
-    if (position > scrollDuration) {
+    if (displayedPosition > scrollDuration) {
       seek(scrollDuration)
       return
     }
     const node = viewportRef.current
     if (!node) return
-    node.scrollLeft = position * zoom
+    node.scrollLeft = displayedPosition * zoom
     setViewport((current) => current.width === node.clientWidth && current.offset === node.scrollLeft
       ? current
       : { width: node.clientWidth, offset: node.scrollLeft })
-  }, [position, seek, zoom, viewport.width, scrollDuration, hasTracks, readOnly])
+  }, [displayedPosition, seek, zoom, viewport.width, scrollDuration, hasTracks, readOnly])
 
   useEffect(() => () => {
     if (dragFrame.current !== null) cancelAnimationFrame(dragFrame.current)
@@ -362,7 +378,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       <div className="audiobook-timeline-toolbar">
         <div>
           <strong>Zeitleiste</strong>
-          <p>Mit dem Mausrad zoomen, horizontal scrollen zum Ändern der Wiedergabeposition.</p>
+          <p>Mit dem Mausrad zoomen, horizontal scrollen zum Ändern der Wiedergabeposition. Den Spurtyp links anklicken, um eine Spur für die Aufnahme auszuwählen.</p>
         </div>
         <div className="audiobook-zoom-controls" aria-label="Zoom der Zeitleiste">
           <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
@@ -378,14 +394,17 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
           aria-label="Wiedergabeposition auf der Zeitleiste"
           aria-valuemin={0}
           aria-valuemax={scrollDuration}
-          aria-valuenow={Number(transport.position.toFixed(2))}
-          aria-valuetext={`${transport.position.toFixed(1)} Sekunden`}
+          aria-valuenow={Number(displayedPosition.toFixed(2))}
+          aria-valuetext={`${displayedPosition.toFixed(1)} Sekunden`}
+          aria-disabled={busy}
           onClick={(event) => {
+            if (busy) return
             const x = event.clientX - event.currentTarget.getBoundingClientRect().left
             setSeekVersion((current) => current + 1)
             transport.seek((viewStart + x) / zoom)
           }}
           onKeyDown={(event) => {
+            if (busy) return
             if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
               event.preventDefault()
               setSeekVersion((current) => current + 1)
@@ -406,7 +425,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       <div className="audiobook-timeline-grid">
       <div className="audiobook-mixer">
         {tracks.map((track, index) => (
-          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} onDuplicate={(id) => { transport.pause(); onDuplicateTrack(id) }} onSeparate={(id) => { transport.pause(); onSeparateTrack(id) }} />
+          <TrackControls key={track.id} track={track} index={index} onMixChange={onMixChange} busy={busy} selected={selectedTrack === track.id} onSelect={() => setSelectedTrack(track.id)} onDelete={(id) => { transport.pause(); onDeleteTrack(id) }} onDuplicate={(id) => { transport.pause(); onDuplicateTrack(id) }} onSeparate={(id) => { transport.pause(); onSeparateTrack(id) }} />
         ))}
       </div>
       <div
@@ -415,6 +434,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
         onScroll={(event) => {
           const node = event.currentTarget
           setViewport({ width: node.clientWidth, offset: node.scrollLeft })
+          if (recording.phase !== 'idle') return
           if (Math.abs(node.scrollLeft - transport.position * zoom) > 0.5) {
             setSeekVersion((current) => current + 1)
             transport.seek(node.scrollLeft / zoom)
@@ -484,7 +504,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
               else if (!result?.waveform) loading = true
             }
             return (
-              <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''}`} data-track-type={getTrackType(track)} key={track.id}>
+              <div className={`audiobook-wave-row ${getTrackMix(track).muted ? 'is-muted' : ''} ${selectedTrack === track.id ? 'is-track-selected' : ''}`} data-track-type={getTrackType(track)} key={track.id}>
                 <div className="audiobook-wave-visible" style={{ width: viewport.width }}>
                     <div
                       className="audiobook-wave-seek"
@@ -495,6 +515,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                         className="audiobook-empty-area"
                         aria-label={`Freier Bereich in Spur ${index + 1}`}
                         onClick={(event) => {
+                          if (busy) return
                           const rect = event.currentTarget.getBoundingClientRect()
                           const x = event.detail === 0 ? 0 : event.clientX - rect.left
                           const y = event.detail === 0 ? 0 : Math.max(0, event.clientY - rect.top)
@@ -633,18 +654,34 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     </div>}
       <div className="audiobook-transport" aria-label="Wiedergabesteuerung">
         {transport.error && <p className="audiobook-transport-error" role="alert">{transport.error}</p>}
+        {recording.error && <p className="audiobook-transport-error" role="alert">{recording.error} {recording.recovery && <><a href={recording.recovery.url} download={recording.recovery.name}>Aufnahme herunterladen</a>{' '}<button type="button" onClick={recording.discardRecovery}>Aufnahme verwerfen</button></>}</p>}
+        {recording.phase !== 'idle' && <p role="status">{recording.phase === 'preparing' ? 'Mikrofon wird vorbereitet ...' : recording.phase === 'saving' ? 'Aufnahme wird gespeichert ...' : 'Aufnahme läuft'}</p>}
         <div className={`audiobook-transport-buttons${readOnly ? ' has-exercise-controls' : ''}`}>
           {
-           transport.playing && <button type="button" className="audiobook-secondary" aria-label="Pause" disabled={!transport.playing && !transport.starting} onClick={transport.pause}>❚❚</button>
+           transport.playing && <button type="button" className="audiobook-secondary" aria-label="Pause" disabled={busy || (!transport.playing && !transport.starting)} onClick={transport.pause}>❚❚</button>
           }
           {
-            !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={!ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
+            !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={busy || !ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
           }
+          {!readOnly && (recording.phase === 'preparing' || recording.phase === 'recording'
+            ? <button type="button" className="audiobook-secondary" onClick={recording.stop}>Aufnahme stoppen</button>
+            : <button type="button" className="audiobook-secondary" disabled={busy || !!recording.recovery || !onRecordSave || !tracks.some((track) => track.id === selectedTrack) || buffers.length !== allClips.length} onClick={() => {
+              const target = tracks.find((track) => track.id === selectedTrack)
+              if (!target) return
+              setMenu(null)
+              setClipMenu(null)
+              const start = transport.pause()
+              void recording.start(target, start, buffers, durations)
+            }}>Aufnehmen</button>)}
           {readOnly && <div className="audiobook-exercise-controls" ref={setMicrophoneTarget} />}
         </div>
-        <span className="audiobook-transport-time" aria-label="Aktuelle Wiedergabeposition">{transport.position.toFixed(1)} / {duration.toFixed(1)} s</span>
+        <span className="audiobook-transport-time" aria-label="Aktuelle Wiedergabeposition">{displayedPosition.toFixed(1)} / {duration.toFixed(1)} s</span>
         {readOnly && <div className="audiobook-transport-settings" ref={setSettingsTarget} />}
       </div>
     </>
   )
+}
+
+async function missingRecordingSave(): Promise<void> {
+  throw new Error('Das Speichern von Aufnahmen ist nicht verfügbar.')
 }

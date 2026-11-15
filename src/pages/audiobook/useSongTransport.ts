@@ -65,6 +65,7 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     stopSources()
     setPlaying(false)
     setStarting(false)
+    return positionRef.current
   }, [duration, stopSources, updatePosition])
 
   const startSources = useCallback((context: AudioContext, offset: number) => {
