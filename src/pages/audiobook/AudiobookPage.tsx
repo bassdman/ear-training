@@ -6,12 +6,15 @@ import { createProjectId, readProjects, writeProjects, type AudiobookProject } f
 import { deleteProjectTracks } from './audioStorage'
 import { ProjectTracks } from './ProjectTracks'
 import { ProjectDetails } from './ProjectDetails'
+import { ProjectExport } from './ProjectExport'
+import { importProjectArchive } from './projectArchive'
 import './audiobookPage.css'
 
 export function AudiobookPage() {
   const { projectId } = useParams()
   const isExercise = useMatch('/audiobook/:projectId/exercise') !== null
   const isDetails = useMatch('/audiobook/:projectId/details') !== null
+  const isExport = useMatch('/audiobook/:projectId/export') !== null
   const navigate = useNavigate()
   const [projects, setProjects] = useState<AudiobookProject[] | null>(null)
   const [name, setName] = useState('')
@@ -56,6 +59,18 @@ export function AudiobookPage() {
       setName('')
     } catch {
       setError('Das Projekt konnte nicht gespeichert werden. Bitte prüfe den lokalen Speicher.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function importProject(file: File) {
+    setBusy(true)
+    setError('')
+    try {
+      setProjects(await importProjectArchive(file))
+    } catch (cause) {
+      setError(`Projekt konnte nicht importiert werden: ${cause instanceof Error ? cause.message : 'Unbekannter Fehler.'}`)
     } finally {
       setBusy(false)
     }
@@ -154,9 +169,10 @@ export function AudiobookPage() {
               </div>}
             </header>
             <nav className="audiobook-project-nav" aria-label="Projektansichten">
-              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise && !isDetails ? 'page' : undefined}>Edit</Link>
+              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}`} aria-current={!isExercise && !isDetails && !isExport ? 'page' : undefined}>Edit</Link>
               <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/details`} aria-current={isDetails ? 'page' : undefined}>Lyrics &amp; PDFs</Link>
               <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/exercise`} aria-current={isExercise ? 'page' : undefined}>Exercise</Link>
+              <Link className="audiobook-project-tab" to={`/audiobook/${encodeURIComponent(projectId)}/export`} aria-current={isExport ? 'page' : undefined}>Export</Link>
             </nav>
           </div>
         ) : (
@@ -192,6 +208,7 @@ export function AudiobookPage() {
         ) : projectId ? (
           project ? (
             isDetails ? <ProjectDetails key={project.id} projectId={project.id} /> :
+              isExport ? <ProjectExport key={project.id} project={project} /> :
               <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} traceMenuTarget={isExercise ? traceMenuTarget : null} onTraceDownload={() => setProjectMenuOpen(false)} />
           ) : (
             <p>Dieses Projekt wurde nicht gefunden.</p>
@@ -252,6 +269,15 @@ export function AudiobookPage() {
                 </button>
               </div>
             </form>
+            <div className="audiobook-import-project">
+              <label htmlFor="audiobook-import-project">Projektdatei importieren (.vst)</label>
+              <input id="audiobook-import-project" type="file" accept=".vst,application/zip" disabled={busy} onChange={(event) => {
+                const file = event.currentTarget.files?.[0]
+                event.currentTarget.value = ''
+                if (file) void importProject(file)
+              }} />
+              {busy && <p role="status">Bitte warten ...</p>}
+            </div>
           </>
         )}
       </div>

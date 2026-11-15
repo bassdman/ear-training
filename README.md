@@ -9,7 +9,15 @@ In der Projektübersicht führen **Edit** und **Exercise** direkt in die jeweili
 Ansicht. Das Menü **...** enthält die Löschoption mit Bestätigung; neue Projekte
 werden unterhalb der vorhandenen angelegt.
 Im Projekt führt die oben haftende Navigation zurück zur Projektliste oder
-zwischen **Edit**, **Lyrics & PDFs** und **Exercise**. Unter **Lyrics & PDFs**
+zwischen **Edit**, **Lyrics & PDFs**, **Exercise** und **Export**. Unter **Export**
+lässt sich das Lied mit den aktuellen Schnittpositionen, Lautstärken und
+Stummschaltungen als MP3 abmischen oder als `.vst`-Projektdatei sichern.
+Die Projektdatei ist ein ZIP-Archiv mit Spuren, Audiodaten, Liedtexten und PDFs.
+In der Projektübersicht kann sie als neues Projekt importiert werden; vorhandene
+Projekte bleiben unverändert. Der FFmpeg-Encoder für die MP3-Kodierung und den
+MOV-Konverter wird bei Bedarf vom eigenen Server geladen; Audiodaten bleiben lokal.
+Große Projekte benötigen entsprechend Arbeitsspeicher.
+Unter **Lyrics & PDFs**
 lassen sich mehrere Liedtexte erstellen und optional Vocalspuren zuweisen.
 Änderungen werden jeweils über **Liedtext speichern** gesichert. Wird eine
 Vocalspur gelöscht, bleibt der Text ohne Zuordnung erhalten. Darunter können

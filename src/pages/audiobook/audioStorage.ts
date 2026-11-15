@@ -601,3 +601,33 @@ export async function saveProjectDocument(document: ProjectDocument): Promise<vo
 export async function deleteProjectDocument(id: string): Promise<void> {
   await projectStoreRequest(DOCUMENT_STORE, 'readwrite', (store) => store.delete(id))
 }
+
+export async function restoreProjectData(tracks: AudioTrack[], lyrics: ProjectLyrics[], documents: ProjectDocument[]): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE, LYRICS_STORE, DOCUMENT_STORE], 'readwrite')
+      const audioIds = new Set<string>()
+      for (const track of tracks) {
+        const clips = getTrackClips(track).map((clip) => {
+          const audioId = clip.audioId ?? createProjectId()
+          if (!audioIds.has(audioId)) {
+            transaction.objectStore(AUDIO_STORE).add({ id: audioId, projectId: track.projectId, audio: clip.audio })
+            audioIds.add(audioId)
+          }
+          const { audio: _audio, ...rest } = clip
+          return { ...rest, audioId }
+        })
+        const { audio: _audio, ...rest } = track
+        transaction.objectStore(STORE_NAME).add({ ...rest, clips })
+      }
+      for (const entry of lyrics) transaction.objectStore(LYRICS_STORE).add(entry)
+      for (const document of documents) transaction.objectStore(DOCUMENT_STORE).add(document)
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}

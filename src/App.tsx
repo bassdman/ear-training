@@ -24,6 +24,7 @@ function App() {
       <Route path="/audiobook/:projectId?" element={<AudiobookPage />}>
         <Route path="details" element={null} />
         <Route path="exercise" element={null} />
+        <Route path="export" element={null} />
       </Route>
       <Route
         path="/campaign"

@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import { fetchFile } from '@ffmpeg/util'
 import JSZip from 'jszip'
 import { Link } from 'react-router-dom'
+import { loadFFmpegCore } from '../../ffmpegCore'
 
 import './converterPage.css'
 
-const CORE_BASE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm'
 const VOICE_AUDIO_FILTER = 'highpass=f=70,lowpass=f=12000,afftdn=nr=12:nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11'
 
 type BatchState = 'idle' | 'loading' | 'converting' | 'done' | 'error'
@@ -63,10 +63,7 @@ export function ConverterPage() {
     })
 
     try {
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${CORE_BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
-      })
+      await loadFFmpegCore(ffmpeg)
 
       setState('converting')
       for (const [index, file] of movFiles.entries()) {

@@ -15,6 +15,7 @@ function renderAudiobook(path = '/audiobook') {
         <Route path="/audiobook/:projectId?" element={<AudiobookPage />}>
           <Route path="details" element={null} />
           <Route path="exercise" element={null} />
+          <Route path="export" element={null} />
         </Route>
         <Route path="/" element={<p>Startseite</p>} />
       </Routes>
@@ -31,6 +32,19 @@ describe('Audiobook', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
+  })
+
+  it('öffnet den Export-Tab und bietet den Projektimport in der Übersicht an', async () => {
+    localStorage.setItem(AUDIOBOOK_STORAGE_KEY, JSON.stringify([{ id: 'export-song', name: 'Lied' }]))
+    renderAudiobook('/audiobook/export-song')
+    fireEvent.click(await screen.findByRole('link', { name: 'Export' }))
+    expect(screen.getByRole('link', { name: 'Export' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Edit' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByLabelText('Dateityp')).toHaveValue('mp3')
+    fireEvent.change(screen.getByLabelText('Dateityp'), { target: { value: 'vst' } })
+    expect(screen.getByText(/Enthält Spuren, Audiodateien/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Zurück zum Audiobook' }))
+    expect(await screen.findByLabelText('Projektdatei importieren (.vst)')).toBeInTheDocument()
   })
 
   it('zeigt den Debug-Trace im Projektmenü nur im Übungsmodus und deaktiviert ihn ohne Vocalspur', async () => {

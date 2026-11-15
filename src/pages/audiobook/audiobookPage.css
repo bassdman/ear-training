@@ -45,7 +45,7 @@
 
 .audiobook-project-nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   height: 48px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--theme-border);
@@ -124,6 +124,17 @@
 .audiobook-project-tab {
   justify-content: center;
   border-bottom: 3px solid transparent;
+  font-weight: 600;
+  font-size: clamp(0.75rem, 3vw, 1rem);
+}
+
+.audiobook-import-project {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.audiobook-import-project label {
   font-weight: 600;
 }
 
