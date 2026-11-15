@@ -113,7 +113,8 @@ Die Spuren lassen sich
 über die untere Wiedergabeleiste gemeinsam abspielen oder pausieren.
 Gemeinsam genutzte Aufnahmen werden für die Zeitleiste nur einmal dekodiert;
 die Lautstärke wird auch bei vielen Blöcken über einen gemeinsamen Knoten je
-Spur gesteuert.
+Spur gesteuert. Längere Wellenformen werden beim Scrollen und Abspielen
+abschnittsweise zwischengespeichert, statt bei jedem Bild neu gezeichnet.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
 In der unteren Wiedergabeleiste verschieben Schaltflächen die Schnittposition

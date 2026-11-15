@@ -24,7 +24,7 @@ beforeEach(() => {
   })
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-    scale: vi.fn(), fillRect: vi.fn(), fillStyle: '',
+    scale: vi.fn(), setTransform: vi.fn(), clearRect: vi.fn(), drawImage: vi.fn(), fillRect: vi.fn(), fillStyle: '',
   } as unknown as CanvasRenderingContext2D)
   vi.mocked(decodeWaveform).mockResolvedValue({
     buffer: { duration: 30 } as AudioBuffer,
@@ -40,6 +40,30 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('zeichnet lange Wellenformen beim Scrollen aus einem begrenzten Cache und erneuert ihn beim Zoomen', async () => {
+    const fillRect = vi.fn()
+    const drawImage = vi.fn()
+    vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue({
+      setTransform: vi.fn(), clearRect: vi.fn(), drawImage, fillRect, fillStyle: '',
+    } as unknown as CanvasRenderingContext2D)
+    render(<AudioTimeline tracks={tracks.slice(0, 1)} onMixChange={vi.fn()} {...importProps} />)
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    await waitFor(() => expect(fillRect).toHaveBeenCalled())
+    const initialDraws = fillRect.mock.calls.length
+    viewport.scrollLeft = 40
+    fireEvent.scroll(viewport)
+    viewport.scrollLeft = 80
+    fireEvent.scroll(viewport)
+    expect(fillRect).toHaveBeenCalledTimes(initialDraws)
+    expect(drawImage).toHaveBeenCalled()
+    viewport.scrollLeft = 800
+    fireEvent.scroll(viewport)
+    const refreshedDraws = fillRect.mock.calls.length
+    expect(refreshedDraws).toBeGreaterThan(initialDraws)
+    fireEvent.click(screen.getByRole('button', { name: 'Hineinzoomen' }))
+    expect(fillRect.mock.calls.length).toBeGreaterThan(refreshedDraws)
+  })
+
   it('verschiebt die Schnittposition mit 25 Frames pro Sekunde und begrenzt sie auf die Songlänge', async () => {
     vi.mocked(decodeWaveform).mockResolvedValue({
       buffer: { duration: 125 } as AudioBuffer,

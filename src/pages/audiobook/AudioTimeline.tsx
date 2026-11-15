@@ -12,6 +12,7 @@ const MIN_ZOOM = 5
 const MAX_ZOOM = 200
 const INITIAL_ZOOM = 40
 const WAVE_HEIGHT = 96
+const WAVE_CACHE_MARGIN = 128
 const DRAG_EDGE_WIDTH = 48
 const TIMELINE_FRAMES_PER_SECOND = 25
 const TRACK_LABELS: Record<TrackType, string> = { vocal: 'Vocal', instrumental: 'Instrumental', mixed: 'Mixed' }
@@ -128,29 +129,60 @@ function Waveform({ data, width, offset, zoom }: {
   zoom: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cacheRef = useRef<{ canvas: HTMLCanvasElement, data: WaveformData, zoom: number, ratio: number, start: number, width: number } | null>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || width <= 0) return
     const ratio = window.devicePixelRatio || 1
-    canvas.width = Math.ceil(width * ratio)
-    canvas.height = Math.ceil(WAVE_HEIGHT * ratio)
+    const canvasWidth = Math.ceil(width * ratio)
+    const canvasHeight = Math.ceil(WAVE_HEIGHT * ratio)
+    if (canvas.width !== canvasWidth) canvas.width = canvasWidth
+    if (canvas.height !== canvasHeight) canvas.height = canvasHeight
     const context = canvas.getContext('2d')
     if (!context) return
-    context.scale(ratio, ratio)
-    context.fillStyle = '#283da9'
-    const columns = Math.ceil(width / 2)
-    for (let column = 0; column < columns; column++) {
-      const start = (offset + column * 2) / zoom
-      if (start >= data.duration) break
-      const end = (offset + (column + 1) * 2) / zoom
-      const first = Math.max(0, Math.floor(start * data.peaksPerSecond))
-      const last = Math.min(data.peaks.length, Math.ceil(end * data.peaksPerSecond))
-      let peak = 0
-      for (let i = first; i < last; i++) peak = Math.max(peak, data.peaks[i])
-      const height = Math.max(1, Math.min(1, peak) * (WAVE_HEIGHT - 8))
-      context.fillRect(column * 2, (WAVE_HEIGHT - height) / 2, 1, height)
+    const draw = (target: CanvasRenderingContext2D, startOffset: number, drawWidth: number) => {
+      target.fillStyle = '#283da9'
+      const columns = Math.ceil(drawWidth / 2)
+      for (let column = 0; column < columns; column++) {
+        const start = (startOffset + column * 2) / zoom
+        if (start >= data.duration) break
+        const end = (startOffset + (column + 1) * 2) / zoom
+        const first = Math.max(0, Math.floor(start * data.peaksPerSecond))
+        const last = Math.min(data.peaks.length, Math.ceil(end * data.peaksPerSecond))
+        let peak = 0
+        for (let i = first; i < last; i++) peak = Math.max(peak, data.peaks[i])
+        const height = Math.max(1, Math.min(1, peak) * (WAVE_HEIGHT - 8))
+        target.fillRect(column * 2, (WAVE_HEIGHT - height) / 2, 1, height)
+      }
     }
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    context.clearRect(0, 0, width, WAVE_HEIGHT)
+    if (width < 64) {
+      cacheRef.current = null
+      draw(context, offset, width)
+      return
+    }
+    let cache = cacheRef.current
+    if (!cache || cache.data !== data || cache.zoom !== zoom || cache.ratio !== ratio
+      || offset < cache.start || offset + width > cache.start + cache.width) {
+      const start = Math.max(0, Math.floor(offset / WAVE_CACHE_MARGIN) * WAVE_CACHE_MARGIN)
+      const cacheWidth = Math.ceil(width + 2 * WAVE_CACHE_MARGIN)
+      const buffer = document.createElement('canvas')
+      buffer.width = Math.ceil(cacheWidth * ratio)
+      buffer.height = canvasHeight
+      const bufferContext = buffer.getContext('2d')
+      if (!bufferContext) {
+        cacheRef.current = null
+        draw(context, offset, width)
+        return
+      }
+      bufferContext.setTransform(ratio, 0, 0, ratio, 0, 0)
+      draw(bufferContext, start, cacheWidth)
+      cache = { canvas: buffer, data, zoom, ratio, start, width: cacheWidth }
+      cacheRef.current = cache
+    }
+    context.drawImage(cache.canvas, (offset - cache.start) * ratio, 0, width * ratio, WAVE_HEIGHT * ratio, 0, 0, width, WAVE_HEIGHT)
   }, [data, width, offset, zoom])
 
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
