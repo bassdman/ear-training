@@ -375,6 +375,10 @@
   padding-bottom: 120px;
 }
 
+.audiobook-tracks:has(.audiobook-position-controls) {
+  padding-bottom: 180px;
+}
+
 .audiobook-timeline-section {
   min-width: 0;
   border: 1px solid var(--theme-border);
@@ -416,9 +420,11 @@
 }
 
 .audiobook-position-controls {
-  padding: 8px;
+  width: min(980px, 100%);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 0 8px;
   background: var(--theme-surface);
-  border-top: 1px solid var(--theme-border);
 }
 
 .audiobook-position-controls-inner {
@@ -911,12 +917,6 @@
   .audiobook-transport-settings {
     right: 8px;
   }
-}
-
-.audiobook-transport-time {
-  color: var(--theme-muted);
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
 }
 
 .audiobook-transport-error {

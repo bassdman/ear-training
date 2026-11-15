@@ -392,26 +392,6 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       }} />}
       {hasTracks && !readOnly && <div className="audiobook-timeline-section">
       <div className="audiobook-sticky-timeline">
-        <div className="audiobook-position-controls" role="group" aria-label="Schnittposition verschieben">
-          <div className="audiobook-position-controls-inner">
-            <div className="audiobook-position-steps">
-              {POSITION_STEPS.map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} zurück`} disabled={busy} onClick={() => {
-                setSeekVersion((current) => current + 1)
-                transport.seek(Math.round((position - step.seconds) * 1e6) / 1e6)
-              }}>-{step.label}</button>)}
-            </div>
-            <span className="audiobook-timecode" aria-label="Schnittposition">{formatTimecode(displayedPosition)}</span>
-            <div className="audiobook-position-steps">
-              {[...POSITION_STEPS].reverse().map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} vor`} disabled={busy} onClick={() => {
-                setSeekVersion((current) => current + 1)
-                transport.seek(Math.round((position + step.seconds) * 1e6) / 1e6)
-              }}>+{step.label}</button>)}
-              <span className="audiobook-separator">|</span>
-    <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
-          <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5)}>+</button>
-            </div>
-          </div>
-        </div>
       <div className="audiobook-sticky-ruler">
         <div className="audiobook-ruler-spacer" />
         <div
@@ -681,6 +661,26 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       </div>
     </div>}
       <div className="audiobook-transport" aria-label="Wiedergabesteuerung">
+        {hasTracks && !readOnly && <div className="audiobook-position-controls" role="group" aria-label="Schnittposition verschieben">
+          <div className="audiobook-position-controls-inner">
+            <div className="audiobook-position-steps">
+              {POSITION_STEPS.map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} zurück`} disabled={busy} onClick={() => {
+                setSeekVersion((current) => current + 1)
+                transport.seek(Math.round((position - step.seconds) * 1e6) / 1e6)
+              }}>-{step.label}</button>)}
+            </div>
+            <span className="audiobook-timecode" aria-label="Schnittposition">{formatTimecode(displayedPosition)}</span>
+            <div className="audiobook-position-steps">
+              {[...POSITION_STEPS].reverse().map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} vor`} disabled={busy} onClick={() => {
+                setSeekVersion((current) => current + 1)
+                transport.seek(Math.round((position + step.seconds) * 1e6) / 1e6)
+              }}>+{step.label}</button>)}
+              <span className="audiobook-separator">|</span>
+              <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
+              <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5)}>+</button>
+            </div>
+          </div>
+        </div>}
         {transport.error && <p className="audiobook-transport-error" role="alert">{transport.error}</p>}
         {recording.error && <p className="audiobook-transport-error" role="alert">{recording.error} {recording.recovery && <><a href={recording.recovery.url} download={recording.recovery.name}>Aufnahme herunterladen</a>{' '}<button type="button" onClick={recording.discardRecovery}>Aufnahme verwerfen</button></>}</p>}
         {recording.phase !== 'idle' && <p role="status">{recording.phase === 'preparing' ? 'Mikrofon wird vorbereitet ...' : recording.phase === 'saving' ? 'Aufnahme wird gespeichert ...' : 'Aufnahme läuft'}</p>}
@@ -703,7 +703,6 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
             }}>Aufnehmen</button>)}
           {readOnly && <div className="audiobook-exercise-controls" ref={setMicrophoneTarget} />}
         </div>
-        <span className="audiobook-transport-time" aria-label="Aktuelle Wiedergabeposition">{displayedPosition.toFixed(1)} / {duration.toFixed(1)} s</span>
         {readOnly && <div className="audiobook-transport-settings" ref={setSettingsTarget} />}
       </div>
     </>

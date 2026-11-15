@@ -116,7 +116,7 @@ die Lautstärke wird auch bei vielen Blöcken über einen gemeinsamen Knoten je
 Spur gesteuert.
 Ein Klick auf die oben haftende Zeitleiste setzt die Wiedergabeposition aller Spuren;
 mit den Pfeiltasten sowie Pos1 und Ende ist dies auch per Tastatur möglich.
-Darüber verschieben die ebenfalls haftenden Schaltflächen die Schnittposition
+In der unteren Wiedergabeleiste verschieben Schaltflächen die Schnittposition
 um eine Minute, fünf oder eine Sekunde sowie um zehn oder ein Frame. Die Anzeige
 verwendet Minuten:Sekunden:Frames mit 25 Frames pro Sekunde (40 ms je Frame).
 Die Position bleibt auf den Bereich zwischen Songanfang und Songende begrenzt.
