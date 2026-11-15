@@ -110,6 +110,14 @@ eine unabhängige Kopie mit allen Audioblöcken, Schnittpositionen, Spurart und
 Mischereinstellungen; die Wiedergabe pausiert dabei. Beide Spuren teilen sich
 die Audiodaten, aber Änderungen an Blöcken oder Einstellungen wirken nur auf
 die jeweilige Spur. Liedtexte bleiben der ursprünglichen Spur zugeordnet.
+Bei Vocalspuren findet sich dort außerdem **Wörter separieren**: Nach
+Bestätigung werden Abschnitte unter einem RMS-Pegel von 0,003, die mindestens
+120 ms dauern, als Pausen entfernt; um hörbare Abschnitte bleiben jeweils bis
+zu 20 ms Sicherheitsabstand. Die restlichen Blöcke bleiben an ihrer Songposition.
+Die Analyse erfolgt lokal auf allen Kanälen und ist keine Spracherkennung:
+Hintergrundgeräusche, leise Wörter und kurze Pausen können falsch erkannt werden.
+Die Aktion lässt sich nicht rückgängig machen; gegebenenfalls vorher die Spur
+duplizieren. Eine durchgehend stille Spur kann dadurch leer werden.
 Gemeinsam genutzte Audiodaten bleiben
 erhalten, solange sie in anderen Spuren verwendet werden. Lautstärke und Stummschaltung gelten
 auch während der Wiedergabe und werden pro Spur lokal gespeichert. Bei aktiver

@@ -14,7 +14,7 @@ const tracks: AudioTrack[] = [
   { id: 'one', projectId: 'project', name: 'Gesang', audio: new Blob(['a']), createdAt: 1 },
   { id: 'two', projectId: 'project', name: 'Gitarre', audio: new Blob(['b']), createdAt: 2 },
 ]
-const importProps = { onImport: vi.fn(), onPaste: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), onDuplicateTrack: vi.fn(), busy: false }
+const importProps = { onImport: vi.fn(), onPaste: vi.fn(), onMove: vi.fn(), onSplit: vi.fn(), onDelete: vi.fn(), onDeleteTrack: vi.fn(), onDuplicateTrack: vi.fn(), onSeparateTrack: vi.fn(), busy: false }
 
 beforeEach(() => {
   vi.mocked(decodeWaveform).mockReset()
@@ -40,6 +40,26 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('bietet Worttrennung nur für Vocalspuren mit Bestätigung und Abbruch an', () => {
+    const onSeparateTrack = vi.fn()
+    const typed: AudioTrack[] = [{ ...tracks[0], type: 'vocal' }, { ...tracks[1], type: 'instrumental' }, { id: 'empty', projectId: 'project', type: 'vocal', name: '', clips: [], createdAt: 3 }]
+    render(<AudioTimeline tracks={typed} onMixChange={vi.fn()} {...importProps} onSeparateTrack={onSeparateTrack} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Optionen für Spur 2: Gitarre' }))
+    expect(screen.queryByRole('button', { name: 'Wörter separieren' })).not.toBeInTheDocument()
+    fireEvent.pointerDown(document.body)
+    fireEvent.click(screen.getByRole('button', { name: 'Optionen für Spur 3' }))
+    expect(screen.getByRole('button', { name: 'Wörter separieren' })).toBeDisabled()
+    fireEvent.pointerDown(document.body)
+    fireEvent.click(screen.getByRole('button', { name: 'Optionen für Spur 1: Gesang' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wörter separieren' }))
+    expect(screen.getByText(/kann nicht rückgängig gemacht werden/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(onSeparateTrack).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Wörter separieren' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Jetzt separieren' }))
+    expect(onSeparateTrack).toHaveBeenCalledExactlyOnceWith('one')
+  })
+
   it('spielt im Übungsmodus ohne Spuransicht und zeigt das Mikrofon in der Wiedergabeleiste', async () => {
     const onMove = vi.fn()
     const onImport = vi.fn()

@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { File as NodeFile } from 'node:buffer'
+import { Blob as NodeBlob, File as NodeFile } from 'node:buffer'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -11,7 +11,7 @@ vi.mock('./waveform', () => ({
 }))
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack, onDuplicateTrack }: {
+  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack }: {
     tracks: audioStorage.AudioTrack[]
     onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
     onImport: (id: string, start: number, durations: Record<string, number>, file: File) => void
@@ -19,6 +19,7 @@ vi.mock('./AudioTimeline', () => ({
     onDelete: (trackId: string, clipId: string) => void
     onDeleteTrack: (trackId: string) => void
     onDuplicateTrack: (trackId: string) => void
+    onSeparateTrack: (trackId: string) => void
   }) => (
     <div>{tracks.map((track) => (
       <div key={track.id}>
@@ -28,6 +29,7 @@ vi.mock('./AudioTimeline', () => ({
         <button onClick={() => onMixChange(track.id, { muted: true })}>Mute {track.name}</button>
         <button onClick={() => onDeleteTrack(track.id)}>Spur löschen {track.id}</button>
         <button onClick={() => onDuplicateTrack(track.id)}>Spur duplizieren {track.id}</button>
+        <button onClick={() => onSeparateTrack(track.id)}>Wörter separieren {track.id}</button>
         <button onClick={() => {
           const clip = tracks.flatMap(audioStorage.getTrackClips)[0]
           if (clip) onPaste(track.id, 12, Object.fromEntries(tracks.flatMap(audioStorage.getTrackClips).map((item) => [item.id, item.duration ?? 10])), { ...clip, duration: clip.duration ?? 10 })
@@ -47,6 +49,61 @@ afterEach(() => {
 })
 
 describe('ProjectTracks', () => {
+  it('analysiert und speichert getrennte Wörter und meldet Fehler', async () => {
+    vi.stubGlobal('Blob', NodeBlob)
+    const samples = new Float32Array(1000)
+    samples.fill(0.1, 200, 400)
+    samples.fill(0.1, 650, 850)
+    const close = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('AudioContext', class {
+      decodeAudioData = vi.fn().mockResolvedValue({
+        duration: 1, length: 1000, sampleRate: 1000, numberOfChannels: 1, getChannelData: () => samples,
+      })
+      close = close
+    })
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    await audioStorage.addClip(track.id, { id: crypto.randomUUID(), name: 'Gesang.wav', audio: new Blob(['a']), start: 5, duration: 1 })
+    const view = render(<ProjectTracks projectId={projectId} />)
+    fireEvent.click(await screen.findByRole('button', { name: `Wörter separieren ${track.id}` }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Pausen werden analysiert')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 Audioblöcke'))
+    const [saved] = await audioStorage.readTracks(projectId)
+    const clips = audioStorage.getTrackClips(saved)
+    expect(clips).toHaveLength(2)
+    expect(clips[0].start).toBeCloseTo(5.18)
+    expect(clips[1].start).toBeCloseTo(5.63)
+    expect(close).toHaveBeenCalledOnce()
+    view.unmount()
+    render(<ProjectTracks projectId={projectId} />)
+    expect(await screen.findAllByText('Gesang.wav')).toHaveLength(2)
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
+  it('lässt die Spur ohne Pausen oder bei Dekodierungsfehler unverändert', async () => {
+    vi.stubGlobal('Blob', NodeBlob)
+    const decode = vi.fn().mockResolvedValue({
+      duration: 1, length: 1000, sampleRate: 1000, numberOfChannels: 1, getChannelData: () => new Float32Array(1000).fill(0.1),
+    })
+    vi.stubGlobal('AudioContext', class {
+      decodeAudioData = decode
+      close = vi.fn().mockResolvedValue(undefined)
+    })
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    await audioStorage.addClip(track.id, { id: 'unchanged', name: 'Gesang.wav', audio: new Blob(['a']), start: 5, duration: 1 })
+    render(<ProjectTracks projectId={projectId} />)
+    const button = await screen.findByRole('button', { name: `Wörter separieren ${track.id}` })
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Keine ausreichend langen Pausen'))
+    expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId))[0])[0].id).toBe('unchanged')
+    decode.mockRejectedValueOnce(new Error('Audioformat nicht unterstützt'))
+    fireEvent.click(button)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Audioformat nicht unterstützt')
+    expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId))[0])[0].id).toBe('unchanged')
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
   it('dupliziert eine Spur dauerhaft, übernimmt den wartenden Mix und meldet Speicherfehler', async () => {
     const projectId = crypto.randomUUID()
     const track = await audioStorage.addEmptyTrack(projectId, 'vocal')

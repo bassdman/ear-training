@@ -4,6 +4,7 @@ import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTra
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
+import { useWordSeparation } from '../../features/wordSeparation/useWordSeparation'
 
 const AUDIO_EXTENSION = /\.(aac|aif|aiff|amr|caf|flac|m4a|m4b|mp3|mp4|mpga|oga|ogg|opus|wav|wave|webm)$/i
 
@@ -15,6 +16,12 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
   const [busy, setBusy] = useState(false)
   const [mixError, setMixError] = useState('')
   const writeQueue = useRef<Promise<void>>(Promise.resolve())
+  const separation = useWordSeparation(projectId, (updated) => {
+    setTracks((current) => current && current.map((track) => track.id === updated.id
+      ? { ...track, audio: updated.audio, clips: updated.clips }
+      : track))
+  })
+  const editingBusy = busy || separation.busy
 
   useEffect(() => {
     let active = true
@@ -187,20 +194,22 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     <section aria-label="Audiospuren" className="audiobook-tracks">
       {error && <p className="audiobook-error" role="alert">{error}</p>}
       {mixError && <p className="audiobook-error" role="alert">{mixError}</p>}
+      {separation.error && <p className="audiobook-error" role="alert">{separation.error}</p>}
+      {separation.status && <p role="status">{separation.status}</p>}
       {tracks === null ? (
         !error && <p>Lade Audiospuren ...</p>
       ) : (
         <>
           {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
-          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} busy={busy} />
+          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} busy={editingBusy} />
           {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
-            <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('vocal')}>
+            <button type="button" className="audiobook-secondary" disabled={editingBusy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur
             </button>
-            <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('instrumental')}>
+            <button type="button" className="audiobook-secondary" disabled={editingBusy} onClick={() => void createTrack('instrumental')}>
               <span aria-hidden="true">+</span> Instrumentalspur
             </button>
-            <button type="button" className="audiobook-secondary" disabled={busy} onClick={() => void createTrack('mixed')}>
+            <button type="button" className="audiobook-secondary" disabled={editingBusy} onClick={() => void createTrack('mixed')}>
               <span aria-hidden="true">+</span> Mixed-Spur
             </button>
           </div>}

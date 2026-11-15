@@ -1,4 +1,5 @@
 import { createProjectId } from './storage'
+import type { Segment } from '../../features/wordSeparation/separation'
 
 const DATABASE_NAME = 'ear-training-audiobook'
 const STORE_NAME = 'tracks'
@@ -33,6 +34,8 @@ export type AudioClip = {
   sourceStart?: number
   audioId?: string
 }
+
+export type ClipSegments = { clipId: string, duration: number, segments: Segment[] }
 
 type StoredClip = Omit<AudioClip, 'audio'> & { audio?: Blob }
 type StoredTrack = Omit<AudioTrack, 'clips'> & { clips?: StoredClip[] }
@@ -464,6 +467,90 @@ function deleteUnreferencedAudio(store: IDBObjectStore, audioStore: IDBObjectSto
       }
     }
     for (const id of ids) audioStore.delete(id)
+  }
+}
+
+export async function applyWordSeparation(expected: AudioTrack, plan: ClipSegments[]): Promise<void> {
+  const expectedClips = getTrackClips(expected)
+  if (plan.length !== expectedClips.length || new Set(plan.map((item) => item.clipId)).size !== plan.length) {
+    throw new Error('Ungültiger Trennungsplan')
+  }
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const audioStore = transaction.objectStore(AUDIO_STORE)
+      const request = store.get(expected.id)
+      let failure: Error | undefined
+      request.onsuccess = () => {
+        const track: StoredTrack | undefined = request.result
+        const current = track ? storedClips(track) : []
+        const changed = !track || track.projectId !== expected.projectId || getTrackType(track) !== 'vocal'
+          || current.length !== expectedClips.length
+          || current.some((clip, index) => {
+            const before = expectedClips[index]
+            return clip.id !== before.id || clip.name !== before.name || clip.start !== before.start
+              || clip.duration !== before.duration || clip.sourceStart !== before.sourceStart || clip.audioId !== before.audioId
+          })
+        if (changed || !track) {
+          failure = new Error('Die Spur wurde während der Analyse geändert. Bitte versuche es erneut.')
+          transaction.abort()
+          return
+        }
+        const result: StoredClip[] = []
+        const removedAudio = new Set<string>()
+        for (const clip of current) {
+          const item = plan.find((entry) => entry.clipId === clip.id)
+          if (!item || !Number.isFinite(item.duration) || item.duration <= 0
+            || (clip.duration !== undefined && Math.abs(clip.duration - item.duration) > 0.0001)) {
+            failure = new Error('Ungültiger Trennungsplan')
+            transaction.abort()
+            return
+          }
+          let previousEnd = 0
+          for (const segment of item.segments) {
+            if (!Number.isFinite(segment.start) || !Number.isFinite(segment.end) || segment.start < previousEnd
+              || segment.end <= segment.start || segment.end > item.duration + 0.0001) {
+              failure = new Error('Ungültiger Trennungsplan')
+              transaction.abort()
+              return
+            }
+            previousEnd = segment.end
+          }
+          if (!item.segments.length) {
+            if (clip.audioId) removedAudio.add(clip.audioId)
+            continue
+          }
+          const audioId = clip.audioId ?? createProjectId()
+          if (!clip.audioId) {
+            if (!clip.audio) {
+              failure = new Error('Audiodatei nicht gefunden')
+              transaction.abort()
+              return
+            }
+            audioStore.add({ id: audioId, projectId: track.projectId, audio: clip.audio })
+          }
+          const { audio: _audio, ...reference } = clip
+          for (const segment of item.segments) {
+            result.push({
+              ...reference, id: createProjectId(), audioId,
+              start: clip.start + segment.start,
+              sourceStart: (clip.sourceStart ?? 0) + segment.start,
+              duration: segment.end - segment.start,
+            })
+          }
+        }
+        const { audio: _audio, ...rest } = track
+        store.put({ ...rest, clips: result })
+        deleteUnreferencedAudio(store, audioStore, track.projectId, removedAudio)
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(failure ?? transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(failure ?? transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
   }
 }
 
