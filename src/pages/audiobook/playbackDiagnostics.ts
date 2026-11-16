@@ -13,6 +13,16 @@ export class PlaybackDiagnostics {
   private timer: ReturnType<typeof setInterval> | null = null
   private observer: PerformanceObserver | null = null
   private active = false
+  private readonly trackNumbers = new Map<string, number>()
+
+  trackNumber(id: string) {
+    let number = this.trackNumbers.get(id)
+    if (number === undefined) {
+      number = this.trackNumbers.size + 1
+      this.trackNumbers.set(id, number)
+    }
+    return number
+  }
 
   start() {
     if (this.active) return

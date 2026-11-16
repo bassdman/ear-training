@@ -25,6 +25,9 @@ class TestContext {
     gains.push(gain)
     return gain
   }
+  createAnalyser() {
+    return { fftSize: 2048, getFloatTimeDomainData: vi.fn(), disconnect: vi.fn() }
+  }
   constructor() { contexts.push(this) }
 }
 
@@ -78,6 +81,25 @@ describe('Songtransport', () => {
     expect(diagnostics.snapshot().events).toContainEqual(expect.objectContaining({
       type: 'metric', detail: expect.objectContaining({ name: 'audioAdvanceMs', count: 1, total: 100 }),
     }))
+  })
+
+  it('aktiviert und entfernt Pegelmessung während laufender Wiedergabe', async () => {
+    const diagnostics = new PlaybackDiagnostics()
+    const { result, rerender } = renderHook(({ log }) => useSongTransport(buffers, 10, true, 'one,two', log), {
+      initialProps: { log: null as PlaybackDiagnostics | null },
+    })
+    await act(async () => result.current.play())
+    expect(gains[0].connect).toHaveBeenCalledTimes(1)
+    vi.useFakeTimers()
+    rerender({ log: diagnostics })
+    act(() => vi.advanceTimersByTime(1000))
+    expect(diagnostics.snapshot().events.filter((event) => event.type === 'audio-level')).toHaveLength(3)
+    expect(gains[0].connect).toHaveBeenCalledTimes(3)
+    rerender({ log: null })
+    expect(gains[0].disconnect).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(result.current.playing).toBe(true)
+    vi.useRealTimers()
   })
 
   it('startet alle Spuren gleichzeitig, pausiert und setzt an derselben Stelle fort', async () => {

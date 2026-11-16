@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlaybackDiagnostics } from './playbackDiagnostics'
+import { startPlaybackLevels } from './playbackLevels'
 
 export type PlaybackTrack = {
   id: string
@@ -27,9 +28,12 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   const frameRef = useRef<number | null>(null)
   const tracksRef = useRef(tracks)
   const diagnosticsRef = useRef(diagnostics)
+  const stopLevelsRef = useRef<(() => void) | null>(null)
   diagnosticsRef.current = diagnostics
 
   useEffect(() => {
+    stopLevelsRef.current?.()
+    stopLevelsRef.current = null
     if (!diagnostics) return
     const context = contextRef.current
     diagnostics.event('transport-snapshot', {
@@ -40,6 +44,14 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
       state: context?.state ?? 'not-created', sampleRate: context?.sampleRate ?? null,
       baseLatency: context?.baseLatency ?? null, outputLatency: context?.outputLatency ?? null,
     })
+    if (context && playingRef.current) {
+      stopLevelsRef.current = startPlaybackLevels(context, gainsRef.current, diagnostics, 'playback',
+        () => positionRef.current + context.currentTime - startedAtRef.current)
+    }
+    return () => {
+      stopLevelsRef.current?.()
+      stopLevelsRef.current = null
+    }
   }, [diagnostics])
 
   useEffect(() => {
@@ -56,6 +68,8 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   }, [tracks])
 
   const stopSources = useCallback(() => {
+    stopLevelsRef.current?.()
+    stopLevelsRef.current = null
     for (const source of sourcesRef.current) {
       source.stop()
       source.disconnect()
@@ -111,6 +125,10 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
       sourcesRef.current = sources
       gainsRef.current = gains
       startedAtRef.current = startTime
+      if (diagnosticsRef.current) {
+        stopLevelsRef.current = startPlaybackLevels(context, gains, diagnosticsRef.current, 'playback',
+          () => positionRef.current + context.currentTime - startedAtRef.current)
+      }
       diagnosticsRef.current?.event('sources-started', {
         offset, sources: sources.length, gains: gains.size, schedulingMs: performance.now() - schedulingStarted,
         sampleRate: context.sampleRate, baseLatency: context.baseLatency ?? null,

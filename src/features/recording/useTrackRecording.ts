@@ -4,6 +4,8 @@ import type { AudioClip, AudioTrack } from '../../pages/audiobook/audioStorage'
 import { createProjectId } from '../../pages/audiobook/storage'
 import type { PlaybackTrack } from '../../pages/audiobook/useSongTransport'
 import { prepareRecording } from './prepareRecording'
+import type { PlaybackDiagnostics } from '../../pages/audiobook/playbackDiagnostics'
+import { startPlaybackLevels } from '../../pages/audiobook/playbackLevels'
 
 type Phase = 'idle' | 'preparing' | 'recording' | 'saving'
 
@@ -17,6 +19,7 @@ function recordingFileName(type: string): string {
 export function useTrackRecording(
   save: (track: AudioTrack, clip: AudioClip, durations: Record<string, number>) => Promise<void>,
   onBusyChange?: (busy: boolean) => void,
+  diagnostics?: PlaybackDiagnostics | null,
 ) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [position, setPosition] = useState<number | null>(null)
@@ -31,8 +34,17 @@ export function useTrackRecording(
   const sourcesRef = useRef<AudioBufferSourceNode[]>([])
   const frameRef = useRef<number | null>(null)
   const recoveryRef = useRef<string | null>(null)
+  const diagnosticsRef = useRef(diagnostics)
+  diagnosticsRef.current = diagnostics
+  const gainsRef = useRef(new Map<string, GainNode>())
+  const recordingStartRef = useRef<{ position: number, time: number } | null>(null)
+  const stopLevelsRef = useRef<(() => void) | null>(null)
 
   const release = useCallback(() => {
+    stopLevelsRef.current?.()
+    stopLevelsRef.current = null
+    gainsRef.current.clear()
+    recordingStartRef.current = null
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
     frameRef.current = null
     for (const source of sourcesRef.current) {
@@ -46,6 +58,21 @@ export function useTrackRecording(
     contextRef.current = null
     if (context) void context.close().catch((cause: unknown) => console.error('AudioContext konnte nicht geschlossen werden:', cause))
   }, [])
+
+  useEffect(() => {
+    stopLevelsRef.current?.()
+    stopLevelsRef.current = null
+    const context = contextRef.current
+    const start = recordingStartRef.current
+    if (diagnostics && context && start) {
+      stopLevelsRef.current = startPlaybackLevels(context, gainsRef.current, diagnostics, 'recording',
+        () => start.position + context.currentTime - start.time)
+    }
+    return () => {
+      stopLevelsRef.current?.()
+      stopLevelsRef.current = null
+    }
+  }, [diagnostics])
 
   useEffect(() => {
     mounted.current = true
@@ -152,6 +179,13 @@ export function useTrackRecording(
             source.connect(gain)
             const elapsed = Math.max(0, startPosition - clipStart)
             source.start(startedAt + Math.max(0, clipStart - startPosition), sourceStart + elapsed, length - elapsed)
+          }
+          gainsRef.current = gains
+          recordingStartRef.current = { position: startPosition, time: startedAt }
+          if (diagnosticsRef.current) {
+            diagnosticsRef.current.event('recording-start', { position: startPosition, targetTrack: diagnosticsRef.current.trackNumber(target.id) })
+            stopLevelsRef.current = startPlaybackLevels(context, gains, diagnosticsRef.current, 'recording',
+              () => startPosition + context.currentTime - startedAt)
           }
           setPhase('recording')
           const tick = () => {

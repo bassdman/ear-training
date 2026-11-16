@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 import type { AudioTrack } from '../../pages/audiobook/audioStorage'
 import { useTrackRecording } from './useTrackRecording'
+import { PlaybackDiagnostics } from '../../pages/audiobook/playbackDiagnostics'
 
 afterEach(() => {
   Reflect.deleteProperty(navigator, 'mediaDevices')
@@ -16,6 +17,7 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   const microphoneStop = vi.fn()
   const save = vi.fn().mockResolvedValue(undefined)
   const gains: { value: number }[] = []
+  const analyser = vi.fn(() => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn((data: Float32Array) => data.fill(0.25)), disconnect: vi.fn() }))
   class TestRecorder {
     state = 'inactive'
     mimeType = 'audio/webm'
@@ -38,8 +40,9 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
     createGain() {
       const gain = { value: 1 }
       gains.push(gain)
-      return { gain, connect: vi.fn() }
+      return { gain, connect: vi.fn(), disconnect: vi.fn() }
     }
+    createAnalyser = analyser
     decodeAudioData = vi.fn().mockResolvedValue({ duration: 2 })
     close = vi.fn().mockResolvedValue(undefined)
   }
@@ -56,7 +59,10 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   })
   const target: AudioTrack = { id: 'target', projectId: 'p', name: '', createdAt: 1, clips: [] }
   const buffer = { duration: 10 } as AudioBuffer
-  const { result, unmount } = renderHook(() => useTrackRecording(save))
+  const diagnostics = new PlaybackDiagnostics()
+  const { result, unmount, rerender } = renderHook(({ log }) => useTrackRecording(save, undefined, log), {
+    initialProps: { log: null as PlaybackDiagnostics | null },
+  })
   await act(async () => {
     await result.current.start(target, 3, [
       { id: 'a', trackId: 'target', buffer, volume: 1, muted: false, start: 0 },
@@ -67,6 +73,16 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   expect(sourceStart).toHaveBeenCalledTimes(1)
   expect(sourceStart).toHaveBeenCalledWith(10, 2, 8)
   expect(gains[0].value).toBe(4)
+  expect(analyser).not.toHaveBeenCalled()
+  vi.useFakeTimers()
+  rerender({ log: diagnostics })
+  act(() => vi.advanceTimersByTime(1000))
+  expect(diagnostics.snapshot().events).toContainEqual(expect.objectContaining({
+    type: 'audio-level', detail: expect.objectContaining({ mode: 'recording', track: 1, gain: 4, peak: 0.25, rms: 0.25 }),
+  }))
+  rerender({ log: null })
+  expect(vi.getTimerCount()).toBe(0)
+  vi.useRealTimers()
   act(() => result.current.stop())
   await waitFor(() => expect(result.current.phase).toBe('idle'))
   expect(save).toHaveBeenCalledWith(target, expect.objectContaining({ start: 3, duration: 2 }), {})

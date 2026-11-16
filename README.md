@@ -72,7 +72,13 @@ Fehlersuche die Option vor dem Abspielen einschalten, das Problem nachstellen
 und anschließend das Protokoll herunterladen. Es enthält Browserkennung,
 Bildschirmgröße, Zeitmessungen, Dateigrößen und Formate, Anzahl der Spuren und
 Blöcke, Suchsprünge, Audio- und Zeichenstatistiken sowie gegebenenfalls lange
-Hauptthread-Aufgaben. Es enthält keine Audiodaten, Liedtexte oder Projektnamen.
+Hauptthread-Aufgaben. Während Wiedergabe und Aufnahmebegleitung werden pro
+Sekunde kurze Mono-Stichproben des digitalen Summenmixes und der einzelnen
+Spuren gemessen (Spitzenwert und RMS-Pegel, vor der Geräteausgabe). Die
+Spurnummern sind anonym und gelten nur innerhalb des Protokolls; Track 0
+bezeichnet den Summenmix. Die Werte erfassen weder die Lautsprecherlautstärke
+noch das Mikrofon direkt und können kurze Pegelspitzen übersehen. Es enthält
+keine Audiodaten, Liedtexte oder Projektnamen.
 Das Protokoll bleibt lokal im Arbeitsspeicher, ist auf 3000 Einträge begrenzt
 und wird beim Deaktivieren oder Projektwechsel verworfen. Ein Seitenneuladen
 beginnt ein neues Protokoll. Die Diagnose selbst kann die Leistung etwas
