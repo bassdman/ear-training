@@ -193,6 +193,51 @@
   margin-top: 4px;
 }
 
+.audiobook-lyrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.audiobook-lyrics-track,
+.audiobook-lyrics-save-status {
+  color: var(--theme-muted);
+  font-size: 0.8rem;
+}
+
+.audiobook-lyrics-menu-anchor {
+  position: relative;
+}
+
+.audiobook-lyrics-menu {
+  right: 0;
+  top: 100%;
+  width: min(230px, calc(100vw - 64px));
+  box-sizing: border-box;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.audiobook-page .audiobook-lyrics-menu button {
+  padding: 7px;
+  border: 0;
+  background: var(--theme-surface);
+  color: var(--theme-ink);
+  text-align: left;
+}
+
+.audiobook-lyrics-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.audiobook-details-card.audiobook-lyrics-card textarea {
+  overflow: hidden;
+  resize: none;
+}
+
 .audiobook-project-nav a:focus-visible,
 .audiobook-project-topbar a:focus-visible,
 .audiobook-project-menu-trigger:focus-visible {

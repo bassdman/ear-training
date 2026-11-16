@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 
+import { TooltipMenu, TooltipMenuButton } from '../../components/TooltipMenu'
 import {
   deleteProjectDocument, deleteProjectLyrics, readProjectDocuments, readProjectLyrics, readVocalTracks,
   saveProjectDocument, saveProjectLyrics, type AudioTrack, type ProjectDocument, type ProjectLyrics,
@@ -8,33 +9,127 @@ import { createProjectId } from './storage'
 
 type VocalTrack = Pick<AudioTrack, 'id' | 'name'>
 
-function LyricsEditor({ lyrics, tracks, busy, onSave, onDelete }: {
+function LyricsEditor({ lyrics, tracks, busy, autoEdit, onSave, onDelete }: {
   lyrics: ProjectLyrics, tracks: VocalTrack[], busy: boolean,
-  onSave: (lyrics: ProjectLyrics) => void, onDelete: (id: string) => void,
+  autoEdit: boolean, onSave: (lyrics: ProjectLyrics) => Promise<void>, onDelete: (id: string) => void,
 }) {
-  const [text, setText] = useState(lyrics.text)
-  const [trackId, setTrackId] = useState(lyrics.trackId ?? '')
+  const [draft, setDraft] = useState(lyrics)
+  const latest = useRef(lyrics)
+  const saved = useRef(lyrics)
+  const saving = useRef(false)
+  const mounted = useRef(true)
+  const textarea = useRef<HTMLTextAreaElement>(null)
+  const [editing, setEditing] = useState(autoEdit)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  return <form className="audiobook-details-card" onSubmit={(event) => {
-    event.preventDefault()
-    onSave({ ...lyrics, text, trackId: trackId || null })
-  }}>
-    <label htmlFor={`lyrics-${lyrics.id}`}>Liedtext</label>
-    <textarea id={`lyrics-${lyrics.id}`} rows={8} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
-    <label htmlFor={`lyrics-track-${lyrics.id}`}>Vocalspur</label>
-    <select id={`lyrics-track-${lyrics.id}`} value={tracks.some((track) => track.id === trackId) ? trackId : ''} disabled={busy} onChange={(event) => setTrackId(event.target.value)}>
-      <option value="">Nicht zugewiesen</option>
-      {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
-    </select>
-    <div className="audiobook-details-actions">
-      <button className="audiobook-primary" type="submit" disabled={busy}>Liedtext speichern</button>
-      {confirmDelete ? <>
-        <span>Liedtext wirklich löschen?</span>
-        <button className="audiobook-danger" type="button" disabled={busy} onClick={() => onDelete(lyrics.id)}>Endgültig löschen</button>
-        <button className="audiobook-secondary" type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Abbrechen</button>
-      </> : <button className="audiobook-secondary" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}>Liedtext löschen</button>}
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved')
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+
+  useLayoutEffect(() => {
+    const node = textarea.current
+    if (!node) return
+    const resize = () => {
+      node.style.height = 'auto'
+      node.style.height = `${node.scrollHeight + node.offsetHeight - node.clientHeight}px`
+    }
+    resize()
+    let width = node.clientWidth
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+      if (width !== node.clientWidth) { width = node.clientWidth; resize() }
+    })
+    observer?.observe(node)
+    return () => observer?.disconnect()
+  }, [draft.text, editing])
+
+  useEffect(() => {
+    if (editing) textarea.current?.focus()
+  }, [editing])
+
+  useEffect(() => {
+    if (saveState === 'saved') return
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
+    const guardLinks = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('a[href]')) return
+      if (!window.confirm('Der Liedtext ist noch nicht gespeichert. Seite trotzdem verlassen?')) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+    window.addEventListener('beforeunload', warn)
+    document.addEventListener('click', guardLinks, true)
+    return () => { window.removeEventListener('beforeunload', warn); document.removeEventListener('click', guardLinks, true) }
+  }, [saveState])
+
+  async function flush() {
+    if (saving.current) return
+    saving.current = true
+    if (mounted.current) { setSaveState('saving'); setSaveError('') }
+    try {
+      while (saved.current !== latest.current) {
+        const next = latest.current
+        await onSave(next)
+        saved.current = next
+      }
+      if (mounted.current) setSaveState('saved')
+    } catch (cause) {
+      console.error('Liedtext konnte nicht gespeichert werden:', cause)
+      if (mounted.current) {
+        setSaveState('error')
+        setSaveError(cause instanceof Error ? cause.message : 'Die Änderung konnte nicht gespeichert werden.')
+      }
+    } finally {
+      saving.current = false
+    }
+  }
+
+  function update(patch: Partial<Pick<ProjectLyrics, 'text' | 'trackId'>>) {
+    const next = { ...latest.current, ...patch }
+    latest.current = next
+    setDraft(next)
+    void flush()
+  }
+
+  const assignedTrack = tracks.find((track) => track.id === draft.trackId)
+  return <article className="audiobook-details-card audiobook-lyrics-card">
+    <div className="audiobook-lyrics-header">
+      <span className="audiobook-lyrics-track">{assignedTrack ? `Vocalspur: ${assignedTrack.name}` : 'Keine Vocalspur zugewiesen'}</span>
+      <div className="audiobook-lyrics-menu-anchor">
+        <button type="button" className="audiobook-project-menu-trigger" aria-label="Optionen für Liedtext" aria-expanded={menuOpen} onPointerDown={(event) => event.stopPropagation()} onClick={() => { setMenuOpen((open) => !open); setAssigning(false); setConfirmDelete(false) }}>...</button>
+        {menuOpen && <TooltipMenu className="audiobook-lyrics-menu" onClose={() => { setMenuOpen(false); setAssigning(false); setConfirmDelete(false) }}>
+          {confirmDelete ? <>
+            <span>Liedtext wirklich löschen?</span>
+            <TooltipMenuButton disabled={busy || saveState === 'saving'} onClick={() => onDelete(lyrics.id)}>Endgültig löschen</TooltipMenuButton>
+            <TooltipMenuButton onClick={() => setConfirmDelete(false)}>Abbrechen</TooltipMenuButton>
+          </> : assigning ? <>
+            <label htmlFor={`lyrics-track-${lyrics.id}`}>Vocalspur</label>
+            <select id={`lyrics-track-${lyrics.id}`} value={assignedTrack?.id ?? ''} disabled={busy} onChange={(event) => {
+              update({ trackId: event.target.value || null })
+              setMenuOpen(false)
+              setAssigning(false)
+            }}>
+              <option value="">Nicht zugewiesen</option>
+              {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+            </select>
+          </> : <>
+            <TooltipMenuButton disabled={busy} onClick={() => { setEditing((current) => !current); setMenuOpen(false) }}>{editing ? 'Bearbeitung beenden' : 'Text bearbeiten'}</TooltipMenuButton>
+            <TooltipMenuButton disabled={busy} onClick={() => setAssigning(true)}>Spur zuordnen</TooltipMenuButton>
+            <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(true)}>Text löschen</TooltipMenuButton>
+          </>}
+        </TooltipMenu>}
+      </div>
     </div>
-  </form>
+    {editing
+      ? <textarea ref={textarea} aria-label="Liedtext" rows={1} value={draft.text} disabled={busy} onChange={(event) => update({ text: event.target.value })} />
+      : <div className="audiobook-lyrics-text">{draft.text || 'Noch kein Liedtext.'}</div>}
+    {saveState === 'saving' && <span className="audiobook-lyrics-save-status" role="status">Speichert ...</span>}
+    {saveState === 'error' && <div className="audiobook-error" role="alert">Liedtext nicht gespeichert: {saveError} <button type="button" onClick={() => void flush()}>Erneut versuchen</button></div>}
+  </article>
 }
 
 function DocumentEditor({ document, busy, onSave, onDelete, onOpen }: {
@@ -90,6 +185,7 @@ export function ProjectDetails({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const [newLyricsId, setNewLyricsId] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const urls = useRef(new Set<string>())
 
@@ -118,7 +214,8 @@ export function ProjectDetails({ projectId }: { projectId: string }) {
       const entry: ProjectLyrics = { id: createProjectId(), projectId, text: '', trackId: null, createdAt: Date.now() }
       await saveProjectLyrics(entry)
       setLyrics((current) => [...(current ?? []), entry])
-    }, 'Liedtext hinzugefügt. Änderungen bitte speichern.')
+      setNewLyricsId(entry.id)
+    }, 'Liedtext hinzugefügt.')
   }
 
   function addDocument(event: FormEvent<HTMLFormElement>) {
@@ -159,11 +256,11 @@ export function ProjectDetails({ projectId }: { projectId: string }) {
       <section aria-labelledby="lyrics-title">
         <h2 id="lyrics-title">Lyrics</h2>
         {lyrics.length === 0 && <p>Noch keine Liedtexte vorhanden.</p>}
-        {lyrics.map((entry) => <LyricsEditor key={entry.id} lyrics={entry} tracks={tracks} busy={busy}
-          onSave={(updated) => void perform(async () => {
+        {lyrics.map((entry) => <LyricsEditor key={entry.id} lyrics={entry} tracks={tracks} busy={busy} autoEdit={entry.id === newLyricsId}
+          onSave={async (updated) => {
             await saveProjectLyrics(updated)
             setLyrics((current) => current?.map((item) => item.id === updated.id ? updated : item) ?? [])
-          }, 'Liedtext gespeichert.')}
+          }}
           onDelete={(id) => void perform(async () => {
             await deleteProjectLyrics(id)
             setLyrics((current) => current?.filter((item) => item.id !== id) ?? [])

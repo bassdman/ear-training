@@ -19,7 +19,9 @@ MOV-Konverter wird bei Bedarf vom eigenen Server geladen; Audiodaten bleiben lok
 Große Projekte benötigen entsprechend Arbeitsspeicher.
 Unter **Lyrics & PDFs**
 lassen sich mehrere Liedtexte erstellen und optional Vocalspuren zuweisen.
-Änderungen werden jeweils über **Liedtext speichern** gesichert. Wird eine
+Liedtexte werden vollständig angezeigt. Über das **...**-Menü können sie
+bearbeitet, einer Vocalspur zugeordnet oder nach Bestätigung gelöscht werden;
+Änderungen an Text und Zuordnung werden automatisch gespeichert. Wird eine
 Vocalspur gelöscht, bleibt der Text ohne Zuordnung erhalten. Darunter können
 beliebig viele PDFs mit Namen und optionaler Beschreibung hinzugefügt,
 geöffnet, bearbeitet und gelöscht werden. Änderungen an Name oder Beschreibung
