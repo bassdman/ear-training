@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AudioTrack } from './audioStorage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
+import { PlaybackDiagnostics } from './playbackDiagnostics'
 
 vi.mock('./waveform', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./waveform')>()
@@ -129,6 +130,84 @@ describe('gemeinsame Zeitleiste', () => {
     expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:00:10')
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
     expect(start).toHaveBeenLastCalledWith(0, 0.4, 29.6)
+  })
+
+  it('ignoriert gerundetes automatisches Scrollen bei der Wiedergabe, aber nicht manuelles Scrollen', async () => {
+    const start = vi.fn()
+    const stop = vi.fn()
+    const clock = { currentTime: 0 }
+    let frame: FrameRequestCallback | undefined
+    class TestContext {
+      state = 'running'
+      get currentTime() { return clock.currentTime }
+      destination = {}
+      createBufferSource() { return { connect: vi.fn(), disconnect: vi.fn(), start, stop, buffer: null } }
+      createGain() { return { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() } }
+      close = vi.fn(async () => {})
+    }
+    vi.stubGlobal('AudioContext', TestContext)
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frame = callback; return 1 }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const diagnostics = new PlaybackDiagnostics()
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} diagnostics={diagnostics} />)
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    let offset = 0
+    Object.defineProperty(viewport, 'scrollLeft', {
+      configurable: true,
+      get: () => offset,
+      set: (value: number) => { offset = Math.floor(value) },
+    })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await screen.findByRole('button', { name: 'Pause' })
+    for (let i = 1; i <= 24; i++) {
+      act(() => { clock.currentTime = i * 0.016; frame?.(i * 16) })
+      fireEvent.scroll(viewport)
+    }
+    expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:00:09')
+    expect(start).toHaveBeenCalledTimes(2)
+    expect(stop).not.toHaveBeenCalled()
+    expect(diagnostics.snapshot().events.filter((event) => event.type === 'seek')).toHaveLength(0)
+
+    viewport.scrollLeft = 200
+    fireEvent.scroll(viewport)
+    expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:05:00')
+    expect(start).toHaveBeenCalledTimes(4)
+    expect(stop).toHaveBeenCalledTimes(2)
+    expect(diagnostics.snapshot().events.filter((event) => event.type === 'seek')).toHaveLength(1)
+    fireEvent.scroll(viewport)
+    expect(start).toHaveBeenCalledTimes(4)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
+    viewport.scrollLeft = 240
+    fireEvent.scroll(viewport)
+    expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:06:00')
+    expect(start).toHaveBeenCalledTimes(4)
+  })
+
+  it('ignoriert verzögerte Scrollereignisse nach begrenzten Programm- und Zoombewegungen', async () => {
+    const diagnostics = new PlaybackDiagnostics()
+    render(<AudioTimeline tracks={tracks.slice(0, 1)} onMixChange={vi.fn()} {...importProps} diagnostics={diagnostics} />)
+    const viewport = screen.getByRole('region', { name: 'Gemeinsame Zeitleiste' })
+    let offset = 0
+    Object.defineProperty(viewport, 'scrollLeft', {
+      configurable: true,
+      get: () => offset,
+      set: (value: number) => { offset = Math.max(0, Math.min(20, Math.floor(value))) },
+    })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'eine Sekunde vor' }))
+    expect(viewport.scrollLeft).toBe(20)
+    fireEvent.click(screen.getByRole('button', { name: 'Hineinzoomen' }))
+    fireEvent.scroll(viewport)
+    fireEvent.scroll(viewport)
+    expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:01:00')
+    expect(diagnostics.snapshot().events.filter((event) => event.type === 'seek')).toHaveLength(1)
+
+    viewport.scrollLeft = 12
+    fireEvent.scroll(viewport)
+    expect(screen.getByLabelText('Schnittposition')).toHaveTextContent('00:00:05')
+    expect(diagnostics.snapshot().events.filter((event) => event.type === 'seek')).toHaveLength(2)
   })
 
   it('schneidet an der mit Frame-Schritten gewählten Position', async () => {

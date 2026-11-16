@@ -225,6 +225,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
   const [viewport, setViewport] = useState({ width: 0, offset: 0 })
   const viewportRef = useRef<HTMLDivElement>(null)
+  const automaticScrollRef = useRef<{ node: HTMLDivElement, offset: number } | null>(null)
   const [menu, setMenu] = useState<{ trackId: string, time: number, y: number } | null>(null)
   const [selectedClip, setSelectedClip] = useState<string | null>(null)
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null)
@@ -348,6 +349,8 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     const node = viewportRef.current
     if (!node) return
     node.scrollLeft = displayedPosition * zoom
+    // Browsers may round or clamp scrollLeft, and deliver its scroll event later.
+    automaticScrollRef.current = { node, offset: node.scrollLeft }
     setViewport((current) => current.width === node.clientWidth && current.offset === node.scrollLeft
       ? current
       : { width: node.clientWidth, offset: node.scrollLeft })
@@ -503,12 +506,14 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
         onScroll={(event) => {
           const node = event.currentTarget
           diagnostics?.measure('scrollEvents', 1)
-          setViewport({ width: node.clientWidth, offset: node.scrollLeft })
+          setViewport((current) => current.width === node.clientWidth && current.offset === node.scrollLeft
+            ? current
+            : { width: node.clientWidth, offset: node.scrollLeft })
           if (recording.phase !== 'idle') return
-          if (Math.abs(node.scrollLeft - transport.position * zoom) > 0.5) {
-            setSeekVersion((current) => current + 1)
-            transport.seek(node.scrollLeft / zoom, 'scroll')
-          }
+          const automaticScroll = automaticScrollRef.current
+          if (automaticScroll?.node === node && Math.abs(node.scrollLeft - automaticScroll.offset) < 0.5) return
+          setSeekVersion((current) => current + 1)
+          transport.seek(node.scrollLeft / zoom, 'scroll')
         }}
         onPointerMove={(event) => {
           const current = dragRef.current
