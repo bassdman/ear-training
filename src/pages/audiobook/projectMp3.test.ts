@@ -57,14 +57,14 @@ describe('MP3-Export', () => {
       }
     })
     vi.spyOn(audioStorage, 'readTracks').mockResolvedValue([
-      { id: 'a', projectId: 'p', name: '', createdAt: 1, volume: 0.4, clips: [{ id: 'c', name: 'c', audio: new Blob(['a']), start: 5, sourceStart: 2, duration: 3 }] },
+      { id: 'a', projectId: 'p', name: '', createdAt: 1, volume: 4, clips: [{ id: 'c', name: 'c', audio: new Blob(['a']), start: 5, sourceStart: 2, duration: 3 }] },
       { id: 'b', projectId: 'p', name: '', createdAt: 2, muted: true, clips: [{ id: 'd', name: 'd', audio: new Blob(['b']), start: 2 }] },
     ])
     mocks.exec.mockResolvedValue(0)
     mocks.readFile.mockResolvedValue(new Uint8Array([0xff, 0xfb, 1]))
     const result = await exportProjectMp3('p')
     expect(starts).toEqual([[5, 2, 3], [2, 0, 10]])
-    expect(gains).toEqual([0.4, 0])
+    expect(gains).toEqual([4, 0])
     const config = mocks.load.mock.calls[0][0]
     expect(new URL(config.coreURL).origin).toBe(window.location.origin)
     expect(new URL(config.wasmURL).origin).toBe(window.location.origin)

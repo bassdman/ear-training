@@ -15,6 +15,7 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   const sourceStart = vi.fn()
   const microphoneStop = vi.fn()
   const save = vi.fn().mockResolvedValue(undefined)
+  const gains: { value: number }[] = []
   class TestRecorder {
     state = 'inactive'
     mimeType = 'audio/webm'
@@ -34,7 +35,11 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
     currentTime = 10
     destination = {}
     createBufferSource() { return { buffer: null, connect: vi.fn(), disconnect: vi.fn(), start: sourceStart, stop: vi.fn() } }
-    createGain() { return { gain: { value: 1 }, connect: vi.fn() } }
+    createGain() {
+      const gain = { value: 1 }
+      gains.push(gain)
+      return { gain, connect: vi.fn() }
+    }
     decodeAudioData = vi.fn().mockResolvedValue({ duration: 2 })
     close = vi.fn().mockResolvedValue(undefined)
   }
@@ -55,12 +60,13 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   await act(async () => {
     await result.current.start(target, 3, [
       { id: 'a', trackId: 'target', buffer, volume: 1, muted: false, start: 0 },
-      { id: 'b', trackId: 'other', buffer, volume: 0.5, muted: false, start: 1 },
+      { id: 'b', trackId: 'other', buffer, volume: 4, muted: false, start: 1 },
     ], {})
   })
   expect(result.current.phase).toBe('recording')
   expect(sourceStart).toHaveBeenCalledTimes(1)
   expect(sourceStart).toHaveBeenCalledWith(10, 2, 8)
+  expect(gains[0].value).toBe(4)
   act(() => result.current.stop())
   await waitFor(() => expect(result.current.phase).toBe('idle'))
   expect(save).toHaveBeenCalledWith(target, expect.objectContaining({ start: 3, duration: 2 }), {})

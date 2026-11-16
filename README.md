@@ -144,7 +144,7 @@ bei der Wiedergabe bewegen sich die Spuren darunter nach links.
 Beim Importieren eines Audioblocks pausiert die Wiedergabe. Die Audiodateien werden
 lokal in IndexedDB gespeichert und beim Löschen des Projekts entfernt.
 Links neben jeder Wellenform schaltet **M** die jeweilige Spur stumm. Über
-**...** lassen sich die Lautstärke einstellen und die Spur mit allen ihren
+**...** lässt sich die Lautstärke zwischen 0 und 400 % einstellen und die Spur mit allen ihren
 Audioblöcken nach Bestätigung löschen. **Spur duplizieren** erstellt am Ende
 eine unabhängige Kopie mit allen Audioblöcken, Schnittpositionen, Spurart und
 Mischereinstellungen; die Wiedergabe pausiert dabei. Beide Spuren teilen sich
@@ -162,6 +162,13 @@ Gemeinsam genutzte Audiodaten bleiben
 erhalten, solange sie in anderen Spuren verwendet werden. Lautstärke und Stummschaltung gelten
 auch während der Wiedergabe und werden pro Spur lokal gespeichert. Bei aktiver
 Stummschaltung erscheinen die Spur grau und der Mute-Button rot.
+100 % entsprechen dem unveränderten Aufnahmepegel; darüber wird die Spur
+verstärkt. Dabei können Hintergrundgeräusche und Verzerrungen zunehmen,
+insbesondere wenn mehrere Spuren zusammen den maximalen Ausgangspegel
+überschreiten. Gegebenenfalls die Spuren leiser einstellen. Die Verstärkung
+gilt auch für die Aufnahmebegleitung und den MP3-Export, verändert aber nicht
+die gespeicherte Originalaufnahme. Projektdateien mit Lautstärken über 100 %
+benötigen beim Import eine App-Version, die diese Verstärkung unterstützt.
 Die gemeinsame Zeitleiste zeigt Wellenformen und Sekundenmarkierungen.
 Das Mausrad über den Spuren zoomt um die aktuelle Position; horizontaler
 Bildlauf ändert die Wiedergabeposition bis zum Songende. Alternativ lässt sich

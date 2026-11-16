@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { TooltipMenu, TooltipMenuButton, TooltipMenuFile, TooltipMenuRange } from '../../components/TooltipMenu'
-import { getTrackClips, getTrackMix, getTrackType, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
+import { getTrackClips, getTrackMix, getTrackType, MAX_TRACK_VOLUME, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } from './waveform'
 import { useSongTransport } from './useSongTransport'
 import { createProjectId } from './storage'
@@ -106,12 +106,13 @@ function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSep
                 label={`Lautstärke: ${Math.round(volume * 100)} %`}
                 className="audiobook-volume"
                 min={0}
-                max={100}
+                max={MAX_TRACK_VOLUME * 100}
                 value={Math.round(volume * 100)}
                 disabled={busy}
                 aria-label={`Lautstärke ${name}`}
                 onChange={(event) => onMixChange(track.id, { volume: Number(event.currentTarget.value) / 100 })}
               />
+              {volume > 1 && <span>Verstärkung kann zu Verzerrungen führen.</span>}
               <TooltipMenuButton disabled={busy} onClick={() => { onDuplicate(track.id); setMenuOpen(false) }}>Spur duplizieren</TooltipMenuButton>
               {getTrackType(track) === 'vocal' && <TooltipMenuButton disabled={busy || getTrackClips(track).length === 0} onClick={() => setConfirmSeparate(true)}>Wörter separieren</TooltipMenuButton>}
               <TooltipMenuButton className="audiobook-track-delete" disabled={busy} onClick={() => setConfirmDelete(true)}>Spur löschen</TooltipMenuButton>

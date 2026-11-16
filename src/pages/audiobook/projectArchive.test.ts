@@ -25,7 +25,7 @@ describe('Projektarchiv', () => {
     const track = await addEmptyTrack(project.id, 'vocal')
     await addClip(track.id, { id: 'clip', name: 'aufnahme.wav', audio: new Blob(['audio'], { type: 'audio/wav' }), start: 3, duration: 10 })
     await splitClip(track.id, 'clip', 7, 10)
-    await updateTrackMix(track.id, { volume: 0.4, muted: true })
+    await updateTrackMix(track.id, { volume: 4, muted: true })
     await saveProjectLyrics({ id: 'lyric', projectId: project.id, trackId: track.id, text: 'Hallo', createdAt: 4 })
     await saveProjectDocument({ id: 'pdf', projectId: project.id, name: 'Noten', description: 'Beschreibung', pdf: new Blob(['pdf'], { type: 'application/pdf' }), createdAt: 5 })
     const archive = await exportProjectArchive(project)
@@ -38,7 +38,7 @@ describe('Projektarchiv', () => {
     expect(imported).toMatchObject({ name: project.name })
     expect(imported.id).not.toBe(project.id)
     const [copy] = await readTracks(imported.id)
-    expect(copy).toMatchObject({ type: 'vocal', volume: 0.4, muted: true, clips: [{ start: 3, duration: 4, sourceStart: undefined }, { start: 7, duration: 6, sourceStart: 4 }] })
+    expect(copy).toMatchObject({ type: 'vocal', volume: 4, muted: true, clips: [{ start: 3, duration: 4, sourceStart: undefined }, { start: 7, duration: 6, sourceStart: 4 }] })
     expect(copy.id).not.toBe(track.id)
     expect(copy.clips?.[0].audioId).toBe(copy.clips?.[1].audioId)
     expect(await copy.clips?.[0].audio.text()).toBe('audio')
@@ -48,6 +48,18 @@ describe('Projektarchiv', () => {
     expect(await document.pdf.text()).toBe('pdf')
     await deleteProjectTracks(project.id)
     expect(await (await readTracks(imported.id))[0].clips?.[0].audio.text()).toBe('audio')
+  })
+
+  it('akzeptiert alte Lautstärken und weist Werte über 400 % zurück', async () => {
+    const zip = new JSZip()
+    const manifest = { version: 1, name: 'Mix', tracks: [{ id: 't', name: '', createdAt: 1, volume: 0.4, muted: false, type: 'mixed', clips: [] }], lyrics: [], documents: [] }
+    zip.file('project.json', JSON.stringify(manifest))
+    const imported = await importProjectArchive(await zip.generateAsync({ type: 'blob' }))
+    expect((await readTracks(imported[0].id))[0].volume).toBe(0.4)
+    manifest.tracks[0].volume = 4.01
+    zip.file('project.json', JSON.stringify(manifest))
+    await expect(importProjectArchive(await zip.generateAsync({ type: 'blob' }))).rejects.toThrow('Ungültiges')
+    expect(await readProjects()).toHaveLength(1)
   })
 
   it('weist fehlerhafte Archive und fehlende Dateien ohne Änderung der Projektliste zurück', async () => {

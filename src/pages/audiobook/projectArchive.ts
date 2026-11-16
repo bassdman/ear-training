@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { deleteProjectTracks, getTrackClips, getTrackMix, getTrackType, readProjectDocuments, readProjectLyrics, readTracks, restoreProjectData, type AudioTrack, type ProjectDocument, type ProjectLyrics, type TrackType } from './audioStorage'
+import { deleteProjectTracks, getTrackClips, getTrackMix, getTrackType, MAX_TRACK_VOLUME, readProjectDocuments, readProjectLyrics, readTracks, restoreProjectData, type AudioTrack, type ProjectDocument, type ProjectLyrics, type TrackType } from './audioStorage'
 import { createProjectId, readProjects, writeProjects, type AudiobookProject } from './storage'
 
 type ArchiveClip = { id: string, name: string, start: number, duration?: number, sourceStart?: number, file: string, mime: string }
@@ -24,7 +24,7 @@ function isManifest(value: unknown): value is Manifest {
   const documents: unknown[] = value.documents
   return tracks.every((track) => isRecord(track) && typeof track.id === 'string' && !!track.id
     && typeof track.name === 'string' && isNumber(track.createdAt)
-    && isNumber(track.volume) && track.volume >= 0 && track.volume <= 1 && typeof track.muted === 'boolean'
+    && isNumber(track.volume) && track.volume >= 0 && track.volume <= MAX_TRACK_VOLUME && typeof track.muted === 'boolean'
     && (track.type === 'vocal' || track.type === 'instrumental' || track.type === 'mixed')
     && Array.isArray(track.clips) && track.clips.every((clip: unknown) => isRecord(clip)
       && typeof clip.id === 'string' && !!clip.id && typeof clip.name === 'string'

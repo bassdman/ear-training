@@ -56,10 +56,12 @@ export function getTrackType(track: Pick<AudioTrack, 'type'>): TrackType {
 
 export type TrackMix = { volume: number, muted: boolean }
 
+export const MAX_TRACK_VOLUME = 4
+
 export function getTrackMix(track: AudioTrack): TrackMix {
   const volume = track.volume
   return {
-    volume: typeof volume === 'number' && Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 1,
+    volume: typeof volume === 'number' && Number.isFinite(volume) ? Math.min(MAX_TRACK_VOLUME, Math.max(0, volume)) : 1,
     muted: track.muted === true,
   }
 }

@@ -284,6 +284,9 @@ describe('ProjectTracks', () => {
     await waitFor(async () => expect(audioStorage.getTrackMix((await audioStorage.readTracks(projectId))[0])).toEqual({ volume: 0.3, muted: true }))
     expect(audioStorage.getTrackClips((await audioStorage.readTracks(projectId))[0])[0]).toMatchObject({ name: 'alt.mp3', start: 0 })
     expect(audioStorage.getTrackMix({ ...track, volume: undefined, muted: undefined })).toEqual({ volume: 1, muted: false })
+    await audioStorage.updateTrackMix(track.id, { volume: 4 })
+    expect(audioStorage.getTrackMix((await audioStorage.readTracks(projectId))[0]).volume).toBe(4)
+    expect(audioStorage.getTrackMix({ ...track, volume: 5 }).volume).toBe(4)
     await audioStorage.deleteProjectTracks(projectId)
   })
 
