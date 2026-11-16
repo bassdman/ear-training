@@ -63,7 +63,21 @@ die Anzahl übersprungener Frames zwischen 0 und 100 einstellen (Standard: 2;
 nächsten passenden Messung; auch echte große Intervalle werden entsprechend
 verzögert. Änderungen analysieren die Vocal-Referenz erneut;
 nach einer Gesangspause beginnt die Erkennung ohne Vergleich zum vorherigen Ton.
-Im Übungsmodus lädt **Projektoptionen → Debug-Trace herunterladen** nach
+Über **Projektoptionen → Development → Development aktivieren** lassen sich
+Diagnosefunktionen einschalten. Die Einstellung bleibt in diesem Browser
+gespeichert und kann dort wieder ausgeschaltet werden. Bei aktivierter
+Entwicklungsoption lädt **Projektoptionen → Development → Wiedergabe-Debuglog
+herunterladen** ein JSON-Protokoll für das aktuelle Projekt herunter. Zur
+Fehlersuche die Option vor dem Abspielen einschalten, das Problem nachstellen
+und anschließend das Protokoll herunterladen. Es enthält Browserkennung,
+Bildschirmgröße, Zeitmessungen, Dateigrößen und Formate, Anzahl der Spuren und
+Blöcke, Suchsprünge, Audio- und Zeichenstatistiken sowie gegebenenfalls lange
+Hauptthread-Aufgaben. Es enthält keine Audiodaten, Liedtexte oder Projektnamen.
+Das Protokoll bleibt lokal im Arbeitsspeicher, ist auf 3000 Einträge begrenzt
+und wird beim Deaktivieren oder Projektwechsel verworfen. Ein Seitenneuladen
+beginnt ein neues Protokoll. Die Diagnose selbst kann die Leistung etwas
+beeinflussen; nach der Untersuchung sollte sie ausgeschaltet werden.
+Im Übungsmodus lädt **Projektoptionen → Development → Debug-Trace herunterladen** nach
 abgeschlossener Analyse die vollständige ausgewählte Vocalspur als JSON herunter,
 auch außerhalb des sichtbaren Ausschnitts. `timeSeconds` bezeichnet Sekunden
 seit Songbeginn; `frequencyHz` ist der angezeigte Wert, `rawFrequencyHz` der

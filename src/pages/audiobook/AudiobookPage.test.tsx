@@ -26,12 +26,14 @@ function renderAudiobook(path = '/audiobook') {
 describe('Audiobook', () => {
   beforeEach(() => {
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
+    localStorage.removeItem('ear-training-audiobook-development')
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
   })
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     localStorage.removeItem(AUDIOBOOK_STORAGE_KEY)
+    localStorage.removeItem('ear-training-audiobook-development')
   })
 
   it('öffnet den Export-Tab und bietet den Projektimport in der Übersicht an', async () => {
@@ -53,9 +55,23 @@ describe('Audiobook', () => {
     renderAudiobook('/audiobook/trace-song/exercise')
     await screen.findByRole('region', { name: 'Stimmgerät zum Üben' }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Projektoptionen' }))
+    expect(screen.queryByRole('button', { name: 'Debug-Trace herunterladen' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Development' }))
+    expect(screen.queryByRole('button', { name: 'Wiedergabe-Debuglog herunterladen' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Development aktivieren' }))
     expect(await screen.findByRole('button', { name: 'Debug-Trace herunterladen' }, { timeout: 10000 })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Wiedergabe-Debuglog herunterladen' })).toBeEnabled()
+    expect(localStorage.getItem('ear-training-audiobook-development')).toBe('true')
     fireEvent.click(screen.getByRole('link', { name: 'Edit' }))
     expect(screen.queryByRole('button', { name: 'Debug-Trace herunterladen' })).not.toBeInTheDocument()
+    if (screen.getByRole('button', { name: 'Projektoptionen' }).getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(screen.getByRole('button', { name: 'Projektoptionen' }))
+    }
+    if (!screen.queryByRole('checkbox', { name: 'Development aktivieren' })) fireEvent.click(screen.getByRole('button', { name: 'Development' }))
+    expect(screen.getByRole('checkbox', { name: 'Development aktivieren' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Wiedergabe-Debuglog herunterladen' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Development aktivieren' }))
+    expect(screen.queryByRole('button', { name: 'Wiedergabe-Debuglog herunterladen' })).not.toBeInTheDocument()
   }, 15000)
 
   it('legt Projekte an, öffnet sie und bewahrt sie nach erneutem Laden', async () => {

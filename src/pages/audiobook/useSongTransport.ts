@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { PlaybackDiagnostics } from './playbackDiagnostics'
 
 export type PlaybackTrack = {
   id: string
@@ -11,7 +12,7 @@ export type PlaybackTrack = {
   duration?: number
 }
 
-export function useSongTransport(tracks: PlaybackTrack[], duration: number, ready: boolean, trackKey: string) {
+export function useSongTransport(tracks: PlaybackTrack[], duration: number, ready: boolean, trackKey: string, diagnostics?: PlaybackDiagnostics | null) {
   const [position, setPosition] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -25,6 +26,21 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   const generationRef = useRef(0)
   const frameRef = useRef<number | null>(null)
   const tracksRef = useRef(tracks)
+  const diagnosticsRef = useRef(diagnostics)
+  diagnosticsRef.current = diagnostics
+
+  useEffect(() => {
+    if (!diagnostics) return
+    const context = contextRef.current
+    diagnostics.event('transport-snapshot', {
+      playing: playingRef.current,
+      position: playingRef.current && context ? positionRef.current + context.currentTime - startedAtRef.current : positionRef.current,
+      clips: tracksRef.current.length,
+      sources: sourcesRef.current.length, gains: gainsRef.current.size,
+      state: context?.state ?? 'not-created', sampleRate: context?.sampleRate ?? null,
+      baseLatency: context?.baseLatency ?? null, outputLatency: context?.outputLatency ?? null,
+    })
+  }, [diagnostics])
 
   useEffect(() => {
     tracksRef.current = tracks
@@ -62,6 +78,7 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
       updatePosition(Math.min(duration, positionRef.current + contextRef.current.currentTime - startedAtRef.current))
     }
     playingRef.current = false
+    diagnosticsRef.current?.event('pause', { position: positionRef.current, sources: sourcesRef.current.length })
     stopSources()
     setPlaying(false)
     setStarting(false)
@@ -72,6 +89,7 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     const sources: AudioBufferSourceNode[] = []
     const gains = new Map<string, GainNode>()
     try {
+      const schedulingStarted = performance.now()
       const startTime = context.currentTime
       for (const { id, trackId, buffer, volume, muted, start = 0, sourceStart = 0, duration: clipDuration = buffer.duration - sourceStart } of tracksRef.current) {
         if (offset >= start + clipDuration) continue
@@ -93,12 +111,35 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
       sourcesRef.current = sources
       gainsRef.current = gains
       startedAtRef.current = startTime
+      diagnosticsRef.current?.event('sources-started', {
+        offset, sources: sources.length, gains: gains.size, schedulingMs: performance.now() - schedulingStarted,
+        sampleRate: context.sampleRate, baseLatency: context.baseLatency ?? null,
+        outputLatency: context.outputLatency ?? null, state: context.state,
+      })
+      let lastWall = performance.now()
+      let lastAudio = context.currentTime
+      let wasMeasuring = Boolean(diagnosticsRef.current)
       playingRef.current = true
       setPlaying(true)
       const tick = () => {
+        if (diagnosticsRef.current) {
+          const wall = performance.now()
+          const audio = context.currentTime
+          if (wasMeasuring) {
+            diagnosticsRef.current.measure('frameIntervalMs', wall - lastWall)
+            diagnosticsRef.current.measure('audioAdvanceMs', (audio - lastAudio) * 1000)
+            diagnosticsRef.current.measure('audioWallDriftMs', (wall - lastWall) - (audio - lastAudio) * 1000)
+          }
+          lastWall = wall
+          lastAudio = audio
+          wasMeasuring = true
+        } else {
+          wasMeasuring = false
+        }
         const next = Math.min(duration, positionRef.current + context.currentTime - startedAtRef.current)
         setPosition(next)
         if (next >= duration) {
+          diagnosticsRef.current?.event('playback-ended', { position: next })
           positionRef.current = duration
           playingRef.current = false
           stopSources()
@@ -109,6 +150,7 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
       }
       frameRef.current = requestAnimationFrame(tick)
     } catch (cause) {
+      diagnosticsRef.current?.event('source-start-error', { error: cause instanceof Error ? cause.name : 'unknown' })
       for (const source of sources) {
         try { source.stop() } catch { /* A source may not have started yet. */ }
         source.disconnect()
@@ -123,16 +165,19 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     const generation = ++generationRef.current
     setStarting(true)
     setError('')
+    diagnosticsRef.current?.event('play-request', { position: positionRef.current, clips: tracksRef.current.length })
     try {
       const context = contextRef.current ?? new AudioContext()
       contextRef.current = context
+      context.onstatechange = () => diagnosticsRef.current?.event('audio-context-state', { state: context.state })
       if (context.state !== 'running') await context.resume()
       if (generation !== generationRef.current) return
       if (context.state !== 'running') throw new Error('AudioContext nicht aktiv')
       const offset = positionRef.current >= duration ? 0 : positionRef.current
       updatePosition(offset)
       startSources(context, offset)
-    } catch {
+    } catch (cause) {
+      diagnosticsRef.current?.event('play-error', { error: cause instanceof Error ? cause.name : 'unknown' })
       if (generation === generationRef.current) {
         setError('Die Wiedergabe konnte nicht gestartet werden. Bitte prüfe die Audioausgabe.')
       }
@@ -141,8 +186,9 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     }
   }, [duration, ready, startSources, starting, updatePosition])
 
-  const seek = useCallback((time: number) => {
+  const seek = useCallback((time: number, origin = 'control') => {
     const next = Math.max(0, Math.min(duration, time))
+    diagnosticsRef.current?.event('seek', { origin, from: positionRef.current, to: next, playing: playingRef.current })
     generationRef.current++
     setStarting(false)
     const wasPlaying = playingRef.current
@@ -165,7 +211,10 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     stopSources()
     const context = contextRef.current
     contextRef.current = null
-    if (context) void context.close().catch((cause: unknown) => console.error('AudioContext konnte nicht geschlossen werden:', cause))
+    if (context) {
+      context.onstatechange = null
+      void context.close().catch((cause: unknown) => console.error('AudioContext konnte nicht geschlossen werden:', cause))
+    }
   }, [stopSources])
 
   useEffect(() => cleanup, [cleanup])

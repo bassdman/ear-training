@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useMatch, useNavigate, useParams } from 'react-router-dom'
 
 import { TooltipMenu, TooltipMenuButton } from '../../components/TooltipMenu'
@@ -8,7 +8,19 @@ import { ProjectTracks } from './ProjectTracks'
 import { ProjectDetails } from './ProjectDetails'
 import { ProjectExport } from './ProjectExport'
 import { importProjectArchive } from './projectArchive'
+import { downloadPlaybackDiagnostics, PlaybackDiagnostics } from './playbackDiagnostics'
 import './audiobookPage.css'
+
+const DEVELOPMENT_KEY = 'ear-training-audiobook-development'
+
+function readDevelopmentSetting() {
+  try {
+    return { enabled: localStorage.getItem(DEVELOPMENT_KEY) === 'true', error: '' }
+  } catch (cause) {
+    console.error('Development-Einstellung konnte nicht geladen werden:', cause)
+    return { enabled: false, error: 'Die Development-Einstellung konnte nicht geladen werden.' }
+  }
+}
 
 export function AudiobookPage() {
   const { projectId } = useParams()
@@ -23,12 +35,34 @@ export function AudiobookPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [listMenuId, setListMenuId] = useState<string | null>(null)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
+  const [developmentSetting] = useState(readDevelopmentSetting)
+  const [development, setDevelopment] = useState(developmentSetting.enabled)
+  const [developmentError, setDevelopmentError] = useState(developmentSetting.error)
+  const [developmentMenu, setDevelopmentMenu] = useState(false)
+  const diagnostics = useMemo(() => development && projectId ? new PlaybackDiagnostics() : null, [development, projectId])
   const [traceMenuTarget, setTraceMenuTarget] = useState<HTMLDivElement | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [renameError, setRenameError] = useState('')
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!diagnostics) return
+    diagnostics.start()
+    return () => diagnostics.stop()
+  }, [diagnostics])
+
+  function changeDevelopment(enabled: boolean) {
+    try {
+      localStorage.setItem(DEVELOPMENT_KEY, String(enabled))
+      setDevelopment(enabled)
+      setDevelopmentError('')
+    } catch (cause) {
+      console.error('Development-Einstellung konnte nicht gespeichert werden:', cause)
+      setDevelopmentError('Die Development-Einstellung konnte nicht gespeichert werden.')
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -109,6 +143,7 @@ export function AudiobookPage() {
 
   useEffect(() => {
     setProjectMenuOpen(false)
+    setDevelopmentMenu(false)
     setListMenuId(null)
     setDeleteId(null)
     setRenaming(false)
@@ -161,10 +196,26 @@ export function AudiobookPage() {
               <Link className="audiobook-project-back" to="/audiobook" aria-label="Zurück zum Audiobook">←</Link>
               <h1 title={project?.name}>{project?.name ?? 'Projekt'}</h1>
               {project && <div className="audiobook-project-menu-anchor">
-                <button ref={menuButtonRef} type="button" className="audiobook-project-menu-trigger" aria-label="Projektoptionen" aria-expanded={projectMenuOpen} onPointerDown={(event) => event.stopPropagation()} onClick={() => setProjectMenuOpen((open) => !open)}>...</button>
-                {projectMenuOpen && <TooltipMenu className="audiobook-project-menu" onClose={() => setProjectMenuOpen(false)}>
+                <button ref={menuButtonRef} type="button" className="audiobook-project-menu-trigger" aria-label="Projektoptionen" aria-expanded={projectMenuOpen} onPointerDown={(event) => event.stopPropagation()} onClick={() => { setProjectMenuOpen((open) => !open); setDevelopmentMenu(false) }}>...</button>
+                {projectMenuOpen && <TooltipMenu className="audiobook-project-menu" onClose={() => { setProjectMenuOpen(false); setDevelopmentMenu(false) }}>
                   <TooltipMenuButton onClick={() => { setRenameValue(project.name); setRenameError(''); setRenaming(true); setProjectMenuOpen(false) }}>Projektnamen ändern</TooltipMenuButton>
-                  {isExercise && <div ref={setTraceMenuTarget} />}
+                  <TooltipMenuButton aria-expanded={developmentMenu} onClick={() => setDevelopmentMenu((open) => !open)}>Development</TooltipMenuButton>
+                  {developmentMenu && <div className="audiobook-development-menu">
+                    <label><input type="checkbox" checked={development} onChange={(event) => changeDevelopment(event.currentTarget.checked)} /> Development aktivieren</label>
+                    {development && diagnostics && <>
+                      <TooltipMenuButton onClick={() => {
+                        try {
+                          downloadPlaybackDiagnostics(diagnostics)
+                          setDevelopmentError('')
+                          setProjectMenuOpen(false)
+                        } catch (cause) {
+                          console.error('Wiedergabe-Debuglog konnte nicht heruntergeladen werden:', cause)
+                          setDevelopmentError('Das Wiedergabe-Debuglog konnte nicht heruntergeladen werden.')
+                        }
+                      }}>Wiedergabe-Debuglog herunterladen</TooltipMenuButton>
+                      {isExercise && <div ref={setTraceMenuTarget} />}
+                    </>}
+                  </div>}
                 </TooltipMenu>}
               </div>}
             </header>
@@ -203,13 +254,14 @@ export function AudiobookPage() {
         )}
 
         {error && <p className="audiobook-error" role="alert">{error}</p>}
+        {developmentError && <p className="audiobook-error" role="alert">{developmentError}</p>}
         {projects === null ? (
           !error && <p>Lade Projekte ...</p>
         ) : projectId ? (
           project ? (
             isDetails ? <ProjectDetails key={project.id} projectId={project.id} /> :
               isExport ? <ProjectExport key={project.id} project={project} /> :
-              <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} traceMenuTarget={isExercise ? traceMenuTarget : null} onTraceDownload={() => setProjectMenuOpen(false)} />
+              <ProjectTracks key={project.id} projectId={project.id} readOnly={isExercise} diagnostics={diagnostics} traceMenuTarget={isExercise && development ? traceMenuTarget : null} onTraceDownload={() => setProjectMenuOpen(false)} />
           ) : (
             <p>Dieses Projekt wurde nicht gefunden.</p>
           )

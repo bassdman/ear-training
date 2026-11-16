@@ -5,11 +5,12 @@ import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
 import { useWordSeparation } from '../../features/wordSeparation/useWordSeparation'
+import type { PlaybackDiagnostics } from './playbackDiagnostics'
 
 const AUDIO_EXTENSION = /\.(aac|aif|aiff|amr|caf|flac|m4a|m4b|mp3|mp4|mpga|oga|ogg|opus|wav|wave|webm)$/i
 
-export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
-  projectId: string, readOnly?: boolean, traceMenuTarget?: HTMLElement | null, onTraceDownload?: () => void
+export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = null, onTraceDownload, diagnostics }: {
+  projectId: string, readOnly?: boolean, traceMenuTarget?: HTMLElement | null, onTraceDownload?: () => void, diagnostics?: PlaybackDiagnostics | null
 }) {
   const [tracks, setTracks] = useState<AudioTrack[] | null>(null)
   const [error, setError] = useState('')
@@ -212,7 +213,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       ) : (
         <>
           {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
-          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} onRecordSave={saveRecording} onRecordingBusyChange={setRecordingBusy} busy={editingBusy} />
+          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} diagnostics={diagnostics} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} onRecordSave={saveRecording} onRecordingBusyChange={setRecordingBusy} busy={editingBusy} />
           {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={editingBusy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur

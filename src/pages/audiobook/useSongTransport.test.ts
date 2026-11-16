@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useSongTransport, type PlaybackTrack } from './useSongTransport'
+import { PlaybackDiagnostics } from './playbackDiagnostics'
 
 const sources: { start: ReturnType<typeof vi.fn>, stop: ReturnType<typeof vi.fn>, disconnect: ReturnType<typeof vi.fn>, connect: ReturnType<typeof vi.fn> }[] = []
 const contexts: TestContext[] = []
@@ -48,6 +49,37 @@ afterEach(() => {
 })
 
 describe('Songtransport', () => {
+  it('protokolliert Zeitabweichungen, Quellen und Scroll-Sprünge nur bei aktivierter Diagnose', async () => {
+    const diagnostics = new PlaybackDiagnostics()
+    const { result } = renderHook(() => useSongTransport(buffers, 10, true, 'one,two', diagnostics))
+    await act(async () => result.current.play())
+    act(() => { contexts[0].currentTime = 0.1; frame?.(0) })
+    act(() => result.current.seek(2, 'scroll'))
+    const events = diagnostics.snapshot().events
+    expect(events).toContainEqual(expect.objectContaining({ type: 'sources-started', detail: expect.objectContaining({ sources: 2, gains: 2 }) }))
+    expect(events).toContainEqual(expect.objectContaining({ type: 'seek', detail: expect.objectContaining({ origin: 'scroll', to: 2, playing: true }) }))
+    expect(events).toContainEqual(expect.objectContaining({ type: 'metric', detail: expect.objectContaining({ name: 'audioAdvanceMs', count: 1 }) }))
+  })
+
+  it('erfasst bei nachträglicher Aktivierung den Transportstatus ohne falsches Frame-Intervall', async () => {
+    const diagnostics = new PlaybackDiagnostics()
+    const { result, rerender } = renderHook(({ log }) => useSongTransport(buffers, 10, true, 'one,two', log), {
+      initialProps: { log: null as PlaybackDiagnostics | null },
+    })
+    await act(async () => result.current.play())
+    act(() => { contexts[0].currentTime = 3; frame?.(0) })
+    rerender({ log: diagnostics })
+    act(() => { contexts[0].currentTime = 3.1; frame?.(0) })
+    expect(diagnostics.snapshot().events).toContainEqual(expect.objectContaining({
+      type: 'transport-snapshot', detail: expect.objectContaining({ playing: true, position: 3, sources: 2, gains: 2 }),
+    }))
+    expect(diagnostics.snapshot().events.filter((event) => event.type === 'metric')).toHaveLength(0)
+    act(() => { contexts[0].currentTime = 3.2; frame?.(0) })
+    expect(diagnostics.snapshot().events).toContainEqual(expect.objectContaining({
+      type: 'metric', detail: expect.objectContaining({ name: 'audioAdvanceMs', count: 1, total: 100 }),
+    }))
+  })
+
   it('startet alle Spuren gleichzeitig, pausiert und setzt an derselben Stelle fort', async () => {
     const { result, unmount } = renderHook(() => useSongTransport(buffers, 10, true, 'one,two'))
     await act(async () => result.current.play())

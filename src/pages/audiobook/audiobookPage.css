@@ -97,6 +97,19 @@
   text-align: left;
 }
 
+.audiobook-development-menu {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 0;
+}
+
+.audiobook-development-menu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
 .audiobook-rename {
   margin: 12px 0;
   padding: 12px;

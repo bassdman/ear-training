@@ -7,6 +7,7 @@ import { useSongTransport } from './useSongTransport'
 import { createProjectId } from './storage'
 import { ExerciseTuner } from './ExerciseTuner'
 import { useTrackRecording } from '../../features/recording/useTrackRecording'
+import type { PlaybackDiagnostics } from './playbackDiagnostics'
 
 const MIN_ZOOM = 5
 const MAX_ZOOM = 200
@@ -122,11 +123,12 @@ function TrackControls({ track, index, onMixChange, onDelete, onDuplicate, onSep
   )
 }
 
-function Waveform({ data, width, offset, zoom }: {
+function Waveform({ data, width, offset, zoom, diagnostics }: {
   data: WaveformData
   width: number
   offset: number
   zoom: number
+  diagnostics?: PlaybackDiagnostics | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const cacheRef = useRef<{ canvas: HTMLCanvasElement, data: WaveformData, zoom: number, ratio: number, start: number, width: number } | null>(null)
@@ -134,13 +136,17 @@ function Waveform({ data, width, offset, zoom }: {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || width <= 0) return
+    const started = diagnostics ? performance.now() : 0
     const ratio = window.devicePixelRatio || 1
     const canvasWidth = Math.ceil(width * ratio)
     const canvasHeight = Math.ceil(WAVE_HEIGHT * ratio)
     if (canvas.width !== canvasWidth) canvas.width = canvasWidth
     if (canvas.height !== canvasHeight) canvas.height = canvasHeight
     const context = canvas.getContext('2d')
-    if (!context) return
+    if (!context) {
+      diagnostics?.event('waveform-context-error')
+      return
+    }
     const draw = (target: CanvasRenderingContext2D, startOffset: number, drawWidth: number) => {
       target.fillStyle = '#283da9'
       const columns = Math.ceil(drawWidth / 2)
@@ -159,8 +165,10 @@ function Waveform({ data, width, offset, zoom }: {
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     context.clearRect(0, 0, width, WAVE_HEIGHT)
     if (width < 64) {
+      diagnostics?.measure('waveformDirectDraws', 1)
       cacheRef.current = null
       draw(context, offset, width)
+      diagnostics?.measure('waveformRenderMs', performance.now() - started)
       return
     }
     let cache = cacheRef.current
@@ -173,22 +181,28 @@ function Waveform({ data, width, offset, zoom }: {
       buffer.height = canvasHeight
       const bufferContext = buffer.getContext('2d')
       if (!bufferContext) {
+        diagnostics?.event('waveform-cache-context-error')
         cacheRef.current = null
         draw(context, offset, width)
+        diagnostics?.measure('waveformRenderMs', performance.now() - started)
         return
       }
       bufferContext.setTransform(ratio, 0, 0, ratio, 0, 0)
       draw(bufferContext, start, cacheWidth)
       cache = { canvas: buffer, data, zoom, ratio, start, width: cacheWidth }
       cacheRef.current = cache
+      diagnostics?.measure('waveformCacheRebuilds', 1)
+    } else {
+      diagnostics?.measure('waveformCacheHits', 1)
     }
     context.drawImage(cache.canvas, (offset - cache.start) * ratio, 0, width * ratio, WAVE_HEIGHT * ratio, 0, 0, width, WAVE_HEIGHT)
-  }, [data, width, offset, zoom])
+    diagnostics?.measure('waveformRenderMs', performance.now() - started)
+  }, [data, width, offset, zoom, diagnostics])
 
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, busy: externalBusy, onRecordSave, onRecordingBusyChange, readOnly = false, traceMenuTarget = null, onTraceDownload }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, busy: externalBusy, onRecordSave, onRecordingBusyChange, readOnly = false, traceMenuTarget = null, onTraceDownload, diagnostics }: {
   tracks: AudioTrack[]
   readOnly?: boolean
   traceMenuTarget?: HTMLElement | null
@@ -205,6 +219,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   busy: boolean
   onRecordSave?: (track: AudioTrack, clip: AudioClip, durations: Record<string, number>) => Promise<void>
   onRecordingBusyChange?: (busy: boolean) => void
+  diagnostics?: PlaybackDiagnostics | null
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
@@ -232,6 +247,14 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const allClips = useMemo(() => tracks.flatMap((track) => getTrackClips(track).map((clip) => ({ track, clip }))), [tracks])
 
   useEffect(() => {
+    diagnostics?.event('timeline-loaded', {
+      mode: readOnly ? 'exercise' : 'edit', tracks: tracks.length, clips: allClips.length,
+      uniqueAudio: new Set(allClips.map(({ clip }) => clip.audio)).size,
+      audioBytes: [...new Set(allClips.map(({ clip }) => clip.audio))].reduce((total, audio) => total + audio.size, 0),
+    })
+  }, [diagnostics, readOnly, tracks, allClips])
+
+  useEffect(() => {
     if (readOnly && (recordingPhase === 'preparing' || recordingPhase === 'recording')) stopRecording()
   }, [readOnly, recordingPhase, stopRecording])
 
@@ -252,10 +275,16 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     for (const [audio, clipIds] of groups) {
       let promise = decodedAudio.current.get(audio)
       if (!promise) {
+        const decodeStarted = performance.now()
+        diagnostics?.event('decode-start', { bytes: audio.size, mimeType: audio.type, clips: clipIds.length })
         promise = decodeWaveform(audio).catch((cause: unknown) => {
+          diagnostics?.event('decode-error', { error: cause instanceof Error ? cause.name : 'unknown', elapsedMs: performance.now() - decodeStarted })
           decodedAudio.current.delete(audio)
           throw cause
         })
+        if (diagnostics) void promise.then(({ buffer }) => {
+          diagnostics.event('decode-complete', { elapsedMs: performance.now() - decodeStarted, duration: buffer.duration, channels: buffer.numberOfChannels, sampleRate: buffer.sampleRate })
+        }, () => {})
         decodedAudio.current.set(audio, promise)
       }
       const update = (result: TimelineTrack) => {
@@ -270,7 +299,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       void promise.then(update, () => update({ error: true }))
     }
     return () => { active = false }
-  }, [allClips])
+  }, [allClips, diagnostics])
 
   useEffect(() => {
     const node = viewportRef.current
@@ -306,7 +335,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   }), [allClips, decoded])
   const ready = allClips.length > 0 && buffers.length === allClips.length && duration > 0
   const trackKey = useMemo(() => JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])), [allClips])
-  const transport = useSongTransport(buffers, scrollDuration, ready, trackKey)
+  const transport = useSongTransport(buffers, scrollDuration, ready, trackKey, diagnostics)
   const { position, seek } = transport
   const displayedPosition = recording.position ?? position
   const dragEnvironment = useRef({ zoom, seek })
@@ -473,11 +502,12 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
         ref={viewportRef}
         onScroll={(event) => {
           const node = event.currentTarget
+          diagnostics?.measure('scrollEvents', 1)
           setViewport({ width: node.clientWidth, offset: node.scrollLeft })
           if (recording.phase !== 'idle') return
           if (Math.abs(node.scrollLeft - transport.position * zoom) > 0.5) {
             setSeekVersion((current) => current + 1)
-            transport.seek(node.scrollLeft / zoom)
+            transport.seek(node.scrollLeft / zoom, 'scroll')
           }
         }}
         onPointerMove={(event) => {
@@ -615,7 +645,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                             }}
                           >
                             <span className="audiobook-clip-name">{clip.name}</span>
-                            <Waveform data={clipData.waveform} width={visibleRight - visibleLeft} offset={(visibleLeft - left) + (clip.sourceStart ?? 0) * zoom} zoom={zoom} />
+                            <Waveform data={clipData.waveform} width={visibleRight - visibleLeft} offset={(visibleLeft - left) + (clip.sourceStart ?? 0) * zoom} zoom={zoom} diagnostics={diagnostics} />
                           </div>
                         )
                       })}
