@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTrackClips, insertRecording, moveClip, pasteClip, readTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
+import { createUndoRedoHistory } from '../../features/undoRedo/history'
+import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTrackClips, insertRecording, moveClip, pasteClip, readTracks, restoreProjectTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -17,23 +18,87 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
   const [busy, setBusy] = useState(false)
   const [recordingBusy, setRecordingBusy] = useState(false)
   const [mixError, setMixError] = useState('')
+  const [, forceHistoryRender] = useState(0)
   const writeQueue = useRef<Promise<void>>(Promise.resolve())
+  const tracksRef = useRef<AudioTrack[] | null>(null)
+  const historyAction = useRef(false)
+  const historyRef = useRef(createUndoRedoHistory<AudioTrack[]>([]))
+  function commitTracks(next: AudioTrack[]) {
+    tracksRef.current = next
+    historyRef.current.commit(next)
+    setTracks(next)
+    forceHistoryRender((version) => version + 1)
+  }
+  function resetTracks(next: AudioTrack[]) {
+    tracksRef.current = next
+    historyRef.current.reset(next)
+    setTracks(next)
+    forceHistoryRender((version) => version + 1)
+  }
   const separation = useWordSeparation(projectId, (updated) => {
-    setTracks((current) => current && current.map((track) => track.id === updated.id
-      ? { ...track, audio: updated.audio, clips: updated.clips }
-      : track))
+    const current = tracksRef.current
+    if (current) commitTracks(current.map((track) => track.id === updated.id ? updated : track))
   })
   const editingBusy = busy || separation.busy || recordingBusy
 
   useEffect(() => {
     let active = true
     readTracks(projectId).then((saved) => {
-      if (active) setTracks(saved)
+      if (active) resetTracks(saved)
     }).catch(() => {
       if (active) setError('Die Audiospuren konnten nicht geladen werden. Bitte prüfe den Browserspeicher.')
     })
     return () => { active = false }
   }, [projectId])
+
+  const restoreSnapshot = useCallback(async (direction: 'undo' | 'redo') => {
+    if (editingBusy || readOnly || historyAction.current) return
+    historyAction.current = true
+    setBusy(true)
+    setError('')
+    const history = historyRef.current
+    let snapshot: AudioTrack[] | undefined
+    try {
+      await writeQueue.current
+      snapshot = direction === 'undo' ? history.undo() : history.redo()
+      if (!snapshot) return
+      await restoreProjectTracks(projectId, snapshot)
+      tracksRef.current = snapshot
+      setTracks(snapshot)
+      forceHistoryRender((version) => version + 1)
+    } catch {
+      if (snapshot) {
+        if (direction === 'undo') history.redo()
+        else history.undo()
+        forceHistoryRender((version) => version + 1)
+      }
+      setError(direction === 'undo'
+        ? 'Die Änderung konnte nicht rückgängig gemacht werden. Bitte prüfe den Browserspeicher.'
+        : 'Die Änderung konnte nicht wiederhergestellt werden. Bitte prüfe den Browserspeicher.')
+    } finally {
+      historyAction.current = false
+      setBusy(false)
+    }
+  }, [editingBusy, projectId, readOnly])
+
+  useEffect(() => {
+    function handleHistoryShortcut(event: KeyboardEvent) {
+      if (readOnly || !(event.ctrlKey || event.metaKey) || event.altKey) return
+      const target = event.target
+      if (target instanceof HTMLElement
+        && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return
+      const key = event.key.toLowerCase()
+      if (key === 'z') {
+        event.preventDefault()
+        void restoreSnapshot(event.shiftKey ? 'redo' : 'undo')
+      } else if (key === 'y') {
+        event.preventDefault()
+        void restoreSnapshot('redo')
+      }
+    }
+    window.addEventListener('keydown', handleHistoryShortcut)
+    return () => window.removeEventListener('keydown', handleHistoryShortcut)
+  }, [readOnly, restoreSnapshot])
 
   async function importAudio(trackId: string, start: number, durations: Record<string, number>, file: File) {
     if (!file.type.startsWith('audio/') && file.type !== '' && !AUDIO_EXTENSION.test(file.name)) {
@@ -61,7 +126,8 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       }
       const clip = { id: createProjectId(), name: file.name, audio: file, start, duration: waveform.duration }
       await addClip(trackId, clip, durations)
-      setTracks((current) => current && current.map((item) => item.id === trackId
+      const current = tracksRef.current
+      if (current) commitTracks(current.map((item) => item.id === trackId
         ? { ...item, clips: [...getTrackClips(item), clip] }
         : item))
     } catch (cause) {
@@ -78,7 +144,8 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     setError('')
     try {
       const track = await addEmptyTrack(projectId, type)
-      setTracks((current) => current && [...current, track])
+      const current = tracksRef.current
+      if (current) commitTracks([...current, track])
     } catch {
       setError('Die Spur konnte nicht gespeichert werden. Bitte prüfe den Browserspeicher.')
     } finally {
@@ -91,17 +158,16 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     setError('')
     try {
       await moveClip(sourceId, targetId, clipId, start, durations)
-      setTracks((current) => {
-        if (!current) return current
-        const clip = current.flatMap(getTrackClips).find((item) => item.id === clipId)
-        if (!clip) return current
-        const updated = { ...clip, start, duration: clip.duration ?? durations[clip.id] }
-        return current.map((track) => {
-          if (track.id !== sourceId && track.id !== targetId) return track
-          const remaining = getTrackClips(track).filter((item) => item.id !== clipId)
-          return { ...track, clips: track.id === targetId ? [...remaining, updated] : remaining }
-        })
-      })
+      const current = tracksRef.current
+      if (!current) return
+      const clip = current.flatMap(getTrackClips).find((item) => item.id === clipId)
+      if (!clip) return
+      const updated = { ...clip, start, duration: clip.duration ?? durations[clip.id] }
+      commitTracks(current.map((track) => {
+        if (track.id !== sourceId && track.id !== targetId) return track
+        const remaining = getTrackClips(track).filter((item) => item.id !== clipId)
+        return { ...track, clips: track.id === targetId ? [...remaining, updated] : remaining }
+      }))
     } catch (cause) {
       setError(cause instanceof Error && cause.message.includes('überlappt')
         ? 'Der Audioblock kann dort nicht abgelegt werden: Ein Block überlappt oder seine Dauer ist unbekannt.'
@@ -116,7 +182,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     setError('')
     try {
       await splitClip(trackId, clipId, at, duration)
-      setTracks(await readTracks(projectId))
+      commitTracks(await readTracks(projectId))
     } catch {
       setError('Der Audioblock konnte nicht geschnitten werden. Bitte prüfe die Schnittposition und den Browserspeicher.')
     } finally {
@@ -129,7 +195,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     setError('')
     try {
       await pasteClip(projectId, trackId, clip, start, durations)
-      setTracks(await readTracks(projectId))
+      commitTracks(await readTracks(projectId))
     } catch (cause) {
       setError(cause instanceof Error && cause.message.includes('überlappt')
         ? 'Der Audioblock kann dort nicht eingefügt werden: Ein Block überlappt oder seine Dauer ist unbekannt.'
@@ -144,7 +210,8 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     setError('')
     try {
       await deleteClip(trackId, clipId)
-      setTracks((current) => current && current.map((track) => track.id === trackId
+      const current = tracksRef.current
+      if (current) commitTracks(current.map((track) => track.id === trackId
         ? { ...track, audio: undefined, clips: getTrackClips(track).filter((clip) => clip.id !== clipId) }
         : track))
     } catch {
@@ -160,7 +227,8 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     try {
       await writeQueue.current
       await deleteTrack(trackId)
-      setTracks((current) => current && current.filter((track) => track.id !== trackId))
+      const current = tracksRef.current
+      if (current) commitTracks(current.filter((track) => track.id !== trackId))
     } catch {
       setError('Die Spur konnte nicht gelöscht werden. Bitte prüfe den Browserspeicher.')
     } finally {
@@ -176,7 +244,8 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       const id = await duplicateTrack(projectId, trackId)
       const duplicate = (await readTracks(projectId)).find((track) => track.id === id)
       if (!duplicate) throw new Error('Duplizierte Spur nicht gefunden')
-      setTracks((current) => current && [...current, duplicate])
+      const current = tracksRef.current
+      if (current) commitTracks([...current, duplicate])
     } catch {
       setError('Die Spur konnte nicht dupliziert werden. Bitte prüfe den Browserspeicher und lade das Projekt bei Bedarf erneut.')
     } finally {
@@ -185,8 +254,11 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
   }
 
   function changeTrackMix(id: string, patch: Partial<TrackMix>) {
-    setTracks((current) => current && current.map((track) => track.id === id ? { ...track, ...patch } : track))
-    const operation = writeQueue.current.then(() => updateTrackMix(id, patch))
+    const operation = writeQueue.current.then(async () => {
+      await updateTrackMix(id, patch)
+      commitTracks(await readTracks(projectId))
+      setMixError('')
+    })
     writeQueue.current = operation.catch(() => {
       setMixError('Die Spureinstellung konnte nicht gespeichert werden. Sie gilt nur bis zum erneuten Öffnen.')
     })
@@ -196,7 +268,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     await writeQueue.current
     await insertRecording(track, clip, durations)
     try {
-      setTracks(await readTracks(projectId))
+      commitTracks(await readTracks(projectId))
     } catch {
       setError('Die Aufnahme wurde gespeichert, aber die Spuren konnten nicht aktualisiert werden. Bitte lade das Projekt erneut.')
     }
@@ -213,7 +285,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       ) : (
         <>
           {readOnly && tracks.length === 0 && <p>Noch keine Spuren vorhanden. Füge im Editmodus eine Spur hinzu.</p>}
-          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} diagnostics={diagnostics} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} onRecordSave={saveRecording} onRecordingBusyChange={setRecordingBusy} busy={editingBusy} />
+          <AudioTimeline tracks={tracks} readOnly={readOnly} traceMenuTarget={traceMenuTarget} onTraceDownload={onTraceDownload} diagnostics={diagnostics} onMixChange={changeTrackMix} onImport={(...args) => void importAudio(...args)} onPaste={(...args) => void pasteAudio(...args)} onMove={(...args) => void moveAudio(...args)} onSplit={(...args) => void splitAudio(...args)} onDelete={(...args) => void deleteAudio(...args)} onDeleteTrack={(id) => void removeTrack(id)} onDuplicateTrack={(id) => void copyTrack(id)} onSeparateTrack={(id) => void separation.separate(id)} onRecordSave={saveRecording} onRecordingBusyChange={setRecordingBusy} busy={editingBusy} canUndo={historyRef.current.canUndo()} canRedo={historyRef.current.canRedo()} onUndo={() => void restoreSnapshot('undo')} onRedo={() => void restoreSnapshot('redo')} />
           {!readOnly && <div className="audiobook-add-buttons" role="group" aria-label="Spur hinzufügen">
             <button type="button" className="audiobook-secondary" disabled={editingBusy} onClick={() => void createTrack('vocal')}>
               <span aria-hidden="true">+</span> Vocalspur

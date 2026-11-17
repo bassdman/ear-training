@@ -43,6 +43,32 @@ afterEach(() => {
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('zeigt Undo und Redo links neben den Positionsschritten', async () => {
+    const onUndo = vi.fn()
+    const onRedo = vi.fn()
+    const { container } = render(
+      <AudioTimeline
+        tracks={tracks}
+        onMixChange={vi.fn()}
+        {...importProps}
+        canUndo
+        canRedo
+        onUndo={onUndo}
+        onRedo={onRedo}
+      />,
+    )
+    const undo = screen.getByRole('button', { name: 'Rückgängig' })
+    const redo = screen.getByRole('button', { name: 'Wiederherstellen' })
+    const step = screen.getByRole('button', { name: 'eine Minute zurück' })
+    expect(undo.compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(redo.compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(undo)
+    fireEvent.click(redo)
+    expect(onUndo).toHaveBeenCalledOnce()
+    expect(onRedo).toHaveBeenCalledOnce()
+    expect(container.querySelector('.audiobook-position-controls')).toBeInTheDocument()
+  })
+
   it('setzt nach einer Aufnahme den Wiedergabe-AudioContext zurück', async () => {
     let finishClose: () => void = () => { throw new Error('Schließen wurde nicht gestartet') }
     const contexts: TestContext[] = []

@@ -11,7 +11,7 @@ vi.mock('./waveform', () => ({
 }))
 
 vi.mock('./AudioTimeline', () => ({
-  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack }: {
+  AudioTimeline: ({ tracks, onMixChange, onImport, onPaste, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, canUndo, canRedo, onUndo, onRedo }: {
     tracks: audioStorage.AudioTrack[]
     onMixChange: (id: string, patch: Partial<audioStorage.TrackMix>) => void
     onImport: (id: string, start: number, durations: Record<string, number>, file: File) => void
@@ -20,8 +20,15 @@ vi.mock('./AudioTimeline', () => ({
     onDeleteTrack: (trackId: string) => void
     onDuplicateTrack: (trackId: string) => void
     onSeparateTrack: (trackId: string) => void
+    canUndo?: boolean
+    canRedo?: boolean
+    onUndo?: () => void
+    onRedo?: () => void
   }) => (
-    <div>{tracks.map((track) => (
+    <div>
+      {onUndo && <button aria-label="Rückgängig" disabled={!canUndo} onClick={onUndo}>Rückgängig</button>}
+      {onRedo && <button aria-label="Wiederherstellen" disabled={!canRedo} onClick={onRedo}>Wiederherstellen</button>}
+      {tracks.map((track) => (
       <div key={track.id}>
         <span>{track.name || 'Leere Spur'}</span>
         {audioStorage.getTrackClips(track).map((clip) => <span key={clip.id}>{clip.name}<button onClick={() => onDelete(track.id, clip.id)}>Lösche {clip.name}</button></span>)}
@@ -39,7 +46,8 @@ vi.mock('./AudioTimeline', () => ({
           if (file) onImport(track.id, 12, Object.fromEntries(audioStorage.getTrackClips(track).map((clip) => [clip.id, clip.duration ?? 10])), file)
         }} />
       </div>
-    ))}</div>
+      ))}
+    </div>
   ),
 }))
 
@@ -49,6 +57,34 @@ afterEach(() => {
 })
 
 describe('ProjectTracks', () => {
+  it('macht Löschungen per Schaltfläche und Strg+Z rückgängig und stellt sie per Strg+Y wieder her', async () => {
+    vi.stubGlobal('Blob', NodeBlob)
+    const projectId = crypto.randomUUID()
+    const track = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    const clip = { id: crypto.randomUUID(), name: 'Gesang.wav', audio: new Blob(['audio']), start: 0, duration: 2 }
+    await audioStorage.addClip(track.id, clip)
+
+    render(<ProjectTracks projectId={projectId} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Lösche Gesang.wav' }))
+    await waitFor(() => expect(screen.queryByText('Gesang.wav')).not.toBeInTheDocument())
+    expect(await audioStorage.readTracks(projectId).then(([saved]) => audioStorage.getTrackClips(saved))).toHaveLength(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig' }))
+    expect(await screen.findByText('Gesang.wav')).toBeInTheDocument()
+    expect(await audioStorage.readTracks(projectId).then(([saved]) => audioStorage.getTrackClips(saved)[0].audio.size)).toBe(5)
+
+    fireEvent.keyDown(window, { key: 'y', ctrlKey: true })
+    await waitFor(() => expect(screen.queryByText('Gesang.wav')).not.toBeInTheDocument())
+    expect(await audioStorage.readTracks(projectId).then(([saved]) => audioStorage.getTrackClips(saved))).toHaveLength(0)
+
+    fireEvent.click(screen.getByRole('button', { name: `Spur löschen ${track.id}` }))
+    await waitFor(() => expect(screen.queryByText('Leere Spur')).not.toBeInTheDocument())
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true })
+    expect(await screen.findByText('Leere Spur')).toBeInTheDocument()
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(1)
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
   it('analysiert und speichert getrennte Wörter und meldet Fehler', async () => {
     vi.stubGlobal('Blob', NodeBlob)
     const samples = new Float32Array(1000)

@@ -203,7 +203,7 @@ function Waveform({ data, width, offset, zoom, diagnostics }: {
   return <canvas ref={canvasRef} className="audiobook-waveform" style={{ width, height: WAVE_HEIGHT }} aria-hidden="true" />
 }
 
-export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, busy: externalBusy, onRecordSave, onRecordingBusyChange, readOnly = false, traceMenuTarget = null, onTraceDownload, diagnostics }: {
+export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, onSplit, onDelete, onDeleteTrack, onDuplicateTrack, onSeparateTrack, busy: externalBusy, onRecordSave, onRecordingBusyChange, readOnly = false, traceMenuTarget = null, onTraceDownload, diagnostics, canUndo = false, canRedo = false, onUndo, onRedo }: {
   tracks: AudioTrack[]
   readOnly?: boolean
   traceMenuTarget?: HTMLElement | null
@@ -221,6 +221,10 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   onRecordSave?: (track: AudioTrack, clip: AudioClip, durations: Record<string, number>) => Promise<void>
   onRecordingBusyChange?: (busy: boolean) => void
   diagnostics?: PlaybackDiagnostics | null
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
 }) {
   const [decoded, setDecoded] = useState<Record<string, TimelineTrack>>({})
   const [zoom, setZoom] = useState(INITIAL_ZOOM)
@@ -732,16 +736,18 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
       </div>
     </div>}
       <div className="audiobook-transport" aria-label="Wiedergabesteuerung">
-        {hasTracks && !readOnly && <div className="audiobook-position-controls" role="group" aria-label="Schnittposition verschieben">
-          <div className="audiobook-position-controls-inner">
+        {!readOnly && (hasTracks || canUndo || canRedo) && <div className="audiobook-position-controls" role="group" aria-label="Schnittposition verschieben">
+          <div className={`audiobook-position-controls-inner${hasTracks ? '' : ' history-only'}`}>
             <div className="audiobook-position-steps">
-              {POSITION_STEPS.map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} zurück`} disabled={busy} onClick={() => {
+              {onUndo && <button type="button" className="audiobook-secondary audiobook-history-button" aria-label="Rückgängig" title="Rückgängig (Strg+Z)" disabled={busy || !canUndo} onClick={onUndo}>↶</button>}
+              {onRedo && <button type="button" className="audiobook-secondary audiobook-history-button" aria-label="Wiederherstellen" title="Wiederherstellen (Strg+Y)" disabled={busy || !canRedo} onClick={onRedo}>↷</button>}
+              {hasTracks && POSITION_STEPS.map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} zurück`} disabled={busy} onClick={() => {
                 setSeekVersion((current) => current + 1)
                 transport.seek(Math.round((position - step.seconds) * 1e6) / 1e6)
               }}>-{step.label}</button>)}
             </div>
-            <span className="audiobook-timecode" aria-label="Schnittposition">{formatTimecode(displayedPosition)}</span>
-            <div className="audiobook-position-steps">
+            {hasTracks && <span className="audiobook-timecode" aria-label="Schnittposition">{formatTimecode(displayedPosition)}</span>}
+            {hasTracks && <div className="audiobook-position-steps">
               {[...POSITION_STEPS].reverse().map((step) => <button key={step.label} type="button" className="audiobook-secondary" aria-label={`${step.name} vor`} disabled={busy} onClick={() => {
                 setSeekVersion((current) => current + 1)
                 transport.seek(Math.round((position + step.seconds) * 1e6) / 1e6)
@@ -749,7 +755,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
               <span className="audiobook-separator">|</span>
               <button type="button" className="audiobook-secondary" aria-label="Herauszoomen" disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(1 / 1.5)}>−</button>
               <button type="button" className="audiobook-secondary" aria-label="Hineinzoomen" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1.5)}>+</button>
-            </div>
+            </div>}
           </div>
         </div>}
         {transport.error && <p className="audiobook-transport-error" role="alert">{transport.error}</p>}

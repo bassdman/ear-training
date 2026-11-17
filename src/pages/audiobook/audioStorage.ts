@@ -732,6 +732,52 @@ export async function updateTrackMix(id: string, patch: Partial<TrackMix>): Prom
   }
 }
 
+export async function restoreProjectTracks(projectId: string, tracks: AudioTrack[]): Promise<void> {
+  const audioByBlob = new Map<Blob, string>()
+  const audioRecords: { id: string, projectId: string, audio: Blob }[] = []
+  const storedTracks = tracks.map((track) => {
+    if (track.projectId !== projectId) throw new Error('Spur gehört nicht zum Projekt')
+    const clips = getTrackClips(track).map((clip) => {
+      let audioId = audioByBlob.get(clip.audio)
+      if (!audioId) {
+        audioId = createProjectId()
+        audioByBlob.set(clip.audio, audioId)
+        audioRecords.push({ id: audioId, projectId, audio: clip.audio })
+      }
+      const { audio: _audio, ...reference } = clip
+      return { ...reference, audioId }
+    })
+    const { audio: _legacyAudio, ...rest } = track
+    return { ...rest, clips }
+  })
+
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const audioStore = transaction.objectStore(AUDIO_STORE)
+      const existingTracks = store.index(PROJECT_INDEX).getAll(projectId)
+      const existingAudio = audioStore.getAll()
+      existingTracks.onsuccess = () => {
+        for (const track of existingTracks.result) store.delete(track.id)
+        for (const track of storedTracks) store.put(track)
+      }
+      existingAudio.onsuccess = () => {
+        for (const record of existingAudio.result) {
+          if (record.projectId === projectId) audioStore.delete(record.id)
+        }
+        for (const record of audioRecords) audioStore.put(record)
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function deleteProjectTracks(projectId: string): Promise<void> {
   const db = await openDatabase()
   try {

@@ -502,6 +502,16 @@
   justify-content: safe flex-end;
 }
 
+.audiobook-position-controls-inner.history-only {
+  display: flex;
+  justify-content: center;
+}
+
+.audiobook-position-steps .audiobook-history-button {
+  min-width: 40px;
+  font-size: 1.15rem;
+}
+
 .audiobook-page .audiobook-position-steps button {
   flex: 0 0 auto;
   min-width: 46px;
