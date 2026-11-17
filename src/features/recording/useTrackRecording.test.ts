@@ -16,6 +16,10 @@ afterEach(() => {
 it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', async () => {
   const sourceStart = vi.fn()
   const microphoneStop = vi.fn()
+  const onRecordingReleased = vi.fn(() => {
+    expect(microphoneStop).toHaveBeenCalledOnce()
+    expect(session.type).toBe('playback')
+  })
   const save = vi.fn().mockResolvedValue(undefined)
   const session = { type: 'auto' }
   Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session })
@@ -69,7 +73,7 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   const target: AudioTrack = { id: 'target', projectId: 'p', name: '', createdAt: 1, clips: [] }
   const buffer = { duration: 10 } as AudioBuffer
   const diagnostics = new PlaybackDiagnostics()
-  const { result, unmount, rerender } = renderHook(({ log }) => useTrackRecording(save, undefined, log), {
+  const { result, unmount, rerender } = renderHook(({ log }) => useTrackRecording(save, undefined, log, true, onRecordingReleased), {
     initialProps: { log: null as PlaybackDiagnostics | null },
   })
   await act(async () => {
@@ -97,6 +101,7 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   await waitFor(() => expect(result.current.phase).toBe('idle'))
   expect(save).toHaveBeenCalledWith(target, expect.objectContaining({ start: 3, duration: 2 }), {})
   expect(microphoneStop).toHaveBeenCalled()
+  expect(onRecordingReleased).toHaveBeenCalledOnce()
   expect(session.type).toBe('playback')
   unmount()
   expect(session.type).toBe('auto')

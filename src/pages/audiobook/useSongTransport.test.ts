@@ -122,6 +122,54 @@ describe('Songtransport', () => {
     expect(contexts[0].close).toHaveBeenCalledOnce()
   })
 
+  it('schließt den Wiedergabe-AudioContext und erhält Position und Mix beim Neustart', async () => {
+    const diagnostics = new PlaybackDiagnostics()
+    const tracks = [{ ...buffers[0], volume: 0.35 }, { ...buffers[1], muted: true }]
+    const { result } = renderHook(() => useSongTransport(tracks, 10, true, 'one,two', diagnostics))
+    await act(async () => result.current.play())
+    act(() => { contexts[0].currentTime = 2.5 })
+    await act(async () => result.current.resetAudioContext())
+    expect(contexts[0].close).toHaveBeenCalledOnce()
+    expect(result.current.position).toBe(2.5)
+    expect(result.current.playing).toBe(false)
+    expect(sources[0].stop).toHaveBeenCalledOnce()
+    expect(diagnostics.snapshot().events).toContainEqual(expect.objectContaining({ type: 'audio-context-reset-complete' }))
+    await act(async () => result.current.play())
+    expect(contexts).toHaveLength(2)
+    expect(sources[2].start).toHaveBeenCalledWith(0, 2.5, 7.5)
+    expect(gains[2].gain.value).toBe(0.35)
+    expect(gains[3].gain.value).toBe(0)
+  })
+
+  it('wartet mit der Wiedergabe auf das Schließen des AudioContexts', async () => {
+    const { result } = renderHook(() => useSongTransport(buffers, 10, true, 'one,two'))
+    await act(async () => result.current.play())
+    let finishClose: () => void = () => { throw new Error('Schließen wurde nicht gestartet') }
+    contexts[0].close.mockImplementation(() => new Promise<void>((resolve) => { finishClose = resolve }))
+    let reset: Promise<void>
+    act(() => { reset = result.current.resetAudioContext() })
+    expect(result.current.resetting).toBe(true)
+    await act(async () => result.current.play())
+    expect(contexts).toHaveLength(1)
+    await act(async () => { finishClose(); await reset })
+    expect(result.current.resetting).toBe(false)
+    await act(async () => result.current.play())
+    expect(contexts).toHaveLength(2)
+  })
+
+  it('meldet einen Fehler beim Zurücksetzen des AudioContexts', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const diagnostics = new PlaybackDiagnostics()
+    const { result } = renderHook(() => useSongTransport(buffers, 10, true, 'one,two', diagnostics))
+    await act(async () => result.current.play())
+    contexts[0].close.mockRejectedValue(new Error('close failed'))
+    await act(async () => result.current.resetAudioContext())
+    expect(result.current.error).toContain('Bitte lade die Seite neu')
+    expect(result.current.resetting).toBe(false)
+    expect(error).toHaveBeenCalledOnce()
+    expect(diagnostics.snapshot().events).toContainEqual(expect.objectContaining({ type: 'audio-context-reset-error' }))
+  })
+
   it('springt während der Wiedergabe gemeinsam und überspringt beendete kurze Spuren', async () => {
     const { result } = renderHook(() => useSongTransport(buffers, 10, true, 'one,two'))
     await act(async () => result.current.play())

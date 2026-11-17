@@ -32,6 +32,7 @@ export function useTrackRecording(
   onBusyChange?: (busy: boolean) => void,
   diagnostics?: PlaybackDiagnostics | null,
   enabled = true,
+  onRecordingReleased?: () => void,
 ) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [position, setPosition] = useState<number | null>(null)
@@ -230,6 +231,7 @@ export function useTrackRecording(
       }
       recorder.onstop = () => {
         release()
+        if (mounted.current) onRecordingReleased?.()
         if (currentGeneration !== generation.current) return
         if (mounted.current) setPhase('saving')
         void (async () => {
@@ -274,7 +276,7 @@ export function useTrackRecording(
       setError(message)
       finish()
     }
-  }, [finish, onBusyChange, release, save])
+  }, [finish, onBusyChange, onRecordingReleased, release, save])
 
   const stop = useCallback(() => {
     const recorder = recorderRef.current

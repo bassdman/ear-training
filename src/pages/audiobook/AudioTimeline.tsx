@@ -242,7 +242,9 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
   const decodedAudio = useRef(new WeakMap<Blob, ReturnType<typeof decodeWaveform>>())
-  const recording = useTrackRecording(onRecordSave ?? missingRecordingSave, onRecordingBusyChange, diagnostics, !readOnly)
+  const resetTransportRef = useRef<(() => Promise<void>) | null>(null)
+  const onRecordingReleased = useCallback(() => { void resetTransportRef.current?.() }, [])
+  const recording = useTrackRecording(onRecordSave ?? missingRecordingSave, onRecordingBusyChange, diagnostics, !readOnly, onRecordingReleased)
   const { phase: recordingPhase, stop: stopRecording } = recording
   const busy = externalBusy || recording.phase !== 'idle'
   const hasTracks = tracks.length > 0
@@ -338,6 +340,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const ready = allClips.length > 0 && buffers.length === allClips.length && duration > 0
   const trackKey = useMemo(() => JSON.stringify(allClips.map(({ clip, track }) => [clip.id, track.id, clip.start])), [allClips])
   const transport = useSongTransport(buffers, scrollDuration, ready, trackKey, diagnostics)
+  resetTransportRef.current = transport.resetAudioContext
   const { position, seek } = transport
   const displayedPosition = recording.position ?? position
   const dragEnvironment = useRef({ zoom, seek })
@@ -757,11 +760,11 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
            transport.playing && <button type="button" className="audiobook-secondary" aria-label="Pause" disabled={busy || (!transport.playing && !transport.starting)} onClick={transport.pause}>❚❚</button>
           }
           {
-            !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={busy || !ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
+            !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={busy || transport.resetting || !ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
           }
           {!readOnly && (recording.phase === 'preparing' || recording.phase === 'recording'
             ? <button type="button" className="audiobook-secondary" onClick={recording.stop}>Aufnahme stoppen</button>
-            : <button type="button" className="audiobook-secondary" disabled={busy || !!recording.recovery || !onRecordSave || !tracks.some((track) => track.id === selectedTrack) || buffers.length !== allClips.length} onClick={() => {
+            : <button type="button" className="audiobook-secondary" disabled={busy || transport.resetting || !!recording.recovery || !onRecordSave || !tracks.some((track) => track.id === selectedTrack) || buffers.length !== allClips.length} onClick={() => {
               const target = tracks.find((track) => track.id === selectedTrack)
               if (!target) return
               setMenu(null)

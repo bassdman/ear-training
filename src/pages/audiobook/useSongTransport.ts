@@ -17,8 +17,11 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   const [position, setPosition] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [error, setError] = useState('')
   const contextRef = useRef<AudioContext | null>(null)
+  const resettingRef = useRef(false)
+  const mountedRef = useRef(true)
   const sourcesRef = useRef<AudioBufferSourceNode[]>([])
   const gainsRef = useRef(new Map<string, GainNode>())
   const positionRef = useRef(0)
@@ -98,6 +101,29 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     setStarting(false)
     return positionRef.current
   }, [duration, stopSources, updatePosition])
+
+  const resetAudioContext = useCallback(async () => {
+    if (resettingRef.current) return
+    pause()
+    const context = contextRef.current
+    if (!context) return
+    resettingRef.current = true
+    setResetting(true)
+    contextRef.current = null
+    context.onstatechange = null
+    diagnosticsRef.current?.event('audio-context-reset-start')
+    try {
+      if (context.state !== 'closed') await context.close()
+      diagnosticsRef.current?.event('audio-context-reset-complete')
+    } catch (cause) {
+      console.error('Wiedergabe-AudioContext konnte nicht geschlossen werden:', cause)
+      diagnosticsRef.current?.event('audio-context-reset-error', { error: cause instanceof Error ? cause.name : 'unknown' })
+      if (mountedRef.current) setError('Die Audioausgabe konnte nicht zurückgesetzt werden. Bitte lade die Seite neu.')
+    } finally {
+      resettingRef.current = false
+      if (mountedRef.current) setResetting(false)
+    }
+  }, [pause])
 
   const startSources = useCallback((context: AudioContext, offset: number) => {
     const sources: AudioBufferSourceNode[] = []
@@ -179,7 +205,7 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
   }, [duration, stopSources])
 
   const play = useCallback(async () => {
-    if (!ready || playingRef.current || starting) return
+    if (!ready || playingRef.current || starting || resettingRef.current) return
     const generation = ++generationRef.current
     setStarting(true)
     setError('')
@@ -235,7 +261,13 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     }
   }, [stopSources])
 
-  useEffect(() => cleanup, [cleanup])
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      cleanup()
+    }
+  }, [cleanup])
 
   const previousTrackKey = useRef(trackKey)
   useEffect(() => {
@@ -245,5 +277,5 @@ export function useSongTransport(tracks: PlaybackTrack[], duration: number, read
     }
   }, [trackKey, pause])
 
-  return { position, playing, starting, error, play, pause, seek }
+  return { position, playing, starting, resetting, error, play, pause, seek, resetAudioContext }
 }

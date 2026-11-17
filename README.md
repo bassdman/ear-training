@@ -110,6 +110,10 @@ Wenn der Browser die Audio Session API unterstützt, wird nach der Aufnahme
 auf den Wiedergabemodus zurückgestellt. Dieser kann andere Audio-Apps pausieren
 und den iPhone-Stummschalter anders behandeln. Welchen Lautsprecher iOS während
 einer Aufnahme verwendet, kann die Webseite nicht zuverlässig vorgeben.
+Nach einer Aufnahme wird der Wiedergabe-AudioContext geschlossen und beim
+nächsten Abspielen neu angelegt, ohne die Wiedergabeposition zu verändern.
+Ob dadurch ein falscher Audioausgang zurückgesetzt wird, hängt vom Gerät und
+Browser ab.
 Falls der Browser das Aufnahmeformat nicht direkt dekodieren kann, wird es
 lokal mit dem mitgelieferten FFmpeg in WAV umgewandelt; dies kann beim ersten
 Mal einige Zeit und zusätzlichen Arbeitsspeicher benötigen.

@@ -1,3 +1,4 @@
+import { Blob as NodeBlob } from 'node:buffer'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,11 +37,71 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  Reflect.deleteProperty(navigator, 'mediaDevices')
   Reflect.deleteProperty(HTMLElement.prototype, 'setPointerCapture')
   Reflect.deleteProperty(document, 'elementFromPoint')
 })
 
 describe('gemeinsame Zeitleiste', () => {
+  it('setzt nach einer Aufnahme den Wiedergabe-AudioContext zurück', async () => {
+    let finishClose: () => void = () => { throw new Error('Schließen wurde nicht gestartet') }
+    const contexts: TestContext[] = []
+    const microphoneStop = vi.fn()
+    class TestContext {
+      state = 'running'
+      currentTime = 0
+      destination = {}
+      createBufferSource() { return { connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn(), buffer: null } }
+      createGain() { return { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() } }
+      decodeAudioData = vi.fn().mockResolvedValue({ duration: 2 })
+      close = vi.fn(() => contexts[0] === this
+        ? new Promise<void>((resolve) => { finishClose = resolve })
+        : Promise.resolve())
+      constructor() { contexts.push(this) }
+    }
+    class TestRecorder {
+      state = 'inactive'
+      mimeType = 'audio/webm'
+      onstart: (() => void) | null = null
+      onstop: (() => void) | null = null
+      ondataavailable: ((event: { data: Blob }) => void) | null = null
+      start() { this.state = 'recording'; this.onstart?.() }
+      stop() {
+        this.state = 'inactive'
+        this.ondataavailable?.({ data: new Blob(['audio']) })
+        this.onstop?.()
+      }
+    }
+    vi.stubGlobal('Blob', NodeBlob)
+    vi.stubGlobal('AudioContext', TestContext)
+    vi.stubGlobal('MediaRecorder', TestRecorder)
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true, value: { getUserMedia: vi.fn().mockResolvedValue({
+        getTracks: () => [{ stop: microphoneStop }], getAudioTracks: () => [{ onended: null }],
+      }) },
+    })
+    const save = vi.fn().mockResolvedValue(undefined)
+    render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onRecordSave={save} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await screen.findByRole('button', { name: 'Pause' })
+    fireEvent.click(screen.getByRole('button', { name: 'Spur 2: Gitarre für Aufnahme auswählen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Aufnehmen' }))
+    await screen.findByRole('button', { name: 'Aufnahme stoppen' })
+    fireEvent.click(screen.getByRole('button', { name: 'Aufnahme stoppen' }))
+    await waitFor(() => expect(save).toHaveBeenCalledOnce())
+    expect(microphoneStop).toHaveBeenCalledOnce()
+    expect(contexts[0].close).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Abspielen' })).toBeDisabled()
+    await act(async () => { finishClose() })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abspielen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await screen.findByRole('button', { name: 'Pause' })
+    expect(contexts).toHaveLength(4)
+  }, 15_000)
+
   it('zeichnet lange Wellenformen beim Scrollen aus einem begrenzten Cache und erneuert ihn beim Zoomen', async () => {
     const fillRect = vi.fn()
     const drawImage = vi.fn()
