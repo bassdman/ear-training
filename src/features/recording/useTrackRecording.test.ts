@@ -8,6 +8,7 @@ import { PlaybackDiagnostics } from '../../pages/audiobook/playbackDiagnostics'
 
 afterEach(() => {
   Reflect.deleteProperty(navigator, 'mediaDevices')
+  Reflect.deleteProperty(navigator, 'audioSession')
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -16,6 +17,8 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   const sourceStart = vi.fn()
   const microphoneStop = vi.fn()
   const save = vi.fn().mockResolvedValue(undefined)
+  const session = { type: 'auto' }
+  Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session })
   const gains: { value: number }[] = []
   const analyser = vi.fn(() => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn((data: Float32Array) => data.fill(0.25)), disconnect: vi.fn() }))
   class TestRecorder {
@@ -52,9 +55,15 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
   vi.stubGlobal('cancelAnimationFrame', vi.fn())
   Object.defineProperty(navigator, 'mediaDevices', {
-    configurable: true, value: { getUserMedia: vi.fn().mockResolvedValue({
-      getTracks: () => [{ stop: microphoneStop }],
-      getAudioTracks: () => [{ onended: null }],
+    configurable: true, value: { getUserMedia: vi.fn().mockImplementation(async () => {
+      expect(session.type).toBe('play-and-record')
+      return {
+        getTracks: () => [{ stop: () => {
+          expect(session.type).toBe('play-and-record')
+          microphoneStop()
+        } }],
+        getAudioTracks: () => [{ onended: null }],
+      }
     }) },
   })
   const target: AudioTrack = { id: 'target', projectId: 'p', name: '', createdAt: 1, clips: [] }
@@ -70,6 +79,7 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
     ], {})
   })
   expect(result.current.phase).toBe('recording')
+  expect(session.type).toBe('play-and-record')
   expect(sourceStart).toHaveBeenCalledTimes(1)
   expect(sourceStart).toHaveBeenCalledWith(10, 2, 8)
   expect(gains[0].value).toBe(4)
@@ -87,12 +97,16 @@ it('nimmt in die ausgewählte Spur auf und spielt nur die anderen Spuren ab', as
   await waitFor(() => expect(result.current.phase).toBe('idle'))
   expect(save).toHaveBeenCalledWith(target, expect.objectContaining({ start: 3, duration: 2 }), {})
   expect(microphoneStop).toHaveBeenCalled()
+  expect(session.type).toBe('playback')
   unmount()
+  expect(session.type).toBe('auto')
 })
 
 it('gibt ein verspätet freigegebenes Mikrofon nach Abbruch frei', async () => {
   let grant: (stream: MediaStream) => void = () => { throw new Error('Berechtigung wurde nicht angefordert') }
   const stop = vi.fn()
+  const session = { type: 'auto' }
+  Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session })
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true, value: { getUserMedia: () => new Promise<MediaStream>((resolve) => { grant = resolve }) },
   })
@@ -105,23 +119,85 @@ it('gibt ein verspätet freigegebenes Mikrofon nach Abbruch frei', async () => {
   expect(result.current.phase).toBe('preparing')
   act(() => result.current.stop())
   expect(result.current.phase).toBe('idle')
+  expect(session.type).toBe('playback')
   await act(async () => {
     grant({ getTracks: () => [{ stop }] } as unknown as MediaStream)
     await pending
   })
   expect(stop).toHaveBeenCalledOnce()
+  expect(session.type).toBe('playback')
   expect(save).not.toHaveBeenCalled()
 })
 
+it('gibt die Audiositzung beim Wechsel in den Übungsmodus frei', async () => {
+  let grant: (stream: MediaStream) => void = () => { throw new Error('Berechtigung wurde nicht angefordert') }
+  const stop = vi.fn()
+  const session = { type: 'auto' }
+  Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session })
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true, value: { getUserMedia: () => new Promise<MediaStream>((resolve) => { grant = resolve }) },
+  })
+  vi.stubGlobal('MediaRecorder', class {})
+  const { result, rerender } = renderHook(({ enabled }) => useTrackRecording(vi.fn(), undefined, null, enabled), {
+    initialProps: { enabled: true },
+  })
+  let pending: Promise<void>
+  act(() => { pending = result.current.start({ id: 't', projectId: 'p', name: '', createdAt: 1 }, 0, [], {}) })
+  expect(session.type).toBe('play-and-record')
+  rerender({ enabled: false })
+  expect(session.type).toBe('auto')
+  act(() => result.current.stop())
+  await act(async () => {
+    grant({ getTracks: () => [{ stop }] } as unknown as MediaStream)
+    await pending
+  })
+  expect(stop).toHaveBeenCalledOnce()
+  expect(session.type).toBe('auto')
+})
+
 it('zeigt eine verweigerte Mikrofonberechtigung an', async () => {
+  const session = { type: 'auto' }
+  Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session })
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true, value: { getUserMedia: vi.fn().mockRejectedValue(new DOMException('Denied', 'NotAllowedError')) },
+  })
+  vi.stubGlobal('MediaRecorder', class {})
+  const { result, unmount } = renderHook(() => useTrackRecording(vi.fn()))
+  await act(async () => result.current.start({ id: 't', projectId: 'p', name: '', createdAt: 1 }, 0, [], {}))
+  expect(result.current.phase).toBe('idle')
+  expect(result.current.error).toContain('verweigert')
+  expect(session.type).toBe('playback')
+  unmount()
+  expect(session.type).toBe('auto')
+})
+
+it('überschreibt keine zwischenzeitlich anderweitig geänderte Audiositzung', async () => {
+  const session = { type: 'auto' }
+  Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session })
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true, value: { getUserMedia: vi.fn().mockRejectedValue(new DOMException('Denied', 'NotAllowedError')) },
+  })
+  vi.stubGlobal('MediaRecorder', class {})
+  const { result, unmount } = renderHook(() => useTrackRecording(vi.fn()))
+  await act(async () => result.current.start({ id: 't', projectId: 'p', name: '', createdAt: 1 }, 0, [], {}))
+  session.type = 'ambient'
+  unmount()
+  expect(session.type).toBe('ambient')
+})
+
+it('zeigt den Mikrofonfehler auch dann an, wenn der Browser die Audiositzung nicht umstellen kann', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  Object.defineProperty(navigator, 'audioSession', {
+    configurable: true, value: { get type() { return 'auto' }, set type(_value: string) { throw new Error('Nicht unterstützt') } },
+  })
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true, value: { getUserMedia: vi.fn().mockRejectedValue(new DOMException('Denied', 'NotAllowedError')) },
   })
   vi.stubGlobal('MediaRecorder', class {})
   const { result } = renderHook(() => useTrackRecording(vi.fn()))
   await act(async () => result.current.start({ id: 't', projectId: 'p', name: '', createdAt: 1 }, 0, [], {}))
-  expect(result.current.phase).toBe('idle')
   expect(result.current.error).toContain('verweigert')
+  expect(warn).toHaveBeenCalled()
 })
 
 it('bietet die Aufnahme bei einem Speicherfehler zum Sichern an', async () => {

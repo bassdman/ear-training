@@ -242,7 +242,7 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const previewRef = useRef<typeof drag>(null)
   const dragFrame = useRef<number | null>(null)
   const decodedAudio = useRef(new WeakMap<Blob, ReturnType<typeof decodeWaveform>>())
-  const recording = useTrackRecording(onRecordSave ?? missingRecordingSave, onRecordingBusyChange, diagnostics)
+  const recording = useTrackRecording(onRecordSave ?? missingRecordingSave, onRecordingBusyChange, diagnostics, !readOnly)
   const { phase: recordingPhase, stop: stopRecording } = recording
   const busy = externalBusy || recording.phase !== 'idle'
   const hasTracks = tracks.length > 0

@@ -8,6 +8,17 @@ import type { PlaybackDiagnostics } from '../../pages/audiobook/playbackDiagnost
 import { startPlaybackLevels } from '../../pages/audiobook/playbackLevels'
 
 type Phase = 'idle' | 'preparing' | 'recording' | 'saving'
+type AudioSession = { type: string }
+type SessionOverride = { session: AudioSession, previous: string, lastSet: string }
+
+function setSessionType(override: SessionOverride, type: string) {
+  try {
+    override.session.type = type
+    override.lastSet = type
+  } catch (cause) {
+    console.warn('Audiositzung konnte nicht umgestellt werden:', cause)
+  }
+}
 
 function recordingFileName(type: string): string {
   if (type.includes('mp4')) return 'aufnahme.m4a'
@@ -20,6 +31,7 @@ export function useTrackRecording(
   save: (track: AudioTrack, clip: AudioClip, durations: Record<string, number>) => Promise<void>,
   onBusyChange?: (busy: boolean) => void,
   diagnostics?: PlaybackDiagnostics | null,
+  enabled = true,
 ) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [position, setPosition] = useState<number | null>(null)
@@ -39,6 +51,15 @@ export function useTrackRecording(
   const gainsRef = useRef(new Map<string, GainNode>())
   const recordingStartRef = useRef<{ position: number, time: number } | null>(null)
   const stopLevelsRef = useRef<(() => void) | null>(null)
+  const sessionOverrideRef = useRef<SessionOverride | null>(null)
+
+  useEffect(() => {
+    return () => {
+      const override = sessionOverrideRef.current
+      sessionOverrideRef.current = null
+      if (override && override.session.type === override.lastSet) setSessionType(override, override.previous)
+    }
+  }, [enabled])
 
   const release = useCallback(() => {
     stopLevelsRef.current?.()
@@ -54,6 +75,8 @@ export function useTrackRecording(
     sourcesRef.current = []
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
+    const override = sessionOverrideRef.current
+    if (override && override.session.type === override.lastSet) setSessionType(override, 'playback')
     const context = contextRef.current
     contextRef.current = null
     if (context) void context.close().catch((cause: unknown) => console.error('AudioContext konnte nicht geschlossen werden:', cause))
@@ -130,6 +153,12 @@ export function useTrackRecording(
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
         throw new Error('Mikrofonaufnahmen werden von diesem Browser nicht unterstützt. Verwende HTTPS oder localhost.')
+      }
+      const session = (navigator as Navigator & { audioSession?: AudioSession }).audioSession
+      if (session) {
+        const override = sessionOverrideRef.current ?? { session, previous: session.type, lastSet: session.type }
+        sessionOverrideRef.current = override
+        setSessionType(override, 'play-and-record')
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       if (currentGeneration !== generation.current) {

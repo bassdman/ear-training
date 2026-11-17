@@ -106,6 +106,10 @@ hinaus. Für die Aufnahme sind Mikrofonberechtigung und HTTPS oder localhost
 erforderlich. Kopfhörer vermeiden Rückkopplungen; je nach Gerät und Browser kann
 eine zeitliche Mikrofonlatenz auftreten. Bei einem Speicherfehler kann die
 Aufnahme über den angezeigten Download-Link gesichert werden.
+Wenn der Browser die Audio Session API unterstützt, wird nach der Aufnahme
+auf den Wiedergabemodus zurückgestellt. Dieser kann andere Audio-Apps pausieren
+und den iPhone-Stummschalter anders behandeln. Welchen Lautsprecher iOS während
+einer Aufnahme verwendet, kann die Webseite nicht zuverlässig vorgeben.
 Falls der Browser das Aufnahmeformat nicht direkt dekodieren kann, wird es
 lokal mit dem mitgelieferten FFmpeg in WAV umgewandelt; dies kann beim ersten
 Mal einige Zeit und zusätzlichen Arbeitsspeicher benötigen.
