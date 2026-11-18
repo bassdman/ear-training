@@ -2,6 +2,7 @@ import { Blob as NodeBlob } from 'node:buffer'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import recordButton from '../../assets/record_button.svg'
 import type { AudioTrack } from './audioStorage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -358,7 +359,9 @@ describe('gemeinsame Zeitleiste', () => {
     expect(screen.queryByRole('button', { name: /Freier Bereich|Optionen für Spur|stummschalten|Kopieren|Löschen/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('slider', { name: 'Wiedergabeposition auf der Zeitleiste' })).not.toBeInTheDocument()
     const bar = screen.getByLabelText('Wiedergabesteuerung')
-    expect(within(bar).getByRole('button', { name: 'Mikrofon starten' })).toBeInTheDocument()
+    const microphoneButton = within(bar).getByRole('button', { name: 'Mikrofon starten' })
+    expect(microphoneButton).toBeInTheDocument()
+    expect(microphoneButton.querySelector('img')).toHaveAttribute('src', recordButton)
     expect(within(bar).getByRole('button', { name: 'Abspielen' })).toBeEnabled()
     expect(within(bar).getByRole('button', { name: 'Vocalspur auswählen' })).toBeInTheDocument()
     expect(within(bar).getByRole('button', { name: 'Stimmgerät-Einstellungen' })).toBeInTheDocument()

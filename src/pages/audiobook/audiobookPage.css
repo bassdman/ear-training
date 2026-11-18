@@ -1000,6 +1000,13 @@
     font-size: 0.75rem;
   }
 
+  .audiobook-transport-buttons.has-exercise-controls .audiobook-record-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+  }
+
   .audiobook-exercise-controls {
     gap: 6px;
   }
