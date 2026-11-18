@@ -57,6 +57,21 @@ afterEach(() => {
 })
 
 describe('ProjectTracks', () => {
+  it('behält gelöschte Spuren solange History darauf verweist und bereinigt sie danach', async () => {
+    const projectId = crypto.randomUUID()
+    const retained = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    await audioStorage.markTrackDeleted(retained.id)
+    await audioStorage.purgeDeletedTracks(projectId, new Set([retained.id]))
+    expect(await audioStorage.readTracks(projectId)).toHaveLength(0)
+    await audioStorage.deleteTrack(retained.id)
+
+    const forgotten = await audioStorage.addEmptyTrack(projectId, 'vocal')
+    await audioStorage.markTrackDeleted(forgotten.id)
+    await audioStorage.purgeDeletedTracks(projectId, new Set())
+    await expect(audioStorage.deleteTrack(forgotten.id)).rejects.toThrow('Spur nicht gefunden')
+    await audioStorage.deleteProjectTracks(projectId)
+  })
+
   it('macht Löschungen per Schaltfläche und Strg+Z rückgängig und stellt sie per Strg+Y wieder her', async () => {
     vi.stubGlobal('Blob', NodeBlob)
     const projectId = crypto.randomUUID()
@@ -518,7 +533,7 @@ describe('ProjectTracks', () => {
     const track = await audioStorage.addEmptyTrack(projectId)
     const view = render(<ProjectTracks projectId={projectId} />)
     const button = await screen.findByRole('button', { name: `Spur löschen ${track.id}` })
-    const failure = vi.spyOn(audioStorage, 'deleteTrack').mockRejectedValueOnce(new Error('Speicherfehler'))
+    const failure = vi.spyOn(audioStorage, 'markTrackDeleted').mockRejectedValueOnce(new Error('Speicherfehler'))
     fireEvent.click(button)
     expect(await screen.findByRole('alert')).toHaveTextContent('Spur konnte nicht gelöscht werden')
     expect(await audioStorage.readTracks(projectId)).toHaveLength(1)

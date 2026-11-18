@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { createUndoRedoHistory } from '../../features/undoRedo/history'
-import { addClip, addEmptyTrack, deleteClip, deleteTrack, duplicateTrack, getTrackClips, insertRecording, moveClip, pasteClip, readTracks, restoreProjectTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
+import { addClip, addEmptyTrack, deleteClip, duplicateTrack, getTrackClips, insertRecording, markTrackDeleted, moveClip, pasteClip, purgeDeletedTracks, readTracks, restoreProjectTracks, splitClip, updateTrackMix, type AudioClip, type AudioTrack, type TrackMix, type TrackType } from './audioStorage'
 import { createProjectId } from './storage'
 import { AudioTimeline } from './AudioTimeline'
 import { decodeWaveform } from './waveform'
@@ -20,14 +20,22 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
   const [mixError, setMixError] = useState('')
   const [, forceHistoryRender] = useState(0)
   const writeQueue = useRef<Promise<void>>(Promise.resolve())
+  const pruneQueue = useRef<Promise<void>>(Promise.resolve())
   const tracksRef = useRef<AudioTrack[] | null>(null)
   const historyAction = useRef(false)
   const historyRef = useRef(createUndoRedoHistory<AudioTrack[]>([]))
+  const scheduleDeletedTrackPrune = useCallback(() => {
+    const retainedTrackIds = new Set(historyRef.current.values().flatMap((snapshot) => snapshot.map((track) => track.id)))
+    pruneQueue.current = pruneQueue.current.then(() => purgeDeletedTracks(projectId, retainedTrackIds)).catch(() => {
+      setError('Gelöschte Spuren konnten nicht endgültig aus dem Browserspeicher entfernt werden.')
+    })
+  }, [projectId])
   function commitTracks(next: AudioTrack[]) {
     tracksRef.current = next
     historyRef.current.commit(next)
     setTracks(next)
     forceHistoryRender((version) => version + 1)
+    scheduleDeletedTrackPrune()
   }
   function resetTracks(next: AudioTrack[]) {
     tracksRef.current = next
@@ -43,7 +51,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
 
   useEffect(() => {
     let active = true
-    readTracks(projectId).then((saved) => {
+    purgeDeletedTracks(projectId, new Set()).then(() => readTracks(projectId)).then((saved) => {
       if (active) resetTracks(saved)
     }).catch(() => {
       if (active) setError('Die Audiospuren konnten nicht geladen werden. Bitte prüfe den Browserspeicher.')
@@ -66,6 +74,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       tracksRef.current = snapshot
       setTracks(snapshot)
       forceHistoryRender((version) => version + 1)
+      scheduleDeletedTrackPrune()
     } catch {
       if (snapshot) {
         if (direction === 'undo') history.redo()
@@ -79,7 +88,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
       historyAction.current = false
       setBusy(false)
     }
-  }, [editingBusy, projectId, readOnly])
+  }, [editingBusy, projectId, readOnly, scheduleDeletedTrackPrune])
 
   useEffect(() => {
     function handleHistoryShortcut(event: KeyboardEvent) {
@@ -226,7 +235,7 @@ export function ProjectTracks({ projectId, readOnly = false, traceMenuTarget = n
     setError('')
     try {
       await writeQueue.current
-      await deleteTrack(trackId)
+      await markTrackDeleted(trackId)
       const current = tracksRef.current
       if (current) commitTracks(current.filter((track) => track.id !== trackId))
     } catch {

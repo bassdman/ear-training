@@ -1,6 +1,7 @@
 export type UndoRedoHistory<T> = {
   canUndo: () => boolean
   canRedo: () => boolean
+  values: () => readonly T[]
   commit: (value: T) => void
   undo: () => T | undefined
   redo: () => T | undefined
@@ -15,6 +16,7 @@ export function createUndoRedoHistory<T>(initial: T, limit = 50): UndoRedoHistor
   return {
     canUndo: () => cursor > 0,
     canRedo: () => cursor < entries.length - 1,
+    values: () => entries,
     commit(value) {
       entries = [...entries.slice(0, cursor + 1), value]
       if (entries.length > limit + 1) entries = entries.slice(entries.length - limit - 1)

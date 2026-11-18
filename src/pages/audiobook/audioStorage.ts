@@ -17,6 +17,7 @@ export type AudioTrack = {
   id: string
   projectId: string
   name: string
+  deleted?: boolean
   audio?: Blob
   clips?: AudioClip[]
   createdAt: number
@@ -123,7 +124,7 @@ function sortTracks(tracks: AudioTrack[]) {
 
 export async function readVocalTracks(projectId: string): Promise<Pick<AudioTrack, 'id' | 'name'>[]> {
   const tracks = await withStore<StoredTrack[]>('readonly', (store) => store.index(PROJECT_INDEX).getAll(projectId))
-  return tracks.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+  return tracks.filter((track) => track.deleted !== true).sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
     .map((track, index) => ({ track, name: track.name ? `Spur ${index + 1}: ${track.name}` : `Spur ${index + 1}` }))
     .filter(({ track }) => getTrackType(track) === 'vocal')
     .map(({ track, name }) => ({ id: track.id, name }))
@@ -139,7 +140,7 @@ export async function readTracks(projectId: string): Promise<AudioTrack[]> {
       let tracks: StoredTrack[] = []
       let failure: Error | undefined
       request.onsuccess = () => {
-        tracks = request.result
+        tracks = request.result.filter((track) => track.deleted !== true)
         const ids = new Set(tracks.flatMap((track) => storedClips(track).flatMap((clip) => clip.audioId ? [clip.audioId] : [])))
         for (const id of ids) {
           const audioRequest = transaction.objectStore(AUDIO_STORE).get(id)
@@ -708,6 +709,66 @@ export async function deleteTrack(trackId: string): Promise<void> {
   }
 }
 
+export async function markTrackDeleted(trackId: string): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const store = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME)
+      const request = store.get(trackId)
+      request.onsuccess = () => {
+        const track: StoredTrack | undefined = request.result
+        if (!track) {
+          store.transaction.abort()
+          return
+        }
+        store.put({ ...track, deleted: true })
+      }
+      store.transaction.oncomplete = () => resolve()
+      store.transaction.onabort = () => reject(store.transaction.error ?? new Error('Spur nicht gefunden oder Transaktion abgebrochen'))
+      store.transaction.onerror = () => reject(store.transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function purgeDeletedTracks(projectId: string, retainedTrackIds: ReadonlySet<string>): Promise<void> {
+  const db = await openDatabase()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME, AUDIO_STORE, LYRICS_STORE], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.index(PROJECT_INDEX).getAll(projectId)
+      const deletedIds = new Set<string>()
+      const audioIds = new Set<string>()
+      request.onsuccess = () => {
+        for (const track of request.result as StoredTrack[]) {
+          if (track.deleted !== true || retainedTrackIds.has(track.id)) continue
+          deletedIds.add(track.id)
+          for (const clip of storedClips(track)) {
+            if (clip.audioId) audioIds.add(clip.audioId)
+          }
+          store.delete(track.id)
+        }
+        deleteUnreferencedAudio(store, transaction.objectStore(AUDIO_STORE), projectId, audioIds)
+        const lyricsRequest = transaction.objectStore(LYRICS_STORE).index(PROJECT_INDEX).openCursor(projectId)
+        lyricsRequest.onsuccess = () => {
+          const cursor = lyricsRequest.result
+          if (!cursor) return
+          const lyrics: ProjectLyrics = cursor.value
+          if (lyrics.trackId && deletedIds.has(lyrics.trackId)) cursor.update({ ...lyrics, trackId: null })
+          cursor.continue()
+        }
+      }
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
+      transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
 export async function updateTrackMix(id: string, patch: Partial<TrackMix>): Promise<void> {
   const db = await openDatabase()
   try {
@@ -733,23 +794,7 @@ export async function updateTrackMix(id: string, patch: Partial<TrackMix>): Prom
 }
 
 export async function restoreProjectTracks(projectId: string, tracks: AudioTrack[]): Promise<void> {
-  const audioByBlob = new Map<Blob, string>()
-  const audioRecords: { id: string, projectId: string, audio: Blob }[] = []
-  const storedTracks = tracks.map((track) => {
-    if (track.projectId !== projectId) throw new Error('Spur gehört nicht zum Projekt')
-    const clips = getTrackClips(track).map((clip) => {
-      let audioId = audioByBlob.get(clip.audio)
-      if (!audioId) {
-        audioId = createProjectId()
-        audioByBlob.set(clip.audio, audioId)
-        audioRecords.push({ id: audioId, projectId, audio: clip.audio })
-      }
-      const { audio: _audio, ...reference } = clip
-      return { ...reference, audioId }
-    })
-    const { audio: _legacyAudio, ...rest } = track
-    return { ...rest, clips }
-  })
+  if (tracks.some((track) => track.projectId !== projectId)) throw new Error('Spur gehört nicht zum Projekt')
 
   const db = await openDatabase()
   try {
@@ -759,16 +804,47 @@ export async function restoreProjectTracks(projectId: string, tracks: AudioTrack
       const audioStore = transaction.objectStore(AUDIO_STORE)
       const existingTracks = store.index(PROJECT_INDEX).getAll(projectId)
       const existingAudio = audioStore.getAll()
-      existingTracks.onsuccess = () => {
-        for (const track of existingTracks.result) store.delete(track.id)
-        for (const track of storedTracks) store.put(track)
-      }
-      existingAudio.onsuccess = () => {
+      const applyRestore = () => {
+        if (existingTracks.readyState !== 'done' || existingAudio.readyState !== 'done') return
+
+        const audioById = new Map<string, { id: string, projectId: string, audio: Blob }>()
         for (const record of existingAudio.result) {
-          if (record.projectId === projectId) audioStore.delete(record.id)
+          if (record.projectId === projectId) audioById.set(record.id, record)
         }
+        const audioByBlob = new Map<Blob, string>()
+        const audioRecords: { id: string, projectId: string, audio: Blob }[] = []
+        const restoredTracks = tracks.map((track) => {
+          const clips = getTrackClips(track).map((clip) => {
+            let audioId = clip.audioId && audioById.has(clip.audioId) ? clip.audioId : audioByBlob.get(clip.audio)
+            if (!audioId) {
+              audioId = createProjectId()
+              audioByBlob.set(clip.audio, audioId)
+              const record = { id: audioId, projectId, audio: clip.audio }
+              audioRecords.push(record)
+              audioById.set(audioId, record)
+            }
+            const { audio: _audio, ...reference } = clip
+            return { ...reference, audioId }
+          })
+          const { audio: _legacyAudio, deleted: _deleted, ...rest } = track
+          return { ...rest, deleted: false, clips }
+        })
+        const restoredById = new Map(restoredTracks.map((track) => [track.id, track]))
+        const finalTracks = (existingTracks.result as StoredTrack[]).map((track) =>
+          restoredById.get(track.id) ?? { ...track, deleted: true },
+        )
+        for (const track of restoredTracks) {
+          if (!finalTracks.some((existing) => existing.id === track.id)) finalTracks.push(track)
+        }
+        const referencedAudio = new Set(finalTracks.flatMap((track) => storedClips(track).flatMap((clip) => clip.audioId ? [clip.audioId] : [])))
+        for (const track of finalTracks) store.put(track)
         for (const record of audioRecords) audioStore.put(record)
+        for (const record of audioById.values()) {
+          if (record.projectId === projectId && !referencedAudio.has(record.id)) audioStore.delete(record.id)
+        }
       }
+      existingTracks.onsuccess = applyRestore
+      existingAudio.onsuccess = applyRestore
       transaction.oncomplete = () => resolve()
       transaction.onabort = () => reject(transaction.error ?? new Error('Datenbanktransaktion abgebrochen'))
       transaction.onerror = () => reject(transaction.error ?? new Error('Datenbankfehler'))
