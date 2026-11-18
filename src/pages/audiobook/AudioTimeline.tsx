@@ -6,6 +6,7 @@ import { decodeWaveform, formatSeconds, getTickInterval, type WaveformData } fro
 import { useSongTransport } from './useSongTransport'
 import { createProjectId } from './storage'
 import { ExerciseTuner } from './ExerciseTuner'
+import { AufnahmeButton } from './AufnahmeButton'
 import { useTrackRecording } from '../../features/recording/useTrackRecording'
 import type { PlaybackDiagnostics } from './playbackDiagnostics'
 
@@ -236,7 +237,6 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null)
   const [clipMenu, setClipMenu] = useState<{ trackId: string, clipId: string, time: number } | null>(null)
   const [copiedClip, setCopiedClip] = useState<AudioClip | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [drag, setDrag] = useState<{ sourceId: string, clipId: string, targetId: string, start: number, duration: number } | null>(null)
   const [pendingExtent, setPendingExtent] = useState(0)
   const [seekVersion, setSeekVersion] = useState(0)
@@ -372,7 +372,6 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
     setMenu(null)
     setClipMenu(null)
     setSelectedClip(null)
-    setConfirmDelete(false)
     const node = viewportRef.current
     const pointerId = dragRef.current?.pointerId
     if (node && pointerId !== undefined && node.hasPointerCapture(pointerId)) node.releasePointerCapture(pointerId)
@@ -440,7 +439,6 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
   }
   const activateClip = (trackId: string, clipId: string, time: number) => {
     setMenu(null)
-    setConfirmDelete(false)
     if (selectedClip === clipId) {
       setClipMenu({ trackId, clipId, time })
     } else {
@@ -673,38 +671,29 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
                           <TooltipMenu
                             className="audiobook-import-menu audiobook-clip-menu"
                             style={{ left: Math.max(0, Math.min(clipMenu.time * zoom - viewStart, viewport.width - 230)), top: 0, maxWidth: viewport.width }}
-                            onClose={() => { setClipMenu(null); setConfirmDelete(false) }}
+                            onClose={() => setClipMenu(null)}
                           >
-                            {confirmDelete ? (
-                              <>
-                                <span className="audiobook-menu-hint">Audioblock wirklich löschen?</span>
+                            <>
+                              {canSplit ? (
                                 <TooltipMenuButton disabled={busy} onClick={() => {
-                                  transport.pause()
-                                  onDelete(track.id, clipMenu.clipId)
-                                  setConfirmDelete(false)
-                                  setClipMenu(null)
-                                  setSelectedClip(null)
-                                }}>Endgültig löschen</TooltipMenuButton>
-                                <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(false)}>Abbrechen</TooltipMenuButton>
-                              </>
-                            ) : (
-                              <>
-                                {canSplit ? (
-                                  <TooltipMenuButton disabled={busy} onClick={() => {
                                   transport.pause()
                                   onSplit(track.id, clip.id, position, length)
                                   setClipMenu(null)
                                   setSelectedClip(null)
-                                  }}>Schneiden</TooltipMenuButton>
-                                ) : <></>}
-                                <TooltipMenuButton disabled={busy || !clip || !length} onClick={() => {
+                                }}>Schneiden</TooltipMenuButton>
+                              ) : <></>}
+                              <TooltipMenuButton disabled={busy || !clip || !length} onClick={() => {
                                   if (!clip || !length) return
                                   setCopiedClip({ ...clip, duration: length, audioId: clip.audioId ?? createProjectId() })
                                   setClipMenu(null)
-                                }}>Kopieren</TooltipMenuButton>
-                                <TooltipMenuButton disabled={busy} onClick={() => setConfirmDelete(true)}>Löschen</TooltipMenuButton>
-                              </>
-                            )}
+                              }}>Kopieren</TooltipMenuButton>
+                              <TooltipMenuButton disabled={busy} onClick={() => {
+                                transport.pause()
+                                onDelete(track.id, clipMenu.clipId)
+                                setClipMenu(null)
+                                setSelectedClip(null)
+                              }}>Löschen</TooltipMenuButton>
+                            </>
                           </TooltipMenu>
                         )
                       })()}
@@ -768,16 +757,23 @@ export function AudioTimeline({ tracks, onMixChange, onImport, onPaste, onMove, 
           {
             !transport.playing && <button type="button" className="audiobook-primary" aria-label="Abspielen" disabled={busy || transport.resetting || !ready || transport.playing || transport.starting} onClick={() => void transport.play()}>▶</button>
           }
-          {!readOnly && (recording.phase === 'preparing' || recording.phase === 'recording'
-            ? <button type="button" className="audiobook-secondary" onClick={recording.stop}>Aufnahme stoppen</button>
-            : <button type="button" className="audiobook-secondary" disabled={busy || transport.resetting || !!recording.recovery || !onRecordSave || !tracks.some((track) => track.id === selectedTrack) || buffers.length !== allClips.length} onClick={() => {
+          {!readOnly && <AufnahmeButton
+            recording={recording.phase === 'recording'}
+            disabled={recording.phase === 'saving' || (recording.phase !== 'preparing' && recording.phase !== 'recording'
+              && (busy || transport.resetting || !!recording.recovery || !onRecordSave || !tracks.some((track) => track.id === selectedTrack) || buffers.length !== allClips.length))}
+            onClick={() => {
+              if (recording.phase === 'preparing' || recording.phase === 'recording') {
+                recording.stop()
+                return
+              }
               const target = tracks.find((track) => track.id === selectedTrack)
               if (!target) return
               setMenu(null)
               setClipMenu(null)
               const start = transport.pause()
               void recording.start(target, start, buffers, durations)
-            }}>Aufnehmen</button>)}
+            }}
+          />}
           {readOnly && <div className="audiobook-exercise-controls" ref={setMicrophoneTarget} />}
         </div>
         {readOnly && <div className="audiobook-transport-settings" ref={setSettingsTarget} />}

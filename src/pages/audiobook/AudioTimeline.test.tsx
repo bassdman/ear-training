@@ -661,7 +661,7 @@ describe('gemeinsame Zeitleiste', () => {
     expect(screen.getByRole('button', { name: 'Spur 2: Gitarre stummschalten' })).toBeDisabled()
   })
 
-  it('bietet Löschen auch außerhalb der Schnittposition an und löscht erst nach Bestätigung', async () => {
+  it('löscht Audioblöcke direkt und bietet die Aktion auch außerhalb der Schnittposition an', async () => {
     const onDelete = vi.fn()
     render(<AudioTimeline tracks={tracks} onMixChange={vi.fn()} {...importProps} onDelete={onDelete} />)
     const clip = await screen.findByRole('button', { name: 'Audioblock Gesang in Spur 1 verschieben' })
@@ -669,13 +669,10 @@ describe('gemeinsame Zeitleiste', () => {
     fireEvent.keyDown(clip, { key: 'Enter' })
     expect(screen.queryByRole('button', { name: 'Schneiden' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Löschen' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
-    expect(onDelete).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Endgültig löschen' }))
     expect(onDelete).toHaveBeenCalledExactlyOnceWith('one', 'one:legacy')
     expect(clip).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument()
   }, 15000)
 
   it('zeichnet geschnittene Blöcke mit ihren Quelldauern und dekodiert gemeinsame Audiodaten nur einmal', async () => {
