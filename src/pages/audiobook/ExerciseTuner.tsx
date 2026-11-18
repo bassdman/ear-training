@@ -14,6 +14,7 @@ import { createVocalDebugTrace, downloadVocalDebugTrace, type TracePoint } from 
 import type { ReferencePitchJob, ReferencePitchPoint } from './referencePitch'
 import { useSmoothPitchView } from './useSmoothPitchView'
 import { formatSeconds, getTickInterval } from './waveform'
+import { AufnahmeButton } from './AufnahmeButton'
 import '../tuner/tunerPage.css'
 
 type Decoded = Record<string, { buffer?: AudioBuffer, error?: boolean }>
@@ -342,9 +343,12 @@ export function ExerciseTuner({ tracks, decoded, position, duration, playing, se
       </div>
       {controlsTarget && createPortal(
         <>
-          <button type="button" className="audiobook-secondary" onClick={tuner.status === 'listening' || tuner.status === 'starting' ? tuner.stop : () => void tuner.start()}>
-            {tuner.status === 'starting' ? 'Mikrofonstart abbrechen' : tuner.status === 'listening' ? 'Mikrofon stoppen' : 'Mikrofon starten'}
-          </button>
+          <AufnahmeButton
+            disabled={false}
+            recording={tuner.status === 'listening' || tuner.status === 'starting'}
+            label={tuner.status === 'starting' ? 'Mikrofonstart abbrechen' : tuner.status === 'listening' ? 'Mikrofon stoppen' : 'Mikrofon starten'}
+            onClick={tuner.status === 'listening' || tuner.status === 'starting' ? tuner.stop : () => void tuner.start()}
+          />
           <div className="exercise-vocal-menu-anchor" onKeyDown={(event) => {
             if (event.key === 'Escape' && vocalMenuOpen) {
               event.stopPropagation()

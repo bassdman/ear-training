@@ -1,0 +1,9 @@
+<svg width="350" height="350" viewBox="-14 -14 370 370" xmlns="http://www.w3.org/2000/svg">
+ <title>record button</title>
+
+ <g>
+  <title>Record-Button</title>
+  <ellipse stroke-width="18" ry="175" rx="175" id="svg_1" cy="170" cx="171" stroke="#000" fill="#a3a3a3"/>
+  <ellipse transform="rotate(2, 170.5, 170.5)" ry="55" rx="57" id="svg_2" cy="170.5" cx="170.5" stroke="#000" fill="#797979"/>
+ </g>
+</svg>
